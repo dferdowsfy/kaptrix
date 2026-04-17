@@ -3,7 +3,6 @@
 import { useSyncExternalStore } from "react";
 import {
   DEFAULT_PREVIEW_CLIENT_ID,
-  getPreviewClient,
   PREVIEW_CLIENTS,
   SELECTED_CLIENT_STORAGE_KEY,
   type PreviewClientSummary,
@@ -74,16 +73,29 @@ export function useSelectedPreviewClient(): {
   );
 
   const selectedId =
-    storedId && rosterIds.has(storedId)
-      ? storedId
-      : roster[0]?.id ?? DEFAULT_PREVIEW_CLIENT_ID;
+    storedId || (roster[0]?.id ?? DEFAULT_PREVIEW_CLIENT_ID);
 
   const resolved =
-    roster.find((c) => c.id === selectedId) ?? getPreviewClient(selectedId);
+    roster.find((c) => c.id === selectedId) ?? {
+      // Unknown id — likely a newly created engagement whose roster entry
+      // hasn't loaded yet. Return a blank shell so the UI doesn't show the
+      // default demo client in the header.
+      id: selectedId,
+      target: "",
+      client: "",
+      industry: "",
+      deal_stage: "preliminary",
+      status: "intake",
+      tier: "standard" as const,
+      composite_score: null,
+      recommendation: "",
+      fee_usd: 0,
+      deadline: "",
+      summary: "",
+    };
 
   const setSelectedId = (id: string) => {
     if (typeof window === "undefined") return;
-    if (!rosterIds.has(id)) return;
     try {
       window.localStorage.setItem(SELECTED_CLIENT_STORAGE_KEY, id);
     } catch {

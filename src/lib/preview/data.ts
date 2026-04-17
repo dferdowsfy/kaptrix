@@ -89,11 +89,86 @@ function lightweightSnapshotFor(
   };
 }
 
+/** Build an empty snapshot (no mock data) for a freshly created engagement. */
+function blankSnapshotFor(engagement: Engagement): PreviewSnapshot {
+  const nowIso = new Date().toISOString();
+  return {
+    engagement,
+    requirements: FULL_DEMO_SNAPSHOT.requirements, // requirements catalog is global, not engagement-specific
+    documents: [],
+    analyses: [],
+    benchmarks: [],
+    patternMatches: [],
+    scores: [],
+    report: {
+      id: `report-blank-${engagement.id}`,
+      engagement_id: engagement.id,
+      version: 0,
+      watermark: "draft",
+      generated_at: nowIso,
+      pdf_storage_path: null,
+      published_to_client_at: null,
+      revision_notes: null,
+      report_data: {},
+    },
+    knowledgeInsights: [],
+    executiveReport: {
+      target: engagement.target_company_name,
+      client: engagement.client_firm_name,
+      industry: "",
+      generated_at: nowIso,
+      version: 0,
+      watermark: "Draft",
+      composite_score: 0,
+      recommendation: "Proceed with conditions",
+      confidence: "Developing",
+      executive_summary: "",
+      strategic_context: "",
+      top_three_takeaways: [],
+      dimension_scores: {
+        product_credibility: 0,
+        tooling_exposure: 0,
+        data_sensitivity: 0,
+        governance_safety: 0,
+        production_readiness: 0,
+        open_validation: 0,
+      },
+      risk_heat_map: [],
+      critical_findings: [],
+      strategic_implications: [],
+      value_creation_levers: [],
+      recommended_conditions: [],
+      open_validation: [],
+      methodology: "",
+    },
+  };
+}
+
+function engagementShellFor(clientId: string): Engagement {
+  const nowIso = new Date().toISOString();
+  return {
+    ...demoEngagement,
+    id: clientId,
+    client_firm_name: "",
+    target_company_name: "",
+    status: "intake",
+    outcome: "pending",
+    created_at: nowIso,
+    updated_at: nowIso,
+    nda_signed_at: null,
+    engagement_fee: null,
+    delivery_deadline: null,
+    client_contact_email: null,
+    referral_source: null,
+  };
+}
+
 export function fallbackSnapshot(clientId: string): PreviewSnapshot {
   if (clientId === DEFAULT_PREVIEW_CLIENT_ID) return FULL_DEMO_SNAPSHOT;
-  const client =
-    PREVIEW_CLIENTS.find((c) => c.id === clientId) ?? PREVIEW_CLIENTS[0];
-  return lightweightSnapshotFor(client);
+  const mock = PREVIEW_CLIENTS.find((c) => c.id === clientId);
+  if (mock) return lightweightSnapshotFor(mock);
+  // Unknown id (freshly created engagement) — return blank slate.
+  return blankSnapshotFor(engagementShellFor(clientId));
 }
 
 async function seedIfEmpty(): Promise<void> {
@@ -152,28 +227,67 @@ export async function getPreviewClients(): Promise<PreviewClientSummary[]> {
 
   await seedIfEmpty();
 
-  const { data, error } = await supabase
-    .from("preview_clients")
-    .select("*")
-    .order("display_order", { ascending: true });
+  const [{ data: previewRows, error: previewError }, { data: realRows }] =
+    await Promise.all([
+      supabase
+        .from("preview_clients")
+        .select("*")
+        .order("display_order", { ascending: true }),
+      supabase
+        .from("engagements")
+        .select("*")
+        .order("created_at", { ascending: false }),
+    ]);
 
-  if (error || !data || data.length === 0) return PREVIEW_CLIENTS;
+  const previewClients: PreviewClientSummary[] =
+    !previewError && previewRows && previewRows.length > 0
+      ? previewRows.map((row) => ({
+          id: row.id,
+          target: row.target,
+          client: row.client,
+          industry: row.industry,
+          deal_stage: row.deal_stage,
+          status: row.status,
+          tier: row.tier as PreviewClientSummary["tier"],
+          composite_score:
+            row.composite_score === null ? null : Number(row.composite_score),
+          recommendation: row.recommendation,
+          fee_usd: Number(row.fee_usd),
+          deadline: row.deadline,
+          summary: row.summary,
+        }))
+      : PREVIEW_CLIENTS;
 
-  return data.map((row) => ({
-    id: row.id,
-    target: row.target,
-    client: row.client,
-    industry: row.industry,
-    deal_stage: row.deal_stage,
-    status: row.status,
-    tier: row.tier as PreviewClientSummary["tier"],
-    composite_score:
-      row.composite_score === null ? null : Number(row.composite_score),
-    recommendation: row.recommendation,
-    fee_usd: Number(row.fee_usd),
-    deadline: row.deadline,
-    summary: row.summary,
-  }));
+  const previewIds = new Set(previewClients.map((c) => c.id));
+  const realClients: PreviewClientSummary[] = (realRows ?? [])
+    .filter((e) => !previewIds.has(e.id))
+    .map((e) => ({
+      id: e.id,
+      target: e.target_company_name,
+      client: e.client_firm_name,
+      industry: "",
+      deal_stage: e.deal_stage,
+      status: e.status,
+      tier:
+        e.tier === "signal_scan"
+          ? "essentials"
+          : e.tier === "deep"
+            ? "premium"
+            : "standard",
+      composite_score: null,
+      recommendation:
+        e.status === "delivered"
+          ? "Delivered"
+          : e.status === "intake"
+            ? "In intake"
+            : "In progress",
+      fee_usd: e.engagement_fee ?? 0,
+      deadline: e.delivery_deadline ?? "",
+      summary: "",
+    }));
+
+  // Real engagements first so the newest is near the top.
+  return [...realClients, ...previewClients];
 }
 
 export async function getPreviewSnapshot(
@@ -190,6 +304,27 @@ export async function getPreviewSnapshot(
     .eq("client_id", clientId)
     .maybeSingle();
 
-  if (error || !data?.payload) return fallbackSnapshot(clientId);
-  return data.payload as PreviewSnapshot;
+  if (!error && data?.payload) return data.payload as PreviewSnapshot;
+
+  // No snapshot found. If this id is a seeded preview mock, use the demo.
+  if (
+    clientId === DEFAULT_PREVIEW_CLIENT_ID ||
+    PREVIEW_CLIENTS.some((c) => c.id === clientId)
+  ) {
+    return fallbackSnapshot(clientId);
+  }
+
+  // Otherwise it's a user-created engagement — return a blank snapshot
+  // populated with the real engagement row if we can find it.
+  const { data: row } = await supabase
+    .from("engagements")
+    .select("*")
+    .eq("id", clientId)
+    .maybeSingle();
+
+  if (row) {
+    return blankSnapshotFor(row as Engagement);
+  }
+
+  return blankSnapshotFor(engagementShellFor(clientId));
 }
