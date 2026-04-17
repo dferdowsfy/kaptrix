@@ -8,18 +8,17 @@ import {
   SELECTED_CLIENT_STORAGE_KEY,
   type PreviewClientSummary,
 } from "@/lib/preview-clients";
+import { usePreviewClients } from "@/hooks/use-preview-data";
 
 const STORAGE_EVENT = "kaptrix:selected-preview-client-change";
-const PREVIEW_CLIENT_IDS = new Set(PREVIEW_CLIENTS.map((client) => client.id));
 
 function readSelectedPreviewClientId(): string {
   if (typeof window === "undefined") return DEFAULT_PREVIEW_CLIENT_ID;
-
   try {
-    const stored = window.localStorage.getItem(SELECTED_CLIENT_STORAGE_KEY);
-    return stored && PREVIEW_CLIENT_IDS.has(stored)
-      ? stored
-      : DEFAULT_PREVIEW_CLIENT_ID;
+    return (
+      window.localStorage.getItem(SELECTED_CLIENT_STORAGE_KEY) ??
+      DEFAULT_PREVIEW_CLIENT_ID
+    );
   } catch {
     return DEFAULT_PREVIEW_CLIENT_ID;
   }
@@ -59,30 +58,45 @@ export function useSelectedPreviewClient(): {
   allClients: PreviewClientSummary[];
   ready: boolean;
 } {
-  const selectedId = useSyncExternalStore(
+  const { clients } = usePreviewClients();
+  const roster = clients.length > 0 ? clients : PREVIEW_CLIENTS;
+  const rosterIds = new Set(roster.map((c) => c.id));
+
+  const storedId = useSyncExternalStore(
     subscribeToSelectedPreviewClient,
     readSelectedPreviewClientId,
     () => DEFAULT_PREVIEW_CLIENT_ID,
   );
-  const ready = useSyncExternalStore(subscribeToHydration, () => true, () => false);
+  const ready = useSyncExternalStore(
+    subscribeToHydration,
+    () => true,
+    () => false,
+  );
+
+  const selectedId =
+    storedId && rosterIds.has(storedId)
+      ? storedId
+      : roster[0]?.id ?? DEFAULT_PREVIEW_CLIENT_ID;
+
+  const resolved =
+    roster.find((c) => c.id === selectedId) ?? getPreviewClient(selectedId);
 
   const setSelectedId = (id: string) => {
-    if (!PREVIEW_CLIENT_IDS.has(id) || typeof window === "undefined") return;
-
+    if (typeof window === "undefined") return;
+    if (!rosterIds.has(id)) return;
     try {
       window.localStorage.setItem(SELECTED_CLIENT_STORAGE_KEY, id);
     } catch {
       // ignore
     }
-
     notifySelectedPreviewClientChanged();
   };
 
   return {
     selectedId,
-    client: getPreviewClient(selectedId),
+    client: resolved,
     setSelectedId,
-    allClients: PREVIEW_CLIENTS,
+    allClients: roster,
     ready,
   };
 }

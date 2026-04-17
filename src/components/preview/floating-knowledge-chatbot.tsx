@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   demoAnalyses,
   demoDocuments,
-  demoEngagement,
   demoExecutiveReport,
   demoKnowledgeInsights,
   demoScores,
 } from "@/lib/demo-data";
+import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
+import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 
 type ChatMessage = {
   id: string;
@@ -23,26 +24,48 @@ type KnowledgeChunk = {
   text: string;
 };
 
-const STARTERS = [
-  "What are the biggest risks for this client?",
-  "Summarize vendor concentration exposure",
+const STARTER_PROMPTS = [
+  "What are the biggest risks?",
+  "Summarize vendor concentration",
   "What should we validate before closing?",
-  "How strong is the product credibility signal?",
 ];
+
+const SESSION_STORAGE_KEY = "kaptrix.chat.session_id";
+
+function getSessionId(): string {
+  if (typeof window === "undefined") return "ssr";
+  try {
+    const existing = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    if (existing) return existing;
+    const fresh = `chat-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    window.localStorage.setItem(SESSION_STORAGE_KEY, fresh);
+    return fresh;
+  } catch {
+    return `chat-${Date.now()}`;
+  }
+}
 
 export function FloatingKnowledgeChatbot() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "m0",
-      role: "assistant",
-      text: `I can answer questions about ${demoEngagement.target_company_name} using all gathered preview evidence: documents, pre-analysis outputs, scorecard inputs, insights, and the executive report.`,
-    },
-  ]);
+  const { client, selectedId } = useSelectedPreviewClient();
+  const { snapshot } = usePreviewSnapshot(selectedId);
+
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const idCounter = useRef(1);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState(false);
+  const sessionId = useMemo(getSessionId, []);
+
+  useEffect(() => {
+    setMessages([
+      {
+        id: "m0",
+        role: "assistant",
+        text: `I can answer natural-language questions about ${client.target}. Ask anything: risks, architecture, vendor exposure, regulatory posture, scoring rationale, comparisons to benchmarks, or what to validate before close. I'm grounded in the diligence evidence stored for this engagement.`,
+      },
+    ]);
+  }, [client.target, selectedId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -51,12 +74,18 @@ export function FloatingKnowledgeChatbot() {
   }, [messages, isOpen]);
 
   const corpus = useMemo<KnowledgeChunk[]>(() => {
-    const fromInsights = demoKnowledgeInsights.map((k) => ({
+    const insights = snapshot?.knowledgeInsights ?? demoKnowledgeInsights;
+    const analyses = snapshot?.analyses ?? demoAnalyses;
+    const report = snapshot?.executiveReport ?? demoExecutiveReport;
+    const scores = snapshot?.scores ?? demoScores;
+    const documents = snapshot?.documents ?? demoDocuments;
+
+    const fromInsights = insights.map((k) => ({
       id: `insight-${k.id}`,
       source: k.source_document,
       text: `${k.insight} ${k.excerpt}`,
     }));
-    const fromAnalysis = demoAnalyses.flatMap((a) => [
+    const fromAnalysis = analyses.flatMap((a) => [
       ...a.extracted_claims.map((c, i) => ({
         id: `claim-${a.id}-${i}`,
         source: `${c.source_doc} ${c.source_location}`,
@@ -78,39 +107,39 @@ export function FloatingKnowledgeChatbot() {
       {
         id: "report-summary",
         source: "executive report",
-        text: demoExecutiveReport.executive_summary,
+        text: report.executive_summary,
       },
       {
         id: "report-context",
         source: "executive report",
-        text: demoExecutiveReport.strategic_context,
+        text: report.strategic_context,
       },
-      ...demoExecutiveReport.critical_findings.map((f, i) => ({
+      ...report.critical_findings.map((f, i) => ({
         id: `report-finding-${i}`,
         source: "executive report · critical findings",
         text: `${f.title}. ${f.what_we_found}. ${f.why_it_matters}`,
       })),
-      ...demoExecutiveReport.recommended_conditions.map((c, i) => ({
+      ...report.recommended_conditions.map((c, i) => ({
         id: `report-condition-${i}`,
         source: "executive report · conditions",
         text: `${c.condition}. ${c.rationale}`,
       })),
     ];
 
-    const fromScores: KnowledgeChunk[] = demoScores.map((s) => ({
+    const fromScores: KnowledgeChunk[] = scores.map((s) => ({
       id: `score-${s.id}`,
       source: `scorecard · ${s.dimension}`,
-      text: `${s.dimension} ${s.sub_criterion} score ${s.score_0_to_5}. ${s.operator_rationale}`,
+      text: `${s.dimension} ${s.sub_criterion} score ${s.score_0_to_5.toFixed(1)}. ${s.operator_rationale}`,
     }));
 
-    const fromDocs: KnowledgeChunk[] = demoDocuments.map((d) => ({
+    const fromDocs: KnowledgeChunk[] = documents.map((d) => ({
       id: `doc-${d.id}`,
       source: d.filename,
       text: `${d.filename} category ${d.category} parse status ${d.parse_status} token count ${d.token_count ?? "unknown"}`,
     }));
 
     return [...fromInsights, ...fromAnalysis, ...fromReport, ...fromScores, ...fromDocs];
-  }, []);
+  }, [snapshot]);
 
   const ask = async (raw: string) => {
     const question = raw.trim();
@@ -150,6 +179,8 @@ export function FloatingKnowledgeChatbot() {
           question,
           context: contextText,
           history,
+          session_id: sessionId,
+          client_id: selectedId,
         }),
       });
       if (res.ok) {
@@ -159,13 +190,11 @@ export function FloatingKnowledgeChatbot() {
         const data = (await res.json().catch(() => ({}))) as {
           error?: string;
         };
-        // Fall back to local corpus answer so preview still works without
-        // a configured Gemini key.
         const local = answerFromCorpus(question, corpus);
         answerText =
           (data.error
-            ? `Gemini unavailable (${data.error}). Falling back to local evidence match:\n\n`
-            : "Gemini unavailable. Falling back to local evidence match:\n\n") +
+            ? `Gemini unavailable (${data.error}). Showing local evidence match:\n\n`
+            : "Gemini unavailable. Showing local evidence match:\n\n") +
           local.answer;
         citations = local.citations;
       }
@@ -178,7 +207,11 @@ export function FloatingKnowledgeChatbot() {
     setMessages((prev) =>
       prev.map((m) =>
         m.id === thinkingId
-          ? { ...m, text: answerText, citations: citations.length ? citations : undefined }
+          ? {
+              ...m,
+              text: answerText,
+              citations: citations.length ? citations : undefined,
+            }
           : m,
       ),
     );
@@ -186,36 +219,50 @@ export function FloatingKnowledgeChatbot() {
   };
 
   return (
-    <div className="print-hide fixed bottom-5 right-5 z-50">
+    <div className="print-hide fixed bottom-4 right-4 z-50 sm:bottom-5 sm:right-5">
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-lg transition hover:shadow-xl"
+          className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:shadow-xl"
         >
           Ask Kaptrix AI
         </button>
       )}
 
       {isOpen && (
-        <div className="w-[360px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+        <div
+          className="
+            fixed inset-x-3 bottom-3 top-16 z-50 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl
+            sm:static sm:inset-auto sm:h-auto sm:w-[380px]
+          "
+        >
           <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
                 Knowledge Assistant
               </p>
-              <p className="text-xs text-slate-500">Grounded in uploaded diligence evidence</p>
+              <p className="truncate text-xs text-slate-500">
+                Grounded in {client.target} diligence evidence
+              </p>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="ml-2 rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              aria-label="Close chatbot"
             >
               ✕
             </button>
           </div>
 
-          <div ref={scrollRef} className="max-h-[420px] space-y-3 overflow-y-auto p-3">
+          <div
+            ref={scrollRef}
+            className="flex-1 space-y-3 overflow-y-auto p-3 sm:max-h-[420px]"
+          >
             {messages.map((m) => (
-              <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
+              <div
+                key={m.id}
+                className={m.role === "user" ? "text-right" : "text-left"}
+              >
                 <div
                   className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
                     m.role === "user"
@@ -236,7 +283,7 @@ export function FloatingKnowledgeChatbot() {
 
           <div className="border-t border-slate-100 p-3">
             <div className="mb-2 flex flex-wrap gap-1">
-              {STARTERS.map((s) => (
+              {STARTER_PROMPTS.map((s) => (
                 <button
                   key={s}
                   type="button"
@@ -258,9 +305,13 @@ export function FloatingKnowledgeChatbot() {
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder={pending ? "Waiting for response…" : "Ask about the client, risks, or evidence…"}
+                placeholder={
+                  pending
+                    ? "Waiting for response…"
+                    : "Ask anything about the client or evidence…"
+                }
                 disabled={pending}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none disabled:bg-slate-50"
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 focus:border-slate-900 focus:outline-none disabled:bg-slate-50 sm:text-sm"
               />
               <button
                 type="submit"

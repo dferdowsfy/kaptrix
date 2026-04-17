@@ -2,6 +2,21 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { isSupabaseConfigured } from "@/lib/env";
 
+// Routes that are publicly accessible without authentication.
+// The /preview workspace is the demo experience; /api/preview and /api/chat
+// back that workspace and must also be reachable anonymously.
+const PUBLIC_PATH_PREFIXES = [
+  "/preview",
+  "/login",
+  "/api/auth",
+  "/api/preview",
+  "/api/chat",
+];
+
+function isPublicPath(pathname: string): boolean {
+  return PUBLIC_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
 export async function updateSession(request: NextRequest) {
   if (!isSupabaseConfigured()) {
     return NextResponse.next({ request });
@@ -30,16 +45,17 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
+  const pathname = request.nextUrl.pathname;
+
+  if (isPublicPath(pathname)) {
+    return supabaseResponse;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Redirect unauthenticated users to login (except for login page & auth callback)
-  if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/api/auth")
-  ) {
+  if (!user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

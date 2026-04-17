@@ -10,83 +10,95 @@ npm install
 
 # 2. Copy environment variables
 cp .env.example .env.local
-# Fill in your Supabase and Anthropic credentials
+# Fill in Supabase + Google Gemini credentials (see below)
 
-# 3. Start Supabase locally (requires Docker)
-npx supabase start
-
-# 4. Run migrations
+# 3. Apply migrations against the remote Supabase project
 npx supabase db push
 
-# 5. Start dev server
+# 4. Start dev server
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000). Unauthenticated visitors land on `/preview` (the demo workspace); authenticated operators land on `/engagements`.
 
 ## Tech Stack
 
-- **Framework:** Next.js 15 (App Router) + TypeScript
-- **Styling:** Tailwind CSS + shadcn/ui
-- **Database:** Supabase (Postgres + Auth + Storage + RLS)
-- **AI:** Anthropic API (Claude Sonnet 4.5 / Claude Opus 4.5)
-- **PDF:** react-pdf (server-side generation)
+- **Framework:** Next.js 16 (App Router) + TypeScript + React 19
+- **Styling:** Tailwind CSS v4
+- **Database / Auth / Storage:** Supabase (Postgres with Row Level Security)
+- **AI:** Google Gemini (via `@google/generative-ai`)
 - **Hosting:** Vercel
+
+## Data Flow
+
+All operator-visible data is stored in and retrieved from Supabase:
+
+- **Preview workspace** — `preview_clients` + `preview_snapshots` (JSONB). Auto-seeded from the bundled demo dataset on first request via the service-role client. Read by `/api/preview/clients` and `/api/preview/snapshot`, consumed in the UI through the `usePreviewClients` and `usePreviewSnapshot` hooks.
+- **Dashboard workspace** — `engagements`, `documents`, `pre_analyses`, `scores`, `benchmark_cases`, `pattern_matches`, `reports`, `audit_log`, `prompt_versions`.
+- **Chatbot** — every natural-language turn is persisted to `chat_messages` via `/api/chat` (POST). Past turns can be replayed with a `GET /api/chat?session_id=…` lookup.
+
+All AI inference is routed through Google Gemini (`gemini-2.0-flash`) using `GOOGLE_API_KEY`. No Anthropic calls remain.
 
 ## Project Structure
 
 ```
 kaptrix-platform/
 ├── supabase/
-│   ├── config.toml                  # Supabase local config
-│   └── migrations/                  # Database migrations (ordered)
-│       ├── 00001–00011              # Table creation
-│       ├── 00012                    # RLS policies
-│       ├── 00013                    # Seed: document requirements
-│       └── 00014                    # Seed: 10 benchmark case anchors
+│   ├── config.toml
+│   └── migrations/
+│       ├── 00001–00011         # Core table creation
+│       ├── 00012               # RLS policies
+│       ├── 00013               # Seed: document requirements
+│       ├── 00014               # Seed: benchmark cases
+│       └── 00015               # Preview + chat_messages tables (RLS)
 ├── src/
 │   ├── app/
-│   │   ├── (auth)/login/            # Magic link login
-│   │   ├── (dashboard)/             # Authenticated operator shell
-│   │   │   ├── engagements/         # CRUD + detail + sub-tabs
-│   │   │   ├── benchmarks/          # Pattern library
-│   │   │   └── settings/            # Admin config
-│   │   └── api/                     # Route handlers
-│   ├── components/                  # UI components by domain
-│   ├── hooks/                       # useAutosave, useEngagement, etc.
+│   │   ├── (auth)/login/
+│   │   ├── (dashboard)/
+│   │   ├── preview/            # Public demo workspace
+│   │   └── api/
+│   │       ├── chat/           # Gemini chatbot + Supabase persistence
+│   │       └── preview/        # clients + snapshot endpoints
+│   ├── components/
+│   ├── hooks/
+│   │   ├── use-preview-data.ts # SWR hooks for Supabase-backed preview
+│   │   └── use-selected-preview-client.ts
 │   └── lib/
-│       ├── anthropic/               # API client + versioned prompts
-│       ├── audit/                   # Append-only audit logger
-│       ├── parsers/                 # PDF, DOCX, XLSX, PPTX parsers
-│       ├── pdf-generator/           # Report PDF generation
-│       ├── scoring/                 # Composite score calculator
-│       ├── supabase/                # Client, server, middleware
-│       ├── constants.ts             # Tiers, dimensions, limits
-│       ├── types.ts                 # Full TypeScript type definitions
-│       └── utils.ts                 # Formatting helpers
-├── tests/                           # Unit + integration tests
-├── .env.example                     # Required env vars
-└── jest.config.ts                   # Test configuration
+│       ├── anthropic/          # Gemini client (legacy folder name)
+│       ├── preview/data.ts     # Server-side preview data loader + seeder
+│       └── supabase/
+│           ├── client.ts       # Browser client
+│           ├── server.ts       # RSC / route-handler client
+│           ├── middleware.ts   # Auth gate (public /preview + /api/preview)
+│           └── service.ts      # Service-role admin client
 ```
-
-## Modules
-
-| Module | Status | Description |
-|---|---|---|
-| 1. Engagement & Document Intake | Scaffolded | Create engagement, upload docs, coverage matrix |
-| 2. AI Pre-Analysis | Plumbing ready | Anthropic API integration with prompt versioning |
-| 3. Scoring Engine | Scaffolded | 6-dimension scoring with auto-save |
-| 4. Pattern Library | Seeded | 10 synthetic case anchors, benchmark rollups |
-| 5. Report Generator | Scaffolded | Template-driven PDF generation |
 
 ## Environment Variables
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `ANTHROPIC_API_KEY` | Anthropic API key |
+Copy `.env.example` to `.env.local` for local dev. On Vercel, add each of these in **Project Settings → Environment Variables** for **Production**, **Preview**, and **Development** environments.
+
+| Variable | Where | Description |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | client + server | `https://qaqolwkdmsmokztitqty.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | client + server | JWT anon key |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | client + server | Newer `sb_publishable_…` key (optional) |
+| `SUPABASE_SERVICE_ROLE_KEY` | **server only** | JWT service role (used for seeding + chat persistence) |
+| `SUPABASE_SECRET_KEY` | **server only** | Newer `sb_secret_…` key (optional) |
+| `GOOGLE_API_KEY` | **server only** | Gemini API key. `GEMINI_API_KEY` is also accepted. |
+| `NEXT_PUBLIC_APP_URL` | client + server | Canonical app URL (used for magic-link redirects) |
+
+> `.env.local` is gitignored. Never commit real credentials.
+
+## Deploying to Vercel
+
+1. Push this repo and import it into Vercel.
+2. In Vercel → **Project Settings → Environment Variables**, paste each value from `.env.local`. Mark `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_SECRET_KEY`, and `GOOGLE_API_KEY` as server-only (they should not be prefixed with `NEXT_PUBLIC_`).
+3. Vercel detects Next.js 16 automatically — no `vercel.json` needed.
+4. First deploy triggers the preview-data auto-seed on first request to `/api/preview/clients`. Subsequent requests read directly from Supabase.
+
+## Mobile
+
+The UI is mobile-optimized: a device-width viewport, a horizontally-scrollable dashboard sidebar and preview tab bar, stacked header chips, touch-safe 16 px form fonts (prevents iOS auto-zoom), and a full-bleed chatbot panel on small screens.
 
 ## Testing
 
@@ -97,9 +109,9 @@ npm test -- --coverage      # With coverage report
 
 ## Security
 
-- All documents encrypted at rest (Supabase default) and in transit
+- Documents encrypted at rest (Supabase default) and in transit
 - Row Level Security enforced on all tables
 - Audit log is append-only (UPDATE/DELETE revoked)
-- Zero data retention with Anthropic API (ZDR header enabled)
-- Session timeout: 30 minutes of inactivity
+- Middleware exempts `/preview` and `/api/preview|chat` from auth so the demo workspace remains publicly reachable; all other routes require a Supabase session
+- Service-role key is only used server-side, never shipped to the browser
 - Secrets managed via environment variables — never hardcoded

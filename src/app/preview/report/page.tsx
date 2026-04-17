@@ -3,12 +3,15 @@
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { ExecutiveReport } from "@/components/reports/executive-report";
 import { demoExecutiveReport } from "@/lib/demo-data";
+import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
+import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 
 export default function PreviewReportPage() {
+  const { selectedId } = useSelectedPreviewClient();
+  const { snapshot } = usePreviewSnapshot(selectedId);
+  const report = snapshot?.executiveReport ?? demoExecutiveReport;
+
   const handleExport = () => {
-    // Use the browser's native print-to-PDF. Our @media print styles in
-    // globals.css hide the shell chrome (tabs, header, chatbot) so the
-    // exported PDF only contains the report.
     if (typeof window !== "undefined") {
       window.print();
     }
@@ -48,7 +51,7 @@ export default function PreviewReportPage() {
       </div>
 
       <div className="print-area">
-        <ExecutiveReport data={demoExecutiveReport} />
+        <ExecutiveReport data={report} />
       </div>
     </div>
   );

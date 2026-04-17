@@ -11,8 +11,15 @@ import {
   mergeInsightIntoAnswers,
   type PreviewAnswers,
 } from "@/lib/preview-intake";
+import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
+import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 
 export default function PreviewInsightsPage() {
+  const { selectedId } = useSelectedPreviewClient();
+  const { snapshot } = usePreviewSnapshot(selectedId);
+  const documents = snapshot?.documents ?? demoDocuments;
+  const insights = snapshot?.knowledgeInsights ?? demoKnowledgeInsights;
+
   const handleInsertToIntake = (insight: KnowledgeInsight) => {
     if (typeof window === "undefined") return;
     const raw = window.localStorage.getItem(PREVIEW_INTAKE_STORAGE_KEY);
@@ -37,10 +44,10 @@ export default function PreviewInsightsPage() {
         title="Document intelligence"
         description="Ask evidence-backed questions and promote relevant insights into the intake model to continuously enrich contextual understanding."
       />
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
         <KnowledgeInsightsPanel
-          documents={demoDocuments}
-          insights={demoKnowledgeInsights}
+          documents={documents}
+          insights={insights}
           onInsertToIntake={handleInsertToIntake}
         />
       </div>
