@@ -56,6 +56,20 @@ const FULL_DEMO_SNAPSHOT: PreviewSnapshot = {
   executiveReport: demoExecutiveReport,
 };
 
+function mapPreviewTier(
+  tier: PreviewClientSummary["tier"],
+): Engagement["tier"] {
+  switch (tier) {
+    case "essentials":
+      return "signal_scan";
+    case "premium":
+      return "deep";
+    case "standard":
+    default:
+      return "standard";
+  }
+}
+
 function lightweightSnapshotFor(
   client: PreviewClientSummary,
 ): PreviewSnapshot {
@@ -68,7 +82,7 @@ function lightweightSnapshotFor(
       target_company_name: client.target,
       deal_stage: client.deal_stage as Engagement["deal_stage"],
       status: client.status as Engagement["status"],
-      tier: client.tier,
+      tier: mapPreviewTier(client.tier),
       engagement_fee: client.fee_usd,
       delivery_deadline: client.deadline,
     },
