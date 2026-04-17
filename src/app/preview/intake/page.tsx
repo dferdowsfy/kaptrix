@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { IntakeQuestionnaire } from "@/components/engagements/intake-questionnaire";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import {
@@ -8,22 +8,66 @@ import {
   type PreviewAnswers,
 } from "@/lib/preview-intake";
 
-export default function PreviewIntakePage() {
-  const [answers, setAnswers] = useState<PreviewAnswers>({});
+const STORAGE_EVENT = "kaptrix:preview-intake-change";
+const EMPTY_PREVIEW_ANSWERS: PreviewAnswers = {};
 
-  useEffect(() => {
+let cachedPreviewAnswersRaw: string | null | undefined;
+let cachedPreviewAnswers: PreviewAnswers = EMPTY_PREVIEW_ANSWERS;
+
+function readPreviewAnswers(): PreviewAnswers {
+  if (typeof window === "undefined") return EMPTY_PREVIEW_ANSWERS;
+
+  try {
     const raw = window.localStorage.getItem(PREVIEW_INTAKE_STORAGE_KEY);
-    if (!raw) return;
-    try {
-      setAnswers(JSON.parse(raw) as PreviewAnswers);
-    } catch {
-      // ignore malformed local preview state
-    }
-  }, []);
+    if (raw === cachedPreviewAnswersRaw) return cachedPreviewAnswers;
+
+    cachedPreviewAnswersRaw = raw;
+    cachedPreviewAnswers = raw
+      ? (JSON.parse(raw) as PreviewAnswers)
+      : EMPTY_PREVIEW_ANSWERS;
+
+    return cachedPreviewAnswers;
+  } catch {
+    cachedPreviewAnswersRaw = null;
+    cachedPreviewAnswers = EMPTY_PREVIEW_ANSWERS;
+    return cachedPreviewAnswers;
+  }
+}
+
+function subscribeToPreviewAnswers(callback: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== null && event.key !== PREVIEW_INTAKE_STORAGE_KEY) return;
+    callback();
+  };
+  const handleLocalChange = () => callback();
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(STORAGE_EVENT, handleLocalChange);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(STORAGE_EVENT, handleLocalChange);
+  };
+}
+
+function notifyPreviewAnswersChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(STORAGE_EVENT));
+}
+
+export default function PreviewIntakePage() {
+  const answers = useSyncExternalStore(
+    subscribeToPreviewAnswers,
+    readPreviewAnswers,
+    () => EMPTY_PREVIEW_ANSWERS,
+  );
 
   const handleChange = (next: PreviewAnswers) => {
-    setAnswers(next);
+    if (typeof window === "undefined") return;
     window.localStorage.setItem(PREVIEW_INTAKE_STORAGE_KEY, JSON.stringify(next));
+    notifyPreviewAnswersChanged();
   };
 
   return (

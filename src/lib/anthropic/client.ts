@@ -1,11 +1,12 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getGoogleApiKey } from "@/lib/env";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-
-export { genAI };
+export function getGenAI(): GoogleGenerativeAI {
+  return new GoogleGenerativeAI(getGoogleApiKey());
+}
 
 export const MODELS = {
-  PRE_ANALYSIS: "gemini-3.1-flash-lite-preview",
-  SYNTHESIS: "gemini-3.1-flash-lite-preview",
-  RED_FLAG_DETECTION: "gemini-3.1-flash-lite-preview",
+  PRE_ANALYSIS: "gemini-2.0-flash",
+  SYNTHESIS: "gemini-2.0-flash",
+  RED_FLAG_DETECTION: "gemini-2.0-flash",
 } as const;

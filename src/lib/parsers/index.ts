@@ -1,10 +1,13 @@
-// Document parsers — PDF
-import type { Document } from "@/lib/types";
-
 export async function parsePdf(buffer: Buffer): Promise<string> {
-  const pdfParse = (await import("pdf-parse")).default;
-  const result = await pdfParse(buffer);
-  return result.text;
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: buffer });
+
+  try {
+    const result = await parser.getText();
+    return result.text;
+  } finally {
+    await parser.destroy();
+  }
 }
 
 export function estimateTokenCount(text: string): number {
@@ -29,7 +32,7 @@ export async function parseDocument(
       text = await parseXlsx(buffer);
       break;
     case "application/vnd.openxmlformats-officedocument.presentationml.presentation":
-      text = await parsePptx(buffer);
+      text = await parsePptx();
       break;
     case "text/plain":
     case "text/csv":
@@ -58,7 +61,7 @@ async function parseXlsx(buffer: Buffer): Promise<string> {
   return sheets.join("\n\n");
 }
 
-async function parsePptx(buffer: Buffer): Promise<string> {
+async function parsePptx(): Promise<string> {
   throw new Error(
     "PPTX parsing is not enabled in this local build yet. Use PDF, DOCX, XLSX, TXT, or CSV for now.",
   );

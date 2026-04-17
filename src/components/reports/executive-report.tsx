@@ -88,43 +88,44 @@ export function ExecutiveReport({ data }: Props) {
   return (
     <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-xl">
       {/* Cover */}
-      <header className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-10 py-12 text-white">
-        <div className="absolute inset-0 opacity-20" aria-hidden>
+      <header className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-10 py-12 text-white print:bg-none print:bg-white print:text-slate-900">
+        <div className="absolute inset-0 opacity-20 print:hidden" aria-hidden>
           <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-indigo-500 blur-3xl" />
           <div className="absolute -left-32 bottom-0 h-80 w-80 rounded-full bg-emerald-500 blur-3xl" />
         </div>
         <div className="relative flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-200">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-200 print:text-indigo-700">
               Kaptrix · AI Product Diligence
             </p>
-            <h1 className="mt-3 text-4xl font-bold leading-tight">
+            <h1 className="mt-3 text-4xl font-bold leading-tight print:text-slate-900">
               {data.target}
             </h1>
-            <p className="mt-2 text-sm text-slate-300">
+            <p className="mt-2 text-sm text-slate-300 print:text-slate-700">
               Prepared for {data.client} · {data.industry} · Version{" "}
               {data.version}
             </p>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-400 print:text-slate-600">
               Issued {formatDate(data.generated_at)} ·{" "}
               <span className="uppercase tracking-wider">{data.watermark}</span>
             </p>
           </div>
           <div className="flex flex-col items-end gap-3">
             <span
-              className={`rounded-full px-4 py-2 text-sm font-semibold ring-4 ring-offset-2 ring-offset-slate-950 ${rec.bg} ${rec.text} ${rec.ring}`}
+              className={`rounded-full px-4 py-2 text-sm font-semibold ring-4 ring-offset-2 ring-offset-slate-950 print:ring-offset-white ${rec.bg} ${rec.text} ${rec.ring}`}
+              style={{ WebkitPrintColorAdjust: "exact", printColorAdjust: "exact" }}
             >
               {data.recommendation}
             </span>
-            <div className="rounded-2xl bg-white/10 px-5 py-4 text-right backdrop-blur">
-              <p className="text-[11px] uppercase tracking-wide text-slate-300">
+            <div className="rounded-2xl bg-white/10 px-5 py-4 text-right backdrop-blur print:bg-slate-100 print:ring-1 print:ring-slate-200">
+              <p className="text-[11px] uppercase tracking-wide text-slate-300 print:text-slate-600">
                 Composite score
               </p>
-              <p className="mt-1 text-4xl font-bold">
+              <p className="mt-1 text-4xl font-bold print:text-slate-900">
                 {data.composite_score.toFixed(1)}
-                <span className="text-lg font-normal text-slate-400">/5.0</span>
+                <span className="text-lg font-normal text-slate-400 print:text-slate-500">/5.0</span>
               </p>
-              <p className="mt-1 text-[11px] text-slate-300">
+              <p className="mt-1 text-[11px] text-slate-300 print:text-slate-600">
                 Conviction: {data.confidence}
               </p>
             </div>
@@ -243,13 +244,13 @@ export function ExecutiveReport({ data }: Props) {
             {data.strategic_implications.map((imp, i) => (
               <div
                 key={i}
-                className="rounded-2xl bg-gradient-to-br from-indigo-950 to-slate-900 p-6 text-white"
+                className="rounded-2xl bg-gradient-to-br from-indigo-950 to-slate-900 p-6 text-white print:bg-none print:bg-slate-50 print:text-slate-900 print:ring-1 print:ring-slate-200"
               >
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-indigo-300 print:text-indigo-700">
                   Theme
                 </p>
-                <h4 className="mt-1 text-base font-semibold">{imp.theme}</h4>
-                <p className="mt-3 text-sm leading-6 text-slate-200">
+                <h4 className="mt-1 text-base font-semibold print:text-slate-900">{imp.theme}</h4>
+                <p className="mt-3 text-sm leading-6 text-slate-200 print:text-slate-700">
                   {imp.narrative}
                 </p>
               </div>
@@ -424,11 +425,25 @@ function RiskHeatMap({
 }: {
   risks: ExecutiveReportData["risk_heat_map"];
 }) {
-  const cellColor = (score: number) => {
-    if (score >= 20) return "bg-rose-600 text-white";
-    if (score >= 12) return "bg-amber-500 text-white";
-    if (score >= 6) return "bg-yellow-300 text-slate-800";
-    return "bg-emerald-200 text-emerald-900";
+  const cellStyle = (score: number): React.CSSProperties => {
+    let bg = "#A7F3D0"; // emerald-200
+    let color = "#064E3B"; // emerald-900
+    if (score >= 20) {
+      bg = "#E11D48"; // rose-600
+      color = "#ffffff";
+    } else if (score >= 12) {
+      bg = "#F59E0B"; // amber-500
+      color = "#ffffff";
+    } else if (score >= 6) {
+      bg = "#FDE047"; // yellow-300
+      color = "#1E293B";
+    }
+    return {
+      backgroundColor: bg,
+      color,
+      WebkitPrintColorAdjust: "exact",
+      printColorAdjust: "exact",
+    };
   };
   return (
     <div className="grid grid-cols-1 gap-0 md:grid-cols-2">
@@ -453,7 +468,8 @@ function RiskHeatMap({
                 return (
                   <div
                     key={`${impact}-${likelihood}`}
-                    className={`aspect-square rounded-md ${cellColor(score)} flex items-center justify-center text-[10px] font-bold`}
+                    className="flex aspect-square items-center justify-center rounded-md text-[10px] font-bold"
+                    style={cellStyle(score)}
                     title={found?.risk}
                   >
                     {found ? "●" : ""}
@@ -474,7 +490,14 @@ function RiskHeatMap({
         <ul className="mt-2 space-y-2">
           {risks.map((r, i) => (
             <li key={i} className="flex items-start gap-2 text-sm">
-              <span className="mt-1 h-2 w-2 flex-none rounded-full bg-rose-500" />
+              <span
+                className="mt-1 h-2 w-2 flex-none rounded-full"
+                style={{
+                  backgroundColor: "#F43F5E",
+                  WebkitPrintColorAdjust: "exact",
+                  printColorAdjust: "exact",
+                }}
+              />
               <div>
                 <p className="font-medium text-slate-800">{r.risk}</p>
                 <p className="text-xs text-slate-500">

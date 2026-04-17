@@ -52,14 +52,18 @@ function ClientCard({
     <button
       type="button"
       onClick={onOpen}
-      className={`group relative flex w-full flex-col gap-5 rounded-3xl border bg-white p-7 text-left transition-all duration-200
-        ${
-          isSelected
-            ? "border-indigo-300 shadow-[0_0_0_4px_rgba(99,102,241,0.15),0_18px_50px_-20px_rgba(79,70,229,0.55)]"
-            : "border-slate-200 shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_10px_30px_-18px_rgba(15,23,42,0.35)] hover:border-indigo-200 hover:shadow-[0_0_0_4px_rgba(99,102,241,0.12),0_18px_50px_-20px_rgba(79,70,229,0.5)]"
-        }
+      className={`group relative flex w-full flex-col gap-5 rounded-3xl border border-slate-200 bg-white p-7 text-left transition-all duration-200
+        shadow-[0_0_0_1px_rgba(15,23,42,0.04),0_10px_30px_-18px_rgba(15,23,42,0.35)]
+        hover:border-indigo-300
+        hover:shadow-[0_0_0_4px_rgba(99,102,241,0.15),0_18px_50px_-20px_rgba(79,70,229,0.55)]
+        focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500
       `}
     >
+      {isSelected && (
+        <span className="absolute right-5 top-5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200">
+          Last opened
+        </span>
+      )}
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-600">

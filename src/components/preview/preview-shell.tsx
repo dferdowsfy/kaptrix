@@ -62,7 +62,7 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      <div className="print-hide border-b bg-white">
+      <div className="print-hide sticky top-0 z-40 border-b bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto max-w-7xl overflow-x-auto px-6">
           <nav className="flex min-w-max items-center gap-2 py-3">
             {PREVIEW_TABS.map((tab) => {

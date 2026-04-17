@@ -27,18 +27,72 @@ body {
 
 /* ---------- Print styles: used by Report → Export to PDF ---------- */
 @media print {
+  /* Preserve exact colors (prevents browsers from stripping backgrounds
+     and washing out text during PDF export). */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
+  }
   .print-hide {
     display: none !important;
   }
   .print-area {
     box-shadow: none !important;
   }
+  html,
   body {
     background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  /* Force readable body text in the exported report (light-gray utility
+     classes intended for dark-bg callouts become unreadable when the
+     dark bg is stripped by the print engine). */
+  .print-area,
+  .print-area p,
+  .print-area li,
+  .print-area td,
+  .print-area h1,
+  .print-area h2,
+  .print-area h3,
+  .print-area h4 {
+    color: #0f172a !important;
+  }
+  .print-area .text-slate-300,
+  .print-area .text-slate-400,
+  .print-area .text-slate-500,
+  .print-area .text-slate-200,
+  .print-area .text-white {
+    color: #334155 !important;
   }
   main {
     padding: 0 !important;
     max-width: none !important;
+  }
+  /* Tighten the report cover header so the first section follows directly
+     after the title block rather than creating a full blank cover page. */
+  .print-area header {
+    padding: 1.25rem 1.5rem !important;
+  }
+  .print-area header > div {
+    gap: 1rem !important;
+  }
+  .print-area header h1 {
+    font-size: 1.875rem !important;
+    line-height: 1.2 !important;
+  }
+  .print-area > div:last-child {
+    padding: 1.25rem 1.5rem !important;
+  }
+  .print-area .space-y-12 > * + * {
+    margin-top: 1.75rem !important;
+  }
+  /* Avoid awkward breaks inside callouts and findings. */
+  .print-area section,
+  .print-area article {
+    break-inside: avoid-page;
   }
   @page {
     size: Letter;

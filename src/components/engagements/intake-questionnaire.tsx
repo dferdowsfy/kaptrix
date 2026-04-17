@@ -494,6 +494,7 @@ export function IntakeQuestionnaire({
 }: Props) {
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
   const [industry, setIndustry] = useState<Industry>(defaultIndustry);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
 
   const profile = INDUSTRY_PROFILES[industry];
   const questions = [...CORE_INTAKE_QUESTIONS, ...INDUSTRY_INTAKE_QUESTIONS[industry]];
@@ -504,29 +505,45 @@ export function IntakeQuestionnaire({
     onChange?.(next);
   };
 
-  const sections = Array.from(new Set(questions.map((q) => q.section)));
-  const answered = questions.filter((q) => {
+  const isAnswered = (q: IntakeQuestion) => {
     const v = answers[q.id];
     if (Array.isArray(v)) return v.length > 0;
     if (typeof v === "string") return v.trim().length > 0;
     return v !== undefined;
-  }).length;
+  };
+
+  const sections = Array.from(new Set(questions.map((q) => q.section)));
+  const currentSection = activeSection && sections.includes(activeSection)
+    ? activeSection
+    : sections[0];
+  const currentIndex = sections.indexOf(currentSection);
+  const sectionQuestions = questions.filter((q) => q.section === currentSection);
+
+  const sectionCompletion = (section: string) => {
+    const qs = questions.filter((q) => q.section === section);
+    const done = qs.filter(isAnswered).length;
+    return { done, total: qs.length };
+  };
+
+  const answered = questions.filter(isAnswered).length;
   const completionPct = Math.round((answered / questions.length) * 100);
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
-        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      {/* Top summary bar */}
+      <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-indigo-600">
               Industry context
             </p>
-            <p className="mt-0.5 text-sm text-gray-700">
-              {profile.label} · {profile.tagline}
+            <p className="mt-1 text-base font-semibold text-slate-900">
+              {profile.label}
             </p>
+            <p className="text-sm text-slate-600">{profile.tagline}</p>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-xs font-medium text-gray-600">Profile</label>
+          <div className="flex items-center gap-3">
+            <label className="text-sm font-medium text-slate-700">Profile</label>
             <select
               value={industry}
               onChange={(e) => {
@@ -534,7 +551,7 @@ export function IntakeQuestionnaire({
                 setIndustry(next);
                 onIndustryChange?.(next);
               }}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none"
             >
               {INDUSTRY_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -545,47 +562,100 @@ export function IntakeQuestionnaire({
           </div>
         </div>
 
-        <div className="mb-3 flex flex-wrap gap-2">
+        <div className="mt-4 flex flex-wrap gap-2">
           {profile.typical_risks.map((risk) => (
             <span
               key={risk}
-              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-800"
+              className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-900"
             >
               {risk}
             </span>
           ))}
         </div>
 
-        <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-            Intake progress
-          </p>
-          <p className="mt-0.5 text-sm text-gray-700">
-            {answered} of {questions.length} prompts completed
-          </p>
-        </div>
-        <div className="w-48">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-700 transition-all"
-              style={{ width: `${completionPct}%` }}
-            />
+        <div className="mt-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">
+              {answered} of {questions.length} prompts complete
+            </p>
+            <p className="text-xs text-slate-500">
+              Answers save automatically. Navigate sections on the left.
+            </p>
           </div>
-          <p className="mt-1 text-right text-xs text-gray-500">
-            {completionPct}%
-          </p>
-        </div>
+          <div className="w-48">
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-indigo-700 transition-all"
+                style={{ width: `${completionPct}%` }}
+              />
+            </div>
+            <p className="mt-1 text-right text-xs font-semibold text-slate-600">
+              {completionPct}%
+            </p>
+          </div>
         </div>
       </div>
 
-      {sections.map((section) => (
-        <div key={section} className="space-y-4">
-          <h3 className="border-b border-gray-200 pb-2 text-sm font-semibold uppercase tracking-wide text-gray-800">
-            {section}
-          </h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            {questions.filter((q) => q.section === section).map((q) => (
+      {/* Two-column: section nav + current section */}
+      <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <nav className="space-y-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+            {sections.map((section, idx) => {
+              const { done, total } = sectionCompletion(section);
+              const isActive = section === currentSection;
+              const isComplete = done === total;
+              return (
+                <button
+                  key={section}
+                  type="button"
+                  onClick={() => setActiveSection(section)}
+                  className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    isActive
+                      ? "bg-slate-900 text-white"
+                      : "text-slate-700 hover:bg-slate-100"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className={`flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold ${
+                        isActive
+                          ? "bg-white text-slate-900"
+                          : isComplete
+                            ? "bg-emerald-100 text-emerald-700"
+                            : "bg-slate-100 text-slate-600"
+                      }`}
+                    >
+                      {isComplete ? "✓" : idx + 1}
+                    </span>
+                    <span className="font-medium">{section}</span>
+                  </span>
+                  <span
+                    className={`text-[11px] tabular-nums ${
+                      isActive ? "text-slate-300" : "text-slate-500"
+                    }`}
+                  >
+                    {done}/{total}
+                  </span>
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-indigo-600">
+                Section {currentIndex + 1} of {sections.length}
+              </p>
+              <h3 className="mt-1 text-2xl font-bold text-slate-900">
+                {currentSection}
+              </h3>
+            </div>
+          </div>
+
+          <div className="grid gap-4 xl:grid-cols-2">
+            {sectionQuestions.map((q) => (
               <QuestionCard
                 key={q.id}
                 question={q}
@@ -596,8 +666,33 @@ export function IntakeQuestionnaire({
               />
             ))}
           </div>
-        </div>
-      ))}
+
+          <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+            <button
+              type="button"
+              disabled={currentIndex === 0}
+              onClick={() =>
+                setActiveSection(sections[Math.max(0, currentIndex - 1)])
+              }
+              className="rounded-full border border-slate-300 bg-white px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-500 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              ← Previous section
+            </button>
+            <button
+              type="button"
+              disabled={currentIndex === sections.length - 1}
+              onClick={() =>
+                setActiveSection(
+                  sections[Math.min(sections.length - 1, currentIndex + 1)],
+                )
+              }
+              className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Next section →
+            </button>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
@@ -616,21 +711,21 @@ function QuestionCard({
   onNoteChange: (v: string) => void;
 }) {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-gray-900">{question.prompt}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md">
+      <p className="text-base font-semibold text-slate-900">{question.prompt}</p>
       {question.help && (
-        <p className="mt-1 text-xs text-gray-500">{question.help}</p>
+        <p className="mt-1 text-sm text-slate-600">{question.help}</p>
       )}
-      <div className="mt-3">
+      <div className="mt-4">
         {question.type === "single" && (
           <div className="space-y-2">
             {question.options?.map((opt) => (
               <label
                 key={opt}
-                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${
+                className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium transition ${
                   value === opt
-                    ? "border-gray-900 bg-gray-900 text-white"
-                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
                 }`}
               >
                 <input
@@ -659,10 +754,10 @@ function QuestionCard({
                       checked ? arr.filter((v) => v !== opt) : [...arr, opt],
                     )
                   }
-                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  className={`rounded-full border px-3 py-1.5 text-sm font-medium transition ${
                     checked
                       ? "border-indigo-600 bg-indigo-600 text-white"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
                   }`}
                 >
                   {opt}
@@ -678,7 +773,7 @@ function QuestionCard({
             value={typeof value === "string" ? value : ""}
             onChange={(e) => onChange(e.target.value)}
             placeholder="Type your answer…"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none"
           />
         )}
 
@@ -688,13 +783,13 @@ function QuestionCard({
             onChange={(e) => onChange(e.target.value)}
             rows={4}
             placeholder="Free-form response…"
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none"
           />
         )}
 
         {question.type === "scale" && (
           <div>
-            <div className="flex items-center justify-between text-[11px] text-gray-500">
+            <div className="flex items-center justify-between text-xs font-medium text-slate-600">
               <span>{question.scale_labels?.[0]}</span>
               <span>{question.scale_labels?.[1]}</span>
             </div>
@@ -710,10 +805,10 @@ function QuestionCard({
                   key={n}
                   type="button"
                   onClick={() => onChange(n)}
-                  className={`h-10 flex-1 rounded-lg border text-sm font-semibold transition ${
+                  className={`h-11 flex-1 rounded-lg border text-base font-semibold transition ${
                     value === n
-                      ? "border-gray-900 bg-gray-900 text-white"
-                      : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50"
                   }`}
                 >
                   {n}
@@ -724,14 +819,14 @@ function QuestionCard({
         )}
 
         {question.type !== "long_text" && (
-          <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+          <div className="mt-3 rounded-lg bg-slate-50 p-3 text-xs font-medium text-slate-600">
             Free-form context
             <textarea
               rows={2}
               value={note}
               onChange={(e) => onNoteChange(e.target.value)}
               placeholder="Optional context for this specific question…"
-              className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none"
+              className="mt-1 w-full rounded border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 focus:border-slate-900 focus:outline-none"
             />
           </div>
         )}

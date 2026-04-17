@@ -28,6 +28,55 @@ export function ScoringPanel({
 
   const composite = calculateCompositeScore(scores);
 
+  // Optimistically update local score state so the composite score and
+  // dimension bars react as the operator drags the slider. The persisted
+  // save still runs through `saveScore` on rationale blur.
+  const updateLocalScore = useCallback(
+    (dimension: string, sub_criterion: string, score_0_to_5: number) => {
+      setScores((prev) => {
+        const dimensionKey = dimension as ScoreDimension;
+        const idx = prev.findIndex(
+          (s) => s.dimension === dimension && s.sub_criterion === sub_criterion,
+        );
+        if (idx >= 0) {
+          const copy = [...prev];
+          copy[idx] = {
+            ...copy[idx],
+            score_0_to_5,
+            updated_at: new Date().toISOString(),
+          };
+          return copy;
+        }
+
+        const dimensionConfig = SCORING_DIMENSIONS.find(
+          (candidate) => candidate.key === dimensionKey,
+        );
+        if (!dimensionConfig) return prev;
+
+        const now = new Date().toISOString();
+
+        return [
+          ...prev,
+          {
+            id: `local-${dimension}-${sub_criterion}`,
+            engagement_id: engagementId,
+            dimension: dimensionKey,
+            sub_criterion,
+            score_0_to_5,
+            weight: dimensionConfig.weight,
+            operator_rationale: "",
+            evidence_citations: [],
+            pattern_match_case_id: null,
+            created_at: now,
+            updated_at: now,
+            updated_by: null,
+          },
+        ];
+      });
+    },
+    [engagementId],
+  );
+
   const saveScore = useCallback(
     async (
       dimension: string,
@@ -194,6 +243,7 @@ export function ScoringPanel({
                     initialScore={existing?.score_0_to_5 ?? 0}
                     initialRationale={existing?.operator_rationale ?? ""}
                     onSave={saveScore}
+                    onScoreChange={updateLocalScore}
                   />
                 );
               })}
@@ -213,6 +263,7 @@ function SubCriterionInput({
   initialScore,
   initialRationale,
   onSave,
+  onScoreChange,
 }: {
   dimension: string;
   subKey: string;
@@ -226,6 +277,11 @@ function SubCriterionInput({
     score: number,
     rationale: string,
   ) => Promise<void>;
+  onScoreChange: (
+    dimension: string,
+    sub_criterion: string,
+    score: number,
+  ) => void;
 }) {
   const [score, setScore] = useState(initialScore);
   const [rationale, setRationale] = useState(initialRationale);
@@ -243,7 +299,25 @@ function SubCriterionInput({
           max="5"
           step="0.5"
           value={score}
-          onChange={(e) => setScore(parseFloat(e.target.value))}
+          onChange={(e) => {
+            const next = parseFloat(e.target.value);
+            setScore(next);
+            // Update parent composite immediately so the score and
+            // dimension bars react as the operator drags — this is a
+            // local-only update (no API call) to keep dragging snappy.
+            onScoreChange(dimension, subKey, next);
+          }}
+          onMouseUp={() => {
+            // Persist once drag ends. In preview mode this updates the
+            // in-memory score; in non-preview it also PUTs to the API.
+            onSave(dimension, subKey, score, rationale);
+          }}
+          onKeyUp={() => {
+            onSave(dimension, subKey, score, rationale);
+          }}
+          onTouchEnd={() => {
+            onSave(dimension, subKey, score, rationale);
+          }}
           className="flex-1"
         />
         <span className="w-10 text-center text-sm font-bold text-gray-900">

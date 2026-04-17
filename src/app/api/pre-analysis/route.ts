@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   const version = promptVersion?.version ?? "1.0.0";
-  const model = promptVersion?.model ?? "gemini-3.1-flash-lite-preview";
+  const model = promptVersion?.model ?? "gemini-2.0-flash";
 
   // Create pre-analysis records for each document (status: running)
   const analysisRecords = documents.map((doc) => ({

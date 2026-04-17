@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   demoAnalyses,
   demoDocuments,
@@ -40,6 +40,15 @@ export function FloatingKnowledgeChatbot() {
       text: `I can answer questions about ${demoEngagement.target_company_name} using all gathered preview evidence: documents, pre-analysis outputs, scorecard inputs, insights, and the executive report.`,
     },
   ]);
+  const idCounter = useRef(1);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isOpen]);
 
   const corpus = useMemo<KnowledgeChunk[]>(() => {
     const fromInsights = demoKnowledgeInsights.map((k) => ({
@@ -103,27 +112,77 @@ export function FloatingKnowledgeChatbot() {
     return [...fromInsights, ...fromAnalysis, ...fromReport, ...fromScores, ...fromDocs];
   }, []);
 
-  const ask = (raw: string) => {
+  const ask = async (raw: string) => {
     const question = raw.trim();
     if (!question) return;
 
+    const n = idCounter.current++;
     const userMessage: ChatMessage = {
-      id: `u-${Date.now()}`,
+      id: `u-${n}`,
       role: "user",
       text: question,
     };
-
-    const answer = answerFromCorpus(question, corpus);
-
-    const assistantMessage: ChatMessage = {
-      id: `a-${Date.now()}`,
+    const thinkingId = `a-${n}`;
+    const thinking: ChatMessage = {
+      id: thinkingId,
       role: "assistant",
-      text: answer.answer,
-      citations: answer.citations,
+      text: "Thinking…",
     };
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
+    setMessages((prev) => [...prev, userMessage, thinking]);
     setQuery("");
+    setPending(true);
+
+    const history = messages
+      .filter((m) => m.id !== "m0")
+      .map((m) => ({ role: m.role, text: m.text }));
+    const contextText = corpus
+      .map((c) => `[${c.source}] ${c.text}`)
+      .join("\n");
+
+    let answerText = "";
+    let citations: string[] = [];
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question,
+          context: contextText,
+          history,
+        }),
+      });
+      if (res.ok) {
+        const data = (await res.json()) as { answer?: string };
+        answerText = (data.answer ?? "").trim();
+      } else {
+        const data = (await res.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        // Fall back to local corpus answer so preview still works without
+        // a configured Gemini key.
+        const local = answerFromCorpus(question, corpus);
+        answerText =
+          (data.error
+            ? `Gemini unavailable (${data.error}). Falling back to local evidence match:\n\n`
+            : "Gemini unavailable. Falling back to local evidence match:\n\n") +
+          local.answer;
+        citations = local.citations;
+      }
+    } catch (err) {
+      const local = answerFromCorpus(question, corpus);
+      answerText = `Network error${err instanceof Error ? ` (${err.message})` : ""}. Local evidence match:\n\n${local.answer}`;
+      citations = local.citations;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === thinkingId
+          ? { ...m, text: answerText, citations: citations.length ? citations : undefined }
+          : m,
+      ),
+    );
+    setPending(false);
   };
 
   return (
@@ -154,11 +213,11 @@ export function FloatingKnowledgeChatbot() {
             </button>
           </div>
 
-          <div className="max-h-[420px] space-y-3 overflow-y-auto p-3">
+          <div ref={scrollRef} className="max-h-[420px] space-y-3 overflow-y-auto p-3">
             {messages.map((m) => (
               <div key={m.id} className={m.role === "user" ? "text-right" : "text-left"}>
                 <div
-                  className={`inline-block max-w-[90%] rounded-2xl px-3 py-2 text-sm ${
+                  className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
                     m.role === "user"
                       ? "bg-slate-900 text-white"
                       : "border border-slate-200 bg-slate-50 text-slate-800"
@@ -180,30 +239,37 @@ export function FloatingKnowledgeChatbot() {
               {STARTERS.map((s) => (
                 <button
                   key={s}
+                  type="button"
+                  disabled={pending}
                   onClick={() => ask(s)}
-                  className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 hover:border-slate-400"
+                  className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {s}
                 </button>
               ))}
             </div>
-            <div className="flex gap-2">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!pending) ask(query);
+              }}
+              className="flex gap-2"
+            >
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") ask(query);
-                }}
-                placeholder="Ask about the client, risks, or evidence…"
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-slate-900 focus:outline-none"
+                placeholder={pending ? "Waiting for response…" : "Ask about the client, risks, or evidence…"}
+                disabled={pending}
+                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 focus:border-slate-900 focus:outline-none disabled:bg-slate-50"
               />
               <button
-                onClick={() => ask(query)}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700"
+                type="submit"
+                disabled={pending}
+                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Send
+                {pending ? "…" : "Send"}
               </button>
-            </div>
+            </form>
           </div>
         </div>
       )}

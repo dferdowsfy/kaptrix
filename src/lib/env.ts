@@ -8,6 +8,10 @@ function isPlaceholder(value: string): boolean {
   );
 }
 
+function getServerEnv(name: string): string {
+  return process.env[name]?.trim() ?? "";
+}
+
 export function isSupabaseConfigured(): boolean {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
@@ -19,7 +23,11 @@ export function isSupabaseConfigured(): boolean {
 }
 
 export function isGoogleConfigured(): boolean {
-  const apiKey = process.env.GOOGLE_API_KEY?.trim();
+  const apiKey = getGoogleApiKey();
   if (!apiKey) return false;
   return !isPlaceholder(apiKey);
+}
+
+export function getGoogleApiKey(): string {
+  return getServerEnv("GOOGLE_API_KEY") || getServerEnv("GEMINI_API_KEY");
 }
