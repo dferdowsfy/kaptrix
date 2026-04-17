@@ -1,6 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import {
+  INDUSTRY_OPTIONS,
+  INDUSTRY_PROFILES,
+  type Industry,
+} from "@/lib/industry-requirements";
 
 export interface IntakeQuestion {
   id: string;
@@ -14,7 +19,7 @@ export interface IntakeQuestion {
   scale_labels?: [string, string];
 }
 
-export const INTAKE_QUESTIONS: IntakeQuestion[] = [
+const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
   // Deal context
   {
     id: "deal_thesis",
@@ -176,15 +181,322 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
   },
 ];
 
+const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
+  financial_services: [
+    {
+      id: "fs_model_risk_framework",
+      section: "Financial Services Depth",
+      prompt: "How mature is the model risk framework under SR 11-7?",
+      help: "Assess governance for validation, challenge, and override controls.",
+      type: "single",
+      options: [
+        "No formal framework",
+        "Draft controls only",
+        "Partial framework by product",
+        "Operational framework with monitoring",
+        "Independent validation in place",
+      ],
+    },
+    {
+      id: "fs_decision_explainability",
+      section: "Financial Services Depth",
+      prompt: "Explainability readiness for regulated decisions",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["Opaque outputs", "Regulator-ready explanations"],
+    },
+    {
+      id: "fs_controls_scope",
+      section: "Financial Services Depth",
+      prompt: "Which controls are in scope for audit?",
+      type: "multi",
+      options: [
+        "SOX controls",
+        "Trade surveillance controls",
+        "Credit decision controls",
+        "Model retraining governance",
+        "No defined controls yet",
+      ],
+    },
+  ],
+  healthcare: [
+    {
+      id: "hc_phi_pathways",
+      section: "Healthcare Depth",
+      prompt: "Does PHI flow through model prompts, logs, or vector indices?",
+      type: "single",
+      options: [
+        "No PHI touches AI pipeline",
+        "PHI redacted before model call",
+        "PHI allowed with controls",
+        "Unknown / not documented",
+      ],
+    },
+    {
+      id: "hc_fda_readiness",
+      section: "Healthcare Depth",
+      prompt: "Regulatory readiness for FDA/SaMD implications",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["No classification work", "Clear regulatory pathway"],
+    },
+    {
+      id: "hc_bias_controls",
+      section: "Healthcare Depth",
+      prompt: "Which clinical bias controls are documented?",
+      type: "multi",
+      options: [
+        "Subgroup performance testing",
+        "Fairness thresholds",
+        "Independent clinical review",
+        "Post-market drift monitoring",
+        "No formal controls",
+      ],
+    },
+  ],
+  legal_tech: [
+    {
+      id: "lt_privilege_controls",
+      section: "Legal Tech Depth",
+      prompt: "How is privilege containment enforced?",
+      help: "Technical controls matter more than policy statements for this category.",
+      type: "single",
+      options: [
+        "Policy-only",
+        "Logical isolation",
+        "Matter-level hard isolation",
+        "Dedicated tenant infrastructure",
+        "Unknown / not evidenced",
+      ],
+    },
+    {
+      id: "lt_citation_assurance",
+      section: "Legal Tech Depth",
+      prompt: "How strong is citation reliability and hallucination control?",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["No reliable controls", "Verified citation pipeline"],
+    },
+    {
+      id: "lt_bar_ethics_exposure",
+      section: "Legal Tech Depth",
+      prompt: "Potential bar-ethics exposure areas",
+      type: "multi",
+      options: [
+        "Unauthorized practice of law risk",
+        "Privilege leakage risk",
+        "Client disclosure / consent risk",
+        "Hallucinated authority risk",
+        "Limited exposure",
+      ],
+    },
+  ],
+  saas_enterprise: [
+    {
+      id: "saas_enterprise_readiness",
+      section: "Enterprise SaaS Depth",
+      prompt: "Enterprise feature readiness (SSO, SCIM, audit exports)",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["Missing core features", "Enterprise-complete"],
+    },
+    {
+      id: "saas_abuse_surface",
+      section: "Enterprise SaaS Depth",
+      prompt: "Which abuse vectors are most material?",
+      type: "multi",
+      options: [
+        "Prompt injection",
+        "Data exfiltration via tool calls",
+        "Account takeover on AI admins",
+        "Model jailbreak behavior",
+        "No formal abuse model",
+      ],
+    },
+    {
+      id: "saas_margin_volatility",
+      section: "Enterprise SaaS Depth",
+      prompt: "Margin volatility risk from model costs",
+      type: "single",
+      options: [
+        "Low — predictable unit costs",
+        "Moderate — occasional spikes",
+        "High — materially volatile",
+        "Unknown / insufficient data",
+      ],
+    },
+  ],
+  insurance: [
+    {
+      id: "ins_fairness_controls",
+      section: "Insurance Depth",
+      prompt: "How mature are fairness controls for underwriting/claims outputs?",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["No controls", "Regulator-ready controls"],
+    },
+    {
+      id: "ins_adverse_action_explainability",
+      section: "Insurance Depth",
+      prompt: "Adverse action reason-code readiness",
+      type: "single",
+      options: [
+        "Not implemented",
+        "Manual and inconsistent",
+        "Partially automated",
+        "Fully traceable and auditable",
+      ],
+    },
+    {
+      id: "ins_regulator_alignment",
+      section: "Insurance Depth",
+      prompt: "Regulatory frameworks currently mapped",
+      type: "multi",
+      options: [
+        "NYDFS Circular Letter 7",
+        "NAIC AI model guidance",
+        "State DOI-specific guidance",
+        "FCRA / ECOA notices",
+        "No explicit mapping",
+      ],
+    },
+  ],
+  retail_ecommerce: [
+    {
+      id: "retail_claim_substantiation",
+      section: "Retail & eCommerce Depth",
+      prompt: "Readiness for substantiating AI-generated marketing claims",
+      type: "single",
+      options: [
+        "No substantiation workflow",
+        "Ad hoc review",
+        "Standardized review workflow",
+        "Auditable, policy-enforced workflow",
+      ],
+    },
+    {
+      id: "retail_personalization_risk",
+      section: "Retail & eCommerce Depth",
+      prompt: "Personalization risk posture",
+      type: "multi",
+      options: [
+        "Dark pattern risk",
+        "Inappropriate demographic targeting",
+        "Cross-border consent mismatch",
+        "Model drift in recommendations",
+        "Low concern",
+      ],
+    },
+    {
+      id: "retail_consumer_data",
+      section: "Retail & eCommerce Depth",
+      prompt: "Consumer data handling maturity",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["Weak and undocumented", "Policy + controls + monitoring"],
+    },
+  ],
+  government_defense: [
+    {
+      id: "gov_authorization_path",
+      section: "Government & Defense Depth",
+      prompt: "FedRAMP / IL authorization status",
+      type: "single",
+      options: [
+        "No plan",
+        "Roadmap only",
+        "Sponsor identified",
+        "In process with evidence",
+        "Authorized",
+      ],
+    },
+    {
+      id: "gov_export_controls",
+      section: "Government & Defense Depth",
+      prompt: "Export-control and controlled-data safeguards",
+      type: "multi",
+      options: [
+        "ITAR controls",
+        "CJIS / CUI controls",
+        "Geo-fencing and residency",
+        "Cleared personnel restrictions",
+        "No formal safeguards",
+      ],
+    },
+    {
+      id: "gov_supply_chain",
+      section: "Government & Defense Depth",
+      prompt: "Software supply-chain transparency maturity",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["No SBOM/program", "Continuous SBOM + provenance"],
+    },
+  ],
+  industrial_iot: [
+    {
+      id: "iiot_ot_segmentation",
+      section: "Industrial / IoT Depth",
+      prompt: "OT segmentation and IT/OT boundary control maturity",
+      type: "scale",
+      scale_min: 1,
+      scale_max: 5,
+      scale_labels: ["Flat network risk", "Strong segmented architecture"],
+    },
+    {
+      id: "iiot_safety_latency",
+      section: "Industrial / IoT Depth",
+      prompt: "Safety-critical latency and fail-safe posture",
+      type: "single",
+      options: [
+        "Not measured",
+        "Measured with major variance",
+        "Stable within safe thresholds",
+        "Validated under stress scenarios",
+      ],
+    },
+    {
+      id: "iiot_protocol_exposure",
+      section: "Industrial / IoT Depth",
+      prompt: "Legacy protocol and OT attack surface",
+      type: "multi",
+      options: [
+        "Unencrypted legacy protocols",
+        "Weak remote access controls",
+        "No OT anomaly detection",
+        "Patch latency in field assets",
+        "Low material exposure",
+      ],
+    },
+  ],
+};
+
 type Answers = Record<string, string | number | string[]>;
 
 interface Props {
   initialAnswers?: Answers;
   onChange?: (answers: Answers) => void;
+  defaultIndustry?: Industry;
+  onIndustryChange?: (industry: Industry) => void;
 }
 
-export function IntakeQuestionnaire({ initialAnswers = {}, onChange }: Props) {
+export function IntakeQuestionnaire({
+  initialAnswers = {},
+  onChange,
+  defaultIndustry = "legal_tech",
+  onIndustryChange,
+}: Props) {
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
+  const [industry, setIndustry] = useState<Industry>(defaultIndustry);
+
+  const profile = INDUSTRY_PROFILES[industry];
+  const questions = [...CORE_INTAKE_QUESTIONS, ...INDUSTRY_INTAKE_QUESTIONS[industry]];
 
   const update = (id: string, value: string | number | string[]) => {
     const next = { ...answers, [id]: value };
@@ -192,24 +504,65 @@ export function IntakeQuestionnaire({ initialAnswers = {}, onChange }: Props) {
     onChange?.(next);
   };
 
-  const sections = Array.from(new Set(INTAKE_QUESTIONS.map((q) => q.section)));
-  const answered = INTAKE_QUESTIONS.filter((q) => {
+  const sections = Array.from(new Set(questions.map((q) => q.section)));
+  const answered = questions.filter((q) => {
     const v = answers[q.id];
     if (Array.isArray(v)) return v.length > 0;
     if (typeof v === "string") return v.trim().length > 0;
     return v !== undefined;
   }).length;
-  const completionPct = Math.round((answered / INTAKE_QUESTIONS.length) * 100);
+  const completionPct = Math.round((answered / questions.length) * 100);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between rounded-2xl border border-gray-200 bg-white px-4 py-3">
+      <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
+        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Industry context
+            </p>
+            <p className="mt-0.5 text-sm text-gray-700">
+              {profile.label} · {profile.tagline}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-medium text-gray-600">Profile</label>
+            <select
+              value={industry}
+              onChange={(e) => {
+                const next = e.target.value as Industry;
+                setIndustry(next);
+                onIndustryChange?.(next);
+              }}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none"
+            >
+              {INDUSTRY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-3 flex flex-wrap gap-2">
+          {profile.typical_risks.map((risk) => (
+            <span
+              key={risk}
+              className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] text-amber-800"
+            >
+              {risk}
+            </span>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
             Intake progress
           </p>
           <p className="mt-0.5 text-sm text-gray-700">
-            {answered} of {INTAKE_QUESTIONS.length} prompts completed
+            {answered} of {questions.length} prompts completed
           </p>
         </div>
         <div className="w-48">
@@ -223,6 +576,7 @@ export function IntakeQuestionnaire({ initialAnswers = {}, onChange }: Props) {
             {completionPct}%
           </p>
         </div>
+        </div>
       </div>
 
       {sections.map((section) => (
@@ -231,12 +585,14 @@ export function IntakeQuestionnaire({ initialAnswers = {}, onChange }: Props) {
             {section}
           </h3>
           <div className="grid gap-4 md:grid-cols-2">
-            {INTAKE_QUESTIONS.filter((q) => q.section === section).map((q) => (
+            {questions.filter((q) => q.section === section).map((q) => (
               <QuestionCard
                 key={q.id}
                 question={q}
                 value={answers[q.id]}
+                note={typeof answers[`${q.id}__note`] === "string" ? (answers[`${q.id}__note`] as string) : ""}
                 onChange={(v) => update(q.id, v)}
+                onNoteChange={(v) => update(`${q.id}__note`, v)}
               />
             ))}
           </div>
@@ -249,11 +605,15 @@ export function IntakeQuestionnaire({ initialAnswers = {}, onChange }: Props) {
 function QuestionCard({
   question,
   value,
+  note,
   onChange,
+  onNoteChange,
 }: {
   question: IntakeQuestion;
   value: string | number | string[] | undefined;
+  note: string;
   onChange: (v: string | number | string[]) => void;
+  onNoteChange: (v: string) => void;
 }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -360,14 +720,19 @@ function QuestionCard({
                 </button>
               ))}
             </div>
-            <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
-              Add qualitative context
-              <textarea
-                rows={2}
-                placeholder="Optional free-form note alongside your rating…"
-                className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none"
-              />
-            </div>
+          </div>
+        )}
+
+        {question.type !== "long_text" && (
+          <div className="mt-3 rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
+            Free-form context
+            <textarea
+              rows={2}
+              value={note}
+              onChange={(e) => onNoteChange(e.target.value)}
+              placeholder="Optional context for this specific question…"
+              className="mt-1 w-full rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-gray-900 focus:outline-none"
+            />
           </div>
         )}
       </div>
