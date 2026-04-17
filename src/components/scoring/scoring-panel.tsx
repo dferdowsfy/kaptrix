@@ -2,8 +2,20 @@
 
 import { useState, useCallback } from "react";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
-import { calculateCompositeScore } from "@/lib/scoring/calculator";
-import type { Score, BenchmarkCase, PatternMatch, ScoreDimension } from "@/lib/types";
+import {
+  calculateCompositeScore,
+  deriveDecision,
+  type DecisionResult,
+} from "@/lib/scoring/calculator";
+import type {
+  BenchmarkCase,
+  DealStage,
+  EngagementStatus,
+  PatternMatch,
+  PreAnalysis,
+  Score,
+  ScoreDimension,
+} from "@/lib/types";
 
 interface Props {
   engagementId: string;
@@ -11,6 +23,11 @@ interface Props {
   patternMatches: PatternMatch[];
   benchmarkCases: BenchmarkCase[];
   previewMode?: boolean;
+  /** Lifecycle context for the decision engine. */
+  dealStage?: DealStage;
+  status?: EngagementStatus;
+  analyses?: PreAnalysis[];
+  priorComposite?: number | null;
 }
 
 export function ScoringPanel({
@@ -19,6 +36,10 @@ export function ScoringPanel({
   patternMatches,
   benchmarkCases,
   previewMode = false,
+  dealStage = "preliminary",
+  status = "scoring",
+  analyses = [],
+  priorComposite = null,
 }: Props) {
   const [scores, setScores] = useState<Score[]>(initialScores);
   const [expandedDimension, setExpandedDimension] = useState<ScoreDimension | null>(
@@ -27,6 +48,13 @@ export function ScoringPanel({
   const [saving, setSaving] = useState(false);
 
   const composite = calculateCompositeScore(scores);
+  const decision = deriveDecision({
+    dealStage,
+    status,
+    scores,
+    analyses,
+    priorComposite,
+  });
 
   // Optimistically update local score state so the composite score and
   // dimension bars react as the operator drags the slider. The persisted
@@ -160,6 +188,8 @@ export function ScoringPanel({
             </span>
           )}
         </div>
+
+        <DecisionBadge decision={decision} />
 
         {/* Dimension score bars */}
         <div className="mt-4 space-y-2">
@@ -341,6 +371,46 @@ function SubCriterionInput({
           Rationale must be at least 20 characters
         </p>
       )}
+    </div>
+  );
+}
+
+function DecisionBadge({ decision }: { decision: DecisionResult }) {
+  const toneClasses: Record<DecisionResult["tone"], string> = {
+    go: "border-emerald-300 bg-emerald-50 text-emerald-900",
+    warn: "border-amber-300 bg-amber-50 text-amber-900",
+    stop: "border-rose-300 bg-rose-50 text-rose-900",
+  };
+  const toneDot: Record<DecisionResult["tone"], string> = {
+    go: "bg-emerald-500",
+    warn: "bg-amber-500",
+    stop: "bg-rose-500",
+  };
+  const phaseLabel: Record<DecisionResult["phase"], string> = {
+    pre_investment: "Pre-investment",
+    active: "Active engagement",
+    post_close: "Post-close",
+  };
+
+  return (
+    <div
+      className={`mt-4 rounded-xl border p-4 ${toneClasses[decision.tone]}`}
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`inline-block h-2.5 w-2.5 rounded-full ${toneDot[decision.tone]}`}
+          aria-hidden
+        />
+        <span className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-70">
+          {phaseLabel[decision.phase]} decision
+        </span>
+      </div>
+      <p className="mt-1 text-lg font-bold">{decision.label}</p>
+      <ul className="mt-2 space-y-0.5 text-xs">
+        {decision.rationale.map((r, i) => (
+          <li key={i}>• {r}</li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -15,10 +15,11 @@ export default function PreviewScoringPage() {
   const { selectedId } = useSelectedPreviewClient();
   const { snapshot } = usePreviewSnapshot(selectedId);
 
-  const engagementId = snapshot?.engagement.id ?? demoEngagement.id;
+  const engagement = snapshot?.engagement ?? demoEngagement;
   const scores = snapshot?.scores ?? demoScores;
   const patternMatches = snapshot?.patternMatches ?? demoPatternMatches;
   const benchmarks = snapshot?.benchmarks ?? demoBenchmarkCases;
+  const analyses = snapshot?.analyses ?? [];
 
   return (
     <div className="space-y-4">
@@ -28,10 +29,13 @@ export default function PreviewScoringPage() {
         description="Interactive six-dimension scoring with benchmark pattern context. In preview mode, edits remain local."
       />
       <ScoringPanel
-        engagementId={engagementId}
+        engagementId={engagement.id}
         scores={scores}
         patternMatches={patternMatches}
         benchmarkCases={benchmarks}
+        dealStage={engagement.deal_stage}
+        status={engagement.status}
+        analyses={analyses}
         previewMode
       />
     </div>
