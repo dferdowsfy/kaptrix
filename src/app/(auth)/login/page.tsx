@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/env";
 
@@ -13,6 +14,12 @@ export default function LoginPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const supabaseConfigured = isSupabaseConfigured();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const mode = searchParams.get("mode");
+    setIsSignUp(mode === "signup");
+  }, [searchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -132,6 +139,14 @@ export default function LoginPage() {
           {isSignUp ? "Sign in" : "Sign up"}
         </button>
       </p>
+
+      {!isSignUp && (
+        <p className="text-center text-sm text-gray-600">
+          <Link href="/forgot-password" className="font-medium text-gray-900 hover:underline">
+            Forgot password?
+          </Link>
+        </p>
+      )}
 
       {message && (
         <p className="text-center text-sm text-gray-600">{message}</p>

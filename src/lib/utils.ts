@@ -13,22 +13,28 @@ export function formatCurrency(cents: number): string {
   }).format(cents);
 }
 
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "—";
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
-  }).format(new Date(dateStr));
+  }).format(d);
 }
 
-export function formatDateTime(dateStr: string): string {
+export function formatDateTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "—";
   return new Intl.DateTimeFormat("en-US", {
     year: "numeric",
     month: "short",
     day: "numeric",
     hour: "2-digit",
     minute: "2-digit",
-  }).format(new Date(dateStr));
+  }).format(d);
 }
 
 export function daysUntilDeadline(deadline: string): number {
