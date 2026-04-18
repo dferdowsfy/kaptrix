@@ -6,5 +6,6 @@ export const PREVIEW_TABS = [
   { id: "insights", label: "Insights", href: "/preview/insights" },
   { id: "analysis", label: "Pre-Analysis", href: "/preview/analysis" },
   { id: "scoring", label: "Scoring", href: "/preview/scoring" },
+  { id: "positioning", label: "Positioning", href: "/preview/positioning" },
   { id: "report", label: "Report", href: "/preview/report" },
 ] as const;
