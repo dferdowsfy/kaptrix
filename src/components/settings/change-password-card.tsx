@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 
 export function ChangePasswordCard() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -16,6 +15,10 @@ export function ChangePasswordCard() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!currentPassword.trim()) {
+      setStatus({ kind: "error", message: "Current password is required." });
+      return;
+    }
     if (newPassword.length < 8) {
       setStatus({ kind: "error", message: "New password must be at least 8 characters." });
       return;
@@ -24,31 +27,32 @@ export function ChangePasswordCard() {
       setStatus({ kind: "error", message: "New password and confirmation do not match." });
       return;
     }
+    if (newPassword === currentPassword) {
+      setStatus({ kind: "error", message: "New password must be different from current password." });
+      return;
+    }
 
     setStatus({ kind: "saving" });
-    const supabase = createClient();
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData.user?.email) {
-      setStatus({ kind: "error", message: "You must be signed in to change your password." });
-      return;
-    }
-
-    // Verify the current password by attempting a sign-in.
-    const { error: verifyErr } = await supabase.auth.signInWithPassword({
-      email: userData.user.email,
-      password: currentPassword,
+    const response = await fetch("/api/settings/password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      }),
     });
-    if (verifyErr) {
-      setStatus({ kind: "error", message: "Current password is incorrect." });
-      return;
-    }
 
-    const { error: updateErr } = await supabase.auth.updateUser({
-      password: newPassword,
-    });
-    if (updateErr) {
-      setStatus({ kind: "error", message: updateErr.message });
+    const payload = (await response.json().catch(() => null)) as
+      | { error?: string; ok?: boolean }
+      | null;
+
+    if (!response.ok) {
+      setStatus({
+        kind: "error",
+        message: payload?.error ?? "Unable to update password. Please try again.",
+      });
       return;
     }
 
