@@ -33,6 +33,7 @@ interface Positioning {
     name: string;
     type: "company" | "product" | "analog";
     rationale: string;
+    source_url?: string;
   }[];
   comparison: {
     dimension: string;
@@ -74,6 +75,7 @@ const CONFIDENCE_STYLES: Record<Confidence, string> = {
 export default function PositioningPage() {
   const { client, selectedId } = useSelectedPreviewClient();
   const [data, setData] = useState<Positioning | null>(null);
+  const [sources, setSources] = useState<{ url: string; title?: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -95,13 +97,16 @@ export default function PositioningPage() {
       });
       const json = (await res.json()) as {
         positioning?: Positioning;
+        sources?: { url: string; title?: string }[];
         error?: string;
       };
       if (!res.ok || !json.positioning) {
         setError(json.error ?? "Unable to generate positioning.");
         setData(null);
+        setSources([]);
       } else {
         setData(json.positioning);
+        setSources(json.sources ?? []);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Network error");
@@ -113,6 +118,7 @@ export default function PositioningPage() {
   // Auto-run when client changes
   useEffect(() => {
     setData(null);
+    setSources([]);
     setError(null);
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -199,7 +205,7 @@ export default function PositioningPage() {
           {/* Comparables */}
           <Card
             title="Selected comparables"
-            subtitle={`${data.comparables.length} peers chosen from the knowledge base`}
+            subtitle={`${data.comparables.length} peers identified via live web research`}
           >
             <div className="space-y-3">
               {data.comparables.map((c) => (
@@ -216,6 +222,16 @@ export default function PositioningPage() {
                     </span>
                   </div>
                   <p className="mt-1.5 text-xs text-slate-600">{c.rationale}</p>
+                  {c.source_url && (
+                    <a
+                      href={c.source_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1.5 inline-block truncate text-[11px] text-indigo-600 hover:underline"
+                    >
+                      {c.source_url}
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
@@ -279,6 +295,31 @@ export default function PositioningPage() {
               </ul>
             </div>
           </Card>
+
+          {sources.length > 0 && (
+            <Card
+              title="Web research sources"
+              subtitle={`${sources.length} pages consulted by the model`}
+            >
+              <ul className="space-y-1.5">
+                {sources.map((s) => (
+                  <li key={s.url} className="text-xs">
+                    <a
+                      href={s.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-indigo-600 hover:underline"
+                    >
+                      {s.title || s.url}
+                    </a>
+                    {s.title && (
+                      <span className="ml-2 text-slate-400">{s.url}</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
         </>
       )}
     </div>

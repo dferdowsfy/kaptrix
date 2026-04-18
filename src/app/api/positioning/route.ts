@@ -1,28 +1,40 @@
 import { NextResponse } from "next/server";
-import { getGroqClient, MODELS } from "@/lib/anthropic/client";
+import Groq from "groq-sdk";
+import { getGroqClient } from "@/lib/anthropic/client";
 import { isGroqConfigured } from "@/lib/env";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import { PREVIEW_CLIENTS } from "@/lib/preview-clients";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 interface Body {
   client_id: string;
   knowledge_base?: string;
 }
 
+// Use Groq's compound model — it has built-in web search and visit-website
+// tools, so the LLM can pull live competitor / market data instead of
+// inventing peers.
+const COMPOUND_MODEL = "groq/compound";
+
 const SYSTEM_PROMPT = `You are Kaptrix, an AI diligence analyst performing CONTEXTUAL BENCHMARKING.
 You do NOT assess companies in isolation. You assess them RELATIVE to contextually relevant peers.
 
-Follow this exact procedure:
-1. TARGET CONTEXT — classify the target (organization or product), industry, AI use case, business model, customer segment, data sensitivity, deployment maturity, vendor stack, regulatory exposure, architecture pattern.
-2. COMPARABLE SELECTION — pick 3 to 7 peers from the provided knowledge base of other engagements. Match on AI use case, business model, data sensitivity, deployment maturity, technical approach (wrapper vs deeply integrated), and regulatory constraints. If no exact match exists, choose closest analogs and explain the gap. Never pick generic companies.
-3. RELATIVE COMPARISON — for each dimension, classify the target as "ahead", "in_line", or "behind" peers, with evidence-based reasoning.
-4. POSITIONING SUMMARY — synthesize a specific, non-generic relative position (e.g. "Strong product, weak organizational maturity").
-5. INVESTMENT INTERPRETATION — translate positioning into decision-relevant implications: real differentiation? durable advantage? where is risk concentrated? what to validate?
-6. CONFIDENCE — rate data completeness as low / medium / high.
+You have access to live web search and website-visit tools. USE THEM to:
+- Identify real, currently-operating companies and products that are direct or analog peers of the target.
+- Pull recent (last 12-18 months) public information: funding rounds, customer logos, product launches, model/vendor stack, regulatory posture, security certifications, incidents.
+- Verify any claims you are uncertain about.
 
-Return ONLY valid JSON matching this exact schema (no prose, no markdown):
+Procedure:
+1. TARGET CONTEXT — classify target (organization or product), industry, AI use case, business model, customer segment, data sensitivity, deployment maturity, vendor stack, regulatory exposure, architecture pattern. Ground in evidence corpus AND fresh web research.
+2. COMPARABLE SELECTION — pick 3-7 REAL, NAMED competitors / analog products you have verified via web search. Match on AI use case, business model, data sensitivity, deployment maturity, technical approach, regulatory constraints. Cite a source URL for each comparable. Never invent companies. Never use generic placeholders.
+3. RELATIVE COMPARISON — for each dimension, classify target as "ahead" / "in_line" / "behind" peers, with concrete evidence (cite peer when relevant).
+4. POSITIONING SUMMARY — specific, non-generic relative position.
+5. INVESTMENT INTERPRETATION — differentiation real? durability? risk concentration? validation priorities?
+6. CONFIDENCE — low/medium/high based on data completeness and source quality.
+
+Return ONLY valid JSON matching this exact schema (no prose, no markdown, no code fences):
 {
   "target_context": {
     "type": "organization" | "product",
@@ -40,7 +52,8 @@ Return ONLY valid JSON matching this exact schema (no prose, no markdown):
     {
       "name": string,
       "type": "company" | "product" | "analog",
-      "rationale": string
+      "rationale": string,
+      "source_url": string
     }
   ],
   "comparison": [
@@ -99,7 +112,7 @@ function buildPeerKnowledgeBase(currentClientId: string): string {
   return peers
     .map(
       (p) =>
-        `PEER: ${p.target} | client: ${p.client} | industry: ${p.industry} | stage: ${p.deal_stage} | tier: ${p.tier} | composite: ${p.composite_score ?? "n/a"} | recommendation: ${p.recommendation} | summary: ${p.summary}`,
+        `INTERNAL ENGAGEMENT: ${p.target} | industry: ${p.industry} | summary: ${p.summary}`,
     )
     .join("\n");
 }
@@ -107,7 +120,52 @@ function buildPeerKnowledgeBase(currentClientId: string): string {
 function extractJson(text: string): unknown {
   const trimmed = text.trim();
   const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-  return JSON.parse(fenced ? fenced[1] : trimmed);
+  const candidate = fenced ? fenced[1] : trimmed;
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    const first = candidate.indexOf("{");
+    const last = candidate.lastIndexOf("}");
+    if (first >= 0 && last > first) {
+      return JSON.parse(candidate.slice(first, last + 1));
+    }
+    throw new Error("No JSON object found in model response");
+  }
+}
+
+interface ExecutedToolSearchResult {
+  url?: string;
+  title?: string;
+}
+
+interface ExecutedTool {
+  type?: string;
+  index?: number;
+  search_results?: { results?: ExecutedToolSearchResult[] };
+  arguments?: string;
+  output?: string;
+}
+
+function extractWebSources(
+  message: Groq.Chat.ChatCompletion.Choice["message"],
+): { url: string; title?: string }[] {
+  const tools = (message as unknown as { executed_tools?: ExecutedTool[] })
+    .executed_tools;
+  if (!Array.isArray(tools)) return [];
+  const seen = new Set<string>();
+  const sources: { url: string; title?: string }[] = [];
+  for (const t of tools) {
+    const results = t.search_results?.results;
+    if (Array.isArray(results)) {
+      for (const r of results) {
+        if (r.url && !seen.has(r.url)) {
+          seen.add(r.url);
+          sources.push({ url: r.url, title: r.title });
+        }
+      }
+    }
+  }
+  return sources.slice(0, 12);
 }
 
 export async function POST(req: Request) {
@@ -131,9 +189,13 @@ export async function POST(req: Request) {
   }
 
   let evidence = "";
+  let targetName = "";
+  let industry = "";
   try {
     const snapshot = await getPreviewSnapshot(clientId);
     evidence = buildEvidence(snapshot);
+    targetName = snapshot.engagement.target_company_name;
+    industry = PREVIEW_CLIENTS.find((c) => c.id === clientId)?.industry ?? "";
   } catch (err) {
     return NextResponse.json(
       {
@@ -146,42 +208,47 @@ export async function POST(req: Request) {
   const peerKb = buildPeerKnowledgeBase(clientId);
   const operatorKb = (body.knowledge_base ?? "").slice(0, 15_000);
 
-  const userPrompt = `EVIDENCE CORPUS FOR TARGET:
+  const userPrompt = `TARGET COMPANY: ${targetName}${industry ? ` (${industry})` : ""}
+
+INTERNAL EVIDENCE CORPUS (from diligence engagement):
 """
 ${evidence}
 """
 
-KNOWLEDGE BASE (PEER ENGAGEMENTS — use these as your candidate comparables):
+INTERNAL KNOWLEDGE BASE (other engagements — use as context, not as primary peers):
 """
 ${peerKb}
 """
 
-${operatorKb ? `OPERATOR-SUBMITTED KNOWLEDGE BASE:\n"""\n${operatorKb}\n"""\n\n` : ""}Produce the contextual benchmarking analysis as JSON now.`;
+${operatorKb ? `OPERATOR-SUBMITTED KNOWLEDGE BASE:\n"""\n${operatorKb}\n"""\n\n` : ""}TASK:
+Use web search to identify REAL competitors / analog products of "${targetName}". Verify each peer with at least one source URL. Then produce the contextual benchmarking JSON exactly per the schema. Begin web research now and return ONLY the JSON object — no commentary.`;
 
   try {
     const completion = await getGroqClient().chat.completions.create({
-      model: MODELS.PRE_ANALYSIS,
+      model: COMPOUND_MODEL,
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },
       ],
-      response_format: { type: "json_object" },
       temperature: 0.2,
-      max_tokens: 2500,
+      max_tokens: 4000,
     });
 
-    const text = (completion.choices[0]?.message?.content ?? "").trim();
+    const message = completion.choices[0]?.message;
+    const text = (message?.content ?? "").trim();
     let parsed: unknown;
     try {
       parsed = extractJson(text);
     } catch {
       return NextResponse.json(
-        { error: "Model returned invalid JSON", raw: text },
+        { error: "Model returned invalid JSON", raw: text.slice(0, 2000) },
         { status: 502 },
       );
     }
 
-    return NextResponse.json({ positioning: parsed });
+    const sources = message ? extractWebSources(message) : [];
+
+    return NextResponse.json({ positioning: parsed, sources });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
