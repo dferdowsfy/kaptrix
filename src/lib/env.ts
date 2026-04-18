@@ -22,12 +22,12 @@ export function isSupabaseConfigured(): boolean {
   return hasValidUrl && !isPlaceholder(url) && !isPlaceholder(anonKey);
 }
 
-export function isGoogleConfigured(): boolean {
-  const apiKey = getGoogleApiKey();
+export function isGroqConfigured(): boolean {
+  const apiKey = getGroqApiKey();
   if (!apiKey) return false;
   return !isPlaceholder(apiKey);
 }
 
-export function getGoogleApiKey(): string {
-  return getServerEnv("GOOGLE_API_KEY") || getServerEnv("GEMINI_API_KEY");
+export function getGroqApiKey(): string {
+  return getServerEnv("GROQ_API_KEY");
 }

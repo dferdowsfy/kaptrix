@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGenAI, MODELS } from "@/lib/anthropic/client";
-import { isGoogleConfigured } from "@/lib/env";
+import { getGroqClient, MODELS } from "@/lib/anthropic/client";
+import { isGroqConfigured } from "@/lib/env";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   SCORING_GUIDANCE_SYSTEM_PROMPT,
@@ -49,9 +49,9 @@ function isGuidance(value: unknown): value is ScoringGuidance {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isGoogleConfigured()) {
+  if (!isGroqConfigured()) {
     return NextResponse.json(
-      { error: "Scoring copilot is not configured (missing Google API key)." },
+      { error: "Scoring copilot is not configured (missing Groq API key)." },
       { status: 503 },
     );
   }
@@ -105,12 +105,13 @@ export async function POST(request: NextRequest) {
   const prompt = `${SCORING_GUIDANCE_SYSTEM_PROMPT}\n\n${userPrompt}`;
 
   try {
-    const model = getGenAI().getGenerativeModel({
+    const completion = await getGroqClient().chat.completions.create({
       model: MODELS.PRE_ANALYSIS,
-      generationConfig: { responseMimeType: "application/json" },
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.1,
     });
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
+    const text = (completion.choices[0]?.message?.content ?? "").trim();
 
     let parsed: unknown;
     try {
@@ -142,7 +143,7 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
-      { error: `Gemini request failed: ${message}` },
+      { error: `Groq request failed: ${message}` },
       { status: 502 },
     );
   }

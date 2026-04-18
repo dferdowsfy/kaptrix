@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type Status = { supabase: boolean; gemini: boolean } | null;
+type Status = { supabase: boolean; groq: boolean } | null;
 
 export function ConnectionStatus() {
   const [status, setStatus] = useState<Status>(null);
@@ -16,7 +16,7 @@ export function ConnectionStatus() {
           setStatus(await res.json());
         }
       } catch {
-        if (!cancelled) setStatus({ supabase: false, gemini: false });
+        if (!cancelled) setStatus({ supabase: false, groq: false });
       }
     })();
     return () => {
@@ -33,7 +33,7 @@ export function ConnectionStatus() {
     );
   }
 
-  const allGood = status.supabase && status.gemini;
+  const allGood = status.supabase && status.groq;
 
   return (
     <span

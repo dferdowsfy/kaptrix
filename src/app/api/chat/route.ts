@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getGenAI, MODELS } from "@/lib/anthropic/client";
-import { isGoogleConfigured } from "@/lib/env";
+import { getGroqClient, MODELS } from "@/lib/anthropic/client";
+import { isGroqConfigured } from "@/lib/env";
 import { getServiceClient } from "@/lib/supabase/service";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isGoogleConfigured()) {
+  if (!isGroqConfigured()) {
     await persistTurn({
       session_id: sessionId,
       client_id: clientId,
@@ -145,7 +145,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "Google API key is not configured. Set GOOGLE_API_KEY in .env.local or Vercel Project Settings to enable the chatbot.",
+          "Groq API key is not configured. Set GROQ_API_KEY in .env.local or Vercel Project Settings to enable the chatbot.",
       },
       { status: 503 },
     );
@@ -176,9 +176,13 @@ Answer:`;
   });
 
   try {
-    const model = getGenAI().getGenerativeModel({ model: MODELS.PRE_ANALYSIS });
-    const result = await model.generateContent(prompt);
-    const answer = result.response.text().trim();
+    const completion = await getGroqClient().chat.completions.create({
+      model: MODELS.PRE_ANALYSIS,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 1024,
+      temperature: 0.3,
+    });
+    const answer = (completion.choices[0]?.message?.content ?? "").trim();
 
     await persistTurn({
       session_id: sessionId,
@@ -199,7 +203,7 @@ Answer:`;
       metadata: { error: true },
     });
     return NextResponse.json(
-      { error: `Gemini request failed: ${message}` },
+      { error: `Groq request failed: ${message}` },
       { status: 502 },
     );
   }

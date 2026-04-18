@@ -228,8 +228,8 @@ export function FloatingKnowledgeChatbot() {
         const local = answerFromCorpus(question, corpus);
         answerText =
           (data.error
-            ? `Gemini unavailable (${data.error}). Showing local evidence match:\n\n`
-            : "Gemini unavailable. Showing local evidence match:\n\n") +
+            ? `AI unavailable (${data.error}). Showing local evidence match:\n\n`
+            : "AI unavailable. Showing local evidence match:\n\n") +
           local.answer;
         citations = local.citations;
       }
@@ -299,13 +299,25 @@ export function FloatingKnowledgeChatbot() {
                 className={m.role === "user" ? "text-right" : "text-left"}
               >
                 <div
-                  className={`inline-block max-w-[90%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm ${
+                  className={`inline-block max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
                     m.role === "user"
                       ? "bg-slate-900 text-white"
                       : "border border-slate-200 bg-slate-50 text-slate-800"
                   }`}
                 >
-                  {m.text.replace(/\*\*/g, '')}
+                  {m.text
+                    .replace(/\*\*([^*]+)\*\*/g, '$1')
+                    .replace(/\*([^*]+)\*/g, '$1')
+                    .replace(/^#+\s*/gm, '')
+                    .replace(/`([^`]+)`/g, '$1')
+                    .trim()
+                    .split('\n')
+                    .map((line, i) => (
+                      <span key={i}>
+                        {line}
+                        {i < m.text.trim().split('\n').length - 1 && <br />}
+                      </span>
+                    ))}
                 </div>
                 {m.citations && m.citations.length > 0 && (
                   <p className="mt-1 text-[11px] text-slate-500">

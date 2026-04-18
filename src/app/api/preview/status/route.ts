@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/service";
-import { isGoogleConfigured } from "@/lib/env";
+import { isGroqConfigured } from "@/lib/env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,11 +20,11 @@ export async function GET() {
     // supabaseOk stays false
   }
 
-  // Check Gemini key presence
-  const geminiOk = isGoogleConfigured();
+  // Check Groq key presence
+  const groqOk = isGroqConfigured();
 
   return NextResponse.json({
     supabase: supabaseOk,
-    gemini: geminiOk,
+    groq: groqOk,
   });
 }
