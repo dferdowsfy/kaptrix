@@ -19,6 +19,7 @@ import type {
   PatternMatch,
   PreAnalysis,
   Score,
+  ScoreBand,
   ScoreDimension,
 } from "@/lib/types";
 
@@ -320,6 +321,7 @@ export function ScoringPanel({
                     subKey={sub.key}
                     name={sub.name}
                     description={sub.description}
+                    scoreBands={sub.score_bands}
                     initialScore={existing?.score_0_to_5 ?? 0}
                     initialRationale={existing?.operator_rationale ?? ""}
                     onSave={saveScore}
@@ -335,11 +337,18 @@ export function ScoringPanel({
   );
 }
 
+function getActiveBand(bands: ScoreBand[] | undefined, score: number): ScoreBand | undefined {
+  if (!bands || bands.length === 0) return undefined;
+  if (score === 0) return bands[0];
+  return bands.find((b) => score <= b.max) ?? bands[bands.length - 1];
+}
+
 function SubCriterionInput({
   dimension,
   subKey,
   name,
   description,
+  scoreBands,
   initialScore,
   initialRationale,
   onSave,
@@ -349,6 +358,7 @@ function SubCriterionInput({
   subKey: string;
   name: string;
   description: string;
+  scoreBands?: ScoreBand[];
   initialScore: number;
   initialRationale: string;
   onSave: (
@@ -365,6 +375,18 @@ function SubCriterionInput({
 }) {
   const [score, setScore] = useState(initialScore);
   const [rationale, setRationale] = useState(initialRationale);
+  const activeBand = getActiveBand(scoreBands, score);
+
+  const bandColor =
+    score <= 1
+      ? "text-rose-700 bg-rose-50 border-rose-200"
+      : score <= 2
+      ? "text-amber-700 bg-amber-50 border-amber-200"
+      : score <= 3
+      ? "text-yellow-700 bg-yellow-50 border-yellow-200"
+      : score <= 4
+      ? "text-emerald-700 bg-emerald-50 border-emerald-200"
+      : "text-indigo-700 bg-indigo-50 border-indigo-200";
 
   return (
     <div className="space-y-2">
@@ -382,14 +404,9 @@ function SubCriterionInput({
           onChange={(e) => {
             const next = parseFloat(e.target.value);
             setScore(next);
-            // Update parent composite immediately so the score and
-            // dimension bars react as the operator drags — this is a
-            // local-only update (no API call) to keep dragging snappy.
             onScoreChange(dimension, subKey, next);
           }}
           onMouseUp={() => {
-            // Persist once drag ends. In preview mode this updates the
-            // in-memory score; in non-preview it also PUTs to the API.
             onSave(dimension, subKey, score, rationale);
           }}
           onKeyUp={() => {
@@ -404,6 +421,16 @@ function SubCriterionInput({
           {score.toFixed(1)}
         </span>
       </div>
+      {activeBand && (
+        <div
+          className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs transition-all ${bandColor}`}
+        >
+          <span className="shrink-0 font-bold">{activeBand.label}</span>
+          <span className="text-[11px] leading-snug opacity-90">
+            {activeBand.description}
+          </span>
+        </div>
+      )}
       <textarea
         value={rationale}
         onChange={(e) => setRationale(e.target.value)}

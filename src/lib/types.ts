@@ -291,8 +291,15 @@ export interface DimensionConfig {
   sub_criteria: SubCriterion[];
 }
 
+export interface ScoreBand {
+  max: number;
+  label: string;
+  description: string;
+}
+
 export interface SubCriterion {
   key: string;
   name: string;
   description: string;
+  score_bands?: ScoreBand[];
 }
