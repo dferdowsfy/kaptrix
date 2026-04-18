@@ -465,7 +465,7 @@ export function FloatingKnowledgeChatbot() {
               </button>
             </form>
             <p className="mt-2 text-center text-xs text-slate-500">
-              Responses grounded in diligence evidence · Powered by Groq
+              Responses grounded in diligence evidence.
             </p>
           </div>
         </div>
