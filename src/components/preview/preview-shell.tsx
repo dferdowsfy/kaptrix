@@ -8,6 +8,7 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { ConnectionStatus } from "@/components/preview/connection-status";
 import { ProfileMenu } from "@/components/preview/profile-menu";
 import { NavSettingsMenu } from "@/components/preview/nav-settings-menu";
+import { KbActivityIndicator } from "@/components/preview/kb-activity-indicator";
 
 export function PreviewShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -51,6 +52,7 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <KbActivityIndicator />
               <HeaderChip label="Tier" value={client.tier} tone="neutral" />
               <HeaderChip
                 label="Fee"

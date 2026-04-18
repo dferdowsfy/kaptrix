@@ -13,7 +13,6 @@ import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 import {
   appendChatTurnToKnowledgeBase,
   formatKnowledgeBaseEvidence,
-  KNOWLEDGE_STEP_LABELS,
   readClientKb,
   subscribeKnowledgeBase,
   type KnowledgeEntry,
@@ -347,7 +346,6 @@ export function FloatingKnowledgeChatbot() {
               </svg>
             </button>
             </div>
-            <KbSyncedRow kb={kb} />
           </div>
 
           {/* Messages */}
@@ -485,41 +483,6 @@ export function FloatingKnowledgeChatbot() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function KbSyncedRow({
-  kb,
-}: {
-  kb: Partial<Record<KnowledgeStep, KnowledgeEntry>>;
-}) {
-  const order: KnowledgeStep[] = [
-    "intake",
-    "coverage",
-    "insights",
-    "pre_analysis",
-    "scoring",
-    "positioning",
-    "chat",
-  ];
-  const synced = order.filter((step) => Boolean(kb[step]));
-  if (synced.length === 0) return null;
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-1.5">
-      <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-slate-500">
-        Knowledge
-      </span>
-      {synced.map((step) => (
-        <span
-          key={step}
-          title={kb[step]?.summary}
-          className="rounded-full border border-slate-700/70 bg-slate-800/60 px-2 py-0.5 text-[10px] font-medium text-slate-300"
-        >
-          {KNOWLEDGE_STEP_LABELS[step]}
-        </span>
-      ))}
     </div>
   );
 }
