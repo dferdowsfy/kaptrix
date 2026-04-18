@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   calculateCompositeScore,
@@ -63,6 +63,7 @@ export function ScoringPanel({
     "product_credibility",
   );
   const [saving, setSaving] = useState(false);
+  const onScoresChangeRef = useRef(onScoresChange);
 
   const composite = calculateCompositeScore(scores);
   const contextAdjustment = aggregateContextAdjustment(contextSignals);
@@ -84,13 +85,29 @@ export function ScoringPanel({
 
   useEffect(() => {
     if (!onScoresChange) return;
-    onScoresChange({
+    onScoresChangeRef.current = onScoresChange;
+  }, [onScoresChange]);
+
+  const lastSyncSignatureRef = useRef<string>("");
+  const decisionLabel = decision?.label ?? null;
+  useEffect(() => {
+    const cb = onScoresChangeRef.current;
+    if (!cb) return;
+    const signature = JSON.stringify({
+      s: scores.map((sc) => [sc.dimension, sc.sub_criterion, sc.score_0_to_5]),
+      c: composite.composite_score,
+      a: adjustedComposite,
+      d: decisionLabel,
+    });
+    if (signature === lastSyncSignatureRef.current) return;
+    lastSyncSignatureRef.current = signature;
+    cb({
       scores,
       composite_score: composite.composite_score,
       context_aware_composite: adjustedComposite,
-      decision_band: decision?.label ?? null,
+      decision_band: decisionLabel,
     });
-  }, [scores, composite.composite_score, adjustedComposite, decision, onScoresChange]);
+  }, [scores, composite.composite_score, adjustedComposite, decisionLabel]);
 
   // Optimistically update local score state so the composite score and
   // dimension bars react as the operator drags the slider. The persisted
