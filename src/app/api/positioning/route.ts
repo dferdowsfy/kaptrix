@@ -79,32 +79,28 @@ function buildEvidence(
 ): string {
   const parts: string[] = [];
   parts.push(
-    `TARGET: ${snapshot.engagement.target_company_name} | client: ${snapshot.engagement.client_firm_name} | stage: ${snapshot.engagement.deal_stage} | tier: ${snapshot.engagement.tier} | status: ${snapshot.engagement.status}`,
+    `TARGET: ${snapshot.engagement.target_company_name} | client: ${snapshot.engagement.client_firm_name} | stage: ${snapshot.engagement.deal_stage} | tier: ${snapshot.engagement.tier}`,
   );
-  snapshot.knowledgeInsights.slice(0, 30).forEach((k) => {
-    parts.push(`[insight · ${k.source_document}] ${k.insight}`);
+  snapshot.knowledgeInsights.slice(0, 8).forEach((k) => {
+    parts.push(`[insight] ${k.insight.slice(0, 220)}`);
   });
-  snapshot.analyses.forEach((a) => {
-    a.extracted_claims.slice(0, 8).forEach((c) =>
-      parts.push(`[claim · ${c.source_doc}] ${c.claim}`),
-    );
-    a.red_flags.forEach((f) =>
-      parts.push(`[red flag · ${f.dimension}] ${f.flag} — ${f.evidence}`),
+  snapshot.analyses.slice(0, 3).forEach((a) => {
+    a.red_flags.slice(0, 3).forEach((f) =>
+      parts.push(`[red flag · ${f.dimension}] ${f.flag.slice(0, 180)}`),
     );
   });
-  parts.push(`[summary] ${snapshot.executiveReport.executive_summary}`);
-  parts.push(`[strategic context] ${snapshot.executiveReport.strategic_context}`);
-  snapshot.executiveReport.critical_findings.forEach((f) =>
+  parts.push(
+    `[summary] ${snapshot.executiveReport.executive_summary.slice(0, 600)}`,
+  );
+  snapshot.executiveReport.critical_findings.slice(0, 4).forEach((f) =>
+    parts.push(`[finding · ${f.severity}] ${f.title}: ${f.what_we_found.slice(0, 180)}`),
+  );
+  snapshot.scores.slice(0, 12).forEach((s) =>
     parts.push(
-      `[finding · ${f.severity}] ${f.title}. ${f.what_we_found}. ${f.why_it_matters}`,
+      `[score · ${s.dimension}/${s.sub_criterion}] ${s.score_0_to_5.toFixed(1)}`,
     ),
   );
-  snapshot.scores.forEach((s) =>
-    parts.push(
-      `[score · ${s.dimension}/${s.sub_criterion}] ${s.score_0_to_5.toFixed(1)} — ${s.operator_rationale}`,
-    ),
-  );
-  return parts.join("\n").slice(0, 50_000);
+  return parts.join("\n").slice(0, 6000);
 }
 
 function buildPeerKnowledgeBase(currentClientId: string): string {
@@ -205,8 +201,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const peerKb = buildPeerKnowledgeBase(clientId);
-  const operatorKb = (body.knowledge_base ?? "").slice(0, 15_000);
+  const peerKb = buildPeerKnowledgeBase(clientId).slice(0, 1500);
+  const operatorKb = (body.knowledge_base ?? "").slice(0, 2000);
 
   const userPrompt = `TARGET COMPANY: ${targetName}${industry ? ` (${industry})` : ""}
 
@@ -231,7 +227,7 @@ Use web search to identify REAL competitors / analog products of "${targetName}"
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
-      max_tokens: 4000,
+      max_tokens: 2500,
     });
 
     const message = completion.choices[0]?.message;
