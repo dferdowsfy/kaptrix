@@ -26,6 +26,7 @@ export type KnowledgeStep =
   | "insights"
   | "pre_analysis"
   | "positioning"
+  | "scoring"
   | "chat";
 
 export const KNOWLEDGE_STEP_LABELS: Record<KnowledgeStep, string> = {
@@ -34,6 +35,7 @@ export const KNOWLEDGE_STEP_LABELS: Record<KnowledgeStep, string> = {
   insights: "Insights",
   pre_analysis: "Pre-analysis",
   positioning: "Positioning",
+  scoring: "Scoring",
   chat: "Chat",
 };
 
@@ -54,6 +56,7 @@ export type KnowledgePayload =
   | InsightsPayload
   | PreAnalysisPayload
   | PositioningPayload
+  | ScoringPayload
   | ChatPayload;
 
 export interface IntakePayload {
@@ -95,6 +98,19 @@ export interface PositioningPayload {
   confidence_rationale: string;
   validation_priorities: string[];
   sources: { url: string; title?: string }[];
+}
+
+export interface ScoringPayload {
+  kind: "scoring";
+  composite_score: number | null;
+  context_aware_composite: number | null;
+  decision_band: string | null;
+  scores: {
+    dimension: string;
+    sub_criterion: string;
+    score_0_to_5: number;
+    operator_rationale: string;
+  }[];
 }
 
 export interface ChatPayload {
@@ -261,6 +277,45 @@ export function submitPositioningToKnowledgeBase(args: {
   });
 }
 
+export function submitScoringToKnowledgeBase(args: {
+  clientId: string;
+  scores: {
+    dimension: string;
+    sub_criterion: string;
+    score_0_to_5: number;
+    operator_rationale?: string | null;
+  }[];
+  composite_score?: number | null;
+  context_aware_composite?: number | null;
+  decision_band?: string | null;
+}): void {
+  const compactScores = args.scores
+    .map((s) => ({
+      dimension: s.dimension,
+      sub_criterion: s.sub_criterion,
+      score_0_to_5: Number(s.score_0_to_5),
+      operator_rationale: compactText(s.operator_rationale ?? "", 240),
+    }))
+    .slice(0, 60);
+
+  const payload: ScoringPayload = {
+    kind: "scoring",
+    composite_score: args.composite_score ?? null,
+    context_aware_composite: args.context_aware_composite ?? null,
+    decision_band: args.decision_band ?? null,
+    scores: compactScores,
+  };
+
+  const summary = `Composite ${args.composite_score?.toFixed(1) ?? "—"} (context ${args.context_aware_composite?.toFixed(1) ?? "—"}); ${compactScores.length} sub-criteria scored.`;
+
+  submitToKnowledgeBase(args.clientId, {
+    step: "scoring",
+    submitted_at: new Date().toISOString(),
+    summary,
+    payload,
+  });
+}
+
 export function clearClientKb(clientId: string): void {
   const kb = readRaw();
   if (!kb[clientId]) return;
@@ -372,6 +427,15 @@ export function formatKnowledgeBaseEvidence(
           );
         }
       });
+    } else if (p.kind === "scoring") {
+      lines.push(
+        `[knowledge base · Scoring] composite=${p.composite_score?.toFixed(1) ?? "—"}, context_aware=${p.context_aware_composite?.toFixed(1) ?? "—"}${p.decision_band ? `, decision=${p.decision_band}` : ""}`,
+      );
+      p.scores.slice(0, 24).forEach((s) =>
+        lines.push(
+          `[knowledge base · Scoring · ${s.dimension}/${s.sub_criterion}] ${s.score_0_to_5.toFixed(1)}${s.operator_rationale ? ` — ${s.operator_rationale}` : ""}`,
+        ),
+      );
     }
   });
   return lines;

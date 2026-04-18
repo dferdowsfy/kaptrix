@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   calculateCompositeScore,
@@ -36,6 +36,13 @@ interface Props {
   priorComposite?: number | null;
   /** Context signals derived from the knowledge base (intake, coverage, insights, pre-analysis). */
   contextSignals?: ContextSignal[];
+  /** Optional callback invoked whenever local scoring state changes (for KB auto-sync). */
+  onScoresChange?: (snapshot: {
+    scores: Score[];
+    composite_score: number;
+    context_aware_composite: number;
+    decision_band: string | null;
+  }) => void;
 }
 
 export function ScoringPanel({
@@ -49,6 +56,7 @@ export function ScoringPanel({
   analyses = [],
   priorComposite = null,
   contextSignals = [],
+  onScoresChange,
 }: Props) {
   const [scores, setScores] = useState<Score[]>(initialScores);
   const [expandedDimension, setExpandedDimension] = useState<ScoreDimension | null>(
@@ -73,6 +81,16 @@ export function ScoringPanel({
     priorComposite,
     contextAdjustment,
   });
+
+  useEffect(() => {
+    if (!onScoresChange) return;
+    onScoresChange({
+      scores,
+      composite_score: composite.composite_score,
+      context_aware_composite: adjustedComposite,
+      decision_band: decision?.label ?? null,
+    });
+  }, [scores, composite.composite_score, adjustedComposite, decision, onScoresChange]);
 
   // Optimistically update local score state so the composite score and
   // dimension bars react as the operator drags the slider. The persisted

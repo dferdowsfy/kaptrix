@@ -13,6 +13,7 @@ import {
   readClientKb,
   subscribeKnowledgeBase,
   KNOWLEDGE_STEP_LABELS,
+  submitScoringToKnowledgeBase,
   type KnowledgeEntry,
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
@@ -90,6 +91,16 @@ export default function PreviewScoringPage() {
         analyses={analyses}
         contextSignals={contextSignals}
         previewMode
+        onScoresChange={(snap) => {
+          if (!selectedId) return;
+          submitScoringToKnowledgeBase({
+            clientId: selectedId,
+            scores: snap.scores,
+            composite_score: snap.composite_score,
+            context_aware_composite: snap.context_aware_composite,
+            decision_band: snap.decision_band,
+          });
+        }}
       />
     </div>
   );
