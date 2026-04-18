@@ -64,6 +64,7 @@ export function FloatingKnowledgeChatbot() {
   const idCounter = useRef(1);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const sessionId = useMemo(getSessionId, []);
 
   const kb = useSyncExternalStore(
@@ -253,13 +254,36 @@ export function FloatingKnowledgeChatbot() {
     setPending(false);
   };
 
+  const cleanText = (text: string): string =>
+    text
+      .replace(/\*\*([^*]+)\*\*/g, "$1")
+      .replace(/\*([^*]+)\*/g, "$1")
+      .replace(/^#+\s*/gm, "")
+      .replace(/`([^`]+)`/g, "$1")
+      .trim();
+
+  const copyToClipboard = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(cleanText(text));
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      // ignore
+    }
+  };
+
   return (
     <div className="print-hide fixed bottom-4 right-4 z-50 sm:bottom-5 sm:right-5">
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="rounded-full border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 shadow-lg transition hover:shadow-xl"
+          className="group flex items-center gap-2 rounded-full bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_8px_24px_rgba(99,102,241,0.45)] transition-all hover:scale-105 hover:shadow-[0_12px_32px_rgba(139,92,246,0.55)]"
+          aria-label="Open Kaptrix AI chat"
         >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+          </span>
           Ask Kaptrix AI
         </button>
       )}
@@ -267,76 +291,121 @@ export function FloatingKnowledgeChatbot() {
       {isOpen && (
         <div
           className="
-            fixed inset-x-3 bottom-3 top-16 z-50 flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl
-            sm:static sm:inset-auto sm:h-auto sm:w-[380px]
+            fixed inset-x-3 bottom-3 top-16 z-50 flex flex-col overflow-hidden rounded-2xl border border-slate-700/60 bg-slate-900 shadow-2xl ring-1 ring-black/40
+            sm:static sm:inset-auto sm:h-[560px] sm:w-[400px]
           "
         >
-          <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50 px-4 py-3">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-indigo-600">
-                Knowledge Assistant
-              </p>
-              <p className="truncate text-xs text-slate-500">
-                Grounded in {client.target} diligence evidence
-              </p>
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-700/60 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-sm font-bold text-white shadow-lg">
+                K
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-white">
+                  Kaptrix AI
+                </p>
+                <p className="flex items-center gap-1.5 truncate text-[11px] text-slate-400">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]" />
+                  Grounded in {client.target}
+                </p>
+              </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="ml-2 rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+              className="ml-2 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-700/60 hover:text-white"
               aria-label="Close chatbot"
             >
-              ✕
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
             </button>
           </div>
 
+          {/* Messages */}
           <div
             ref={scrollRef}
-            className="flex-1 space-y-3 overflow-y-auto p-3 sm:max-h-[420px]"
+            className="flex-1 space-y-4 overflow-y-auto bg-slate-900 px-4 py-4 [scrollbar-color:theme(colors.slate.700)_transparent] [scrollbar-width:thin]"
           >
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={m.role === "user" ? "text-right" : "text-left"}
-              >
+            {messages.map((m) => {
+              const isUser = m.role === "user";
+              const isThinking = !isUser && m.text === "Thinking…";
+              return (
                 <div
-                  className={`inline-block max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
-                    m.role === "user"
-                      ? "bg-slate-900 text-white"
-                      : "border border-slate-200 bg-slate-50 text-slate-800"
-                  }`}
+                  key={m.id}
+                  className={`flex gap-2.5 ${isUser ? "justify-end" : "justify-start"}`}
                 >
-                  {m.text
-                    .replace(/\*\*([^*]+)\*\*/g, '$1')
-                    .replace(/\*([^*]+)\*/g, '$1')
-                    .replace(/^#+\s*/gm, '')
-                    .replace(/`([^`]+)`/g, '$1')
-                    .trim()
-                    .split('\n')
-                    .map((line, i) => (
-                      <span key={i}>
-                        {line}
-                        {i < m.text.trim().split('\n').length - 1 && <br />}
-                      </span>
-                    ))}
+                  {!isUser && (
+                    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 via-violet-500 to-fuchsia-500 text-[11px] font-bold text-white shadow">
+                      K
+                    </div>
+                  )}
+                  <div className={`flex max-w-[80%] flex-col ${isUser ? "items-end" : "items-start"}`}>
+                    <div
+                      className={`group relative rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ${
+                        isUser
+                          ? "bg-gradient-to-br from-indigo-600 to-violet-600 text-white"
+                          : "border border-slate-700/60 bg-slate-800 text-slate-100"
+                      }`}
+                    >
+                      {isThinking ? (
+                        <span className="flex items-center gap-1 py-0.5">
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.3s]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
+                          <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
+                        </span>
+                      ) : (
+                        cleanText(m.text)
+                          .split("\n")
+                          .map((line, i, arr) => (
+                            <span key={i}>
+                              {line}
+                              {i < arr.length - 1 && <br />}
+                            </span>
+                          ))
+                      )}
+                      {!isUser && !isThinking && (
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(m.text, m.id)}
+                          className="absolute -right-2 -top-2 hidden h-6 w-6 items-center justify-center rounded-md border border-slate-600 bg-slate-900 text-slate-300 opacity-0 shadow transition hover:bg-slate-700 hover:text-white group-hover:flex group-hover:opacity-100"
+                          aria-label="Copy message"
+                        >
+                          {copiedId === m.id ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                            </svg>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    {m.citations && m.citations.length > 0 && (
+                      <p className="mt-1.5 px-1 text-[10px] text-slate-500">
+                        Sources: {m.citations.join(" · ")}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                {m.citations && m.citations.length > 0 && (
-                  <p className="mt-1 text-[11px] text-slate-500">
-                    Sources: {m.citations.join(" · ")}
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          <div className="border-t border-slate-100 p-3">
-            <div className="mb-2 flex flex-wrap gap-1">
+          {/* Input */}
+          <div className="border-t border-slate-700/60 bg-slate-900/80 p-3 backdrop-blur">
+            <div className="mb-2 flex flex-wrap gap-1.5">
               {STARTER_PROMPTS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   disabled={pending}
                   onClick={() => ask(s)}
-                  className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600 hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="rounded-full border border-slate-700 bg-slate-800/70 px-2.5 py-1 text-[11px] text-slate-300 transition hover:border-indigo-400 hover:bg-slate-800 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {s}
                 </button>
@@ -347,27 +416,41 @@ export function FloatingKnowledgeChatbot() {
                 e.preventDefault();
                 if (!pending) ask(query);
               }}
-              className="flex gap-2"
+              className="flex items-end gap-2 rounded-xl border border-slate-700 bg-slate-800 px-2.5 py-2 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/30"
             >
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={
                   pending
-                    ? "Waiting for response…"
-                    : "Ask anything about the client or evidence…"
+                    ? "Thinking…"
+                    : "Message Kaptrix AI…"
                 }
                 disabled={pending}
-                className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base text-slate-900 focus:border-slate-900 focus:outline-none disabled:bg-slate-50 sm:text-sm"
+                className="flex-1 bg-transparent px-1 py-1 text-sm text-white placeholder:text-slate-500 focus:outline-none disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
-                disabled={pending}
-                className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={pending || !query.trim()}
+                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 text-white shadow transition hover:from-indigo-400 hover:to-violet-500 disabled:cursor-not-allowed disabled:from-slate-600 disabled:to-slate-600 disabled:opacity-50"
+                aria-label="Send message"
               >
-                {pending ? "…" : "Send"}
+                {pending ? (
+                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25" />
+                    <path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                )}
               </button>
             </form>
+            <p className="mt-1.5 text-center text-[10px] text-slate-500">
+              Responses grounded in diligence evidence · Powered by Groq
+            </p>
           </div>
         </div>
       )}
