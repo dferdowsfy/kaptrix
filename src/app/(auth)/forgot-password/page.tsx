@@ -26,10 +26,14 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     const supabase = createClient();
 
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
+      window.location.origin;
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(
       email,
       {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: `${siteUrl}/reset-password`,
       },
     );
 

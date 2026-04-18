@@ -14,6 +14,38 @@ type Props = {
   steps: Step[];
 };
 
+// Inject CSS into a same-origin iframe that blocks navigation/clicks on
+// links, buttons and inputs — but keeps the document scrollable.
+function lockIframeNavigation(iframe: HTMLIFrameElement | null) {
+  if (!iframe) return;
+  try {
+    const doc = iframe.contentDocument;
+    if (!doc) return;
+    const existing = doc.getElementById("kx-demo-lock");
+    if (existing) return;
+    const style = doc.createElement("style");
+    style.id = "kx-demo-lock";
+    style.textContent = `
+      a, button, [role="button"], input, select, textarea, label {
+        pointer-events: none !important;
+      }
+      html, body { overflow: auto !important; }
+    `;
+    doc.head.appendChild(style);
+    // Also block form submissions defensively
+    doc.addEventListener(
+      "submit",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      true,
+    );
+  } catch {
+    // Cross-origin — nothing we can do; fall back to no-op
+  }
+}
+
 export function PlatformShowcase({ steps }: Props) {
   const [active, setActive] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
@@ -206,7 +238,8 @@ export function PlatformShowcase({ steps }: Props) {
               key={current.href}
               title={current.title}
               src={current.href}
-              className="showcase-fade pointer-events-none absolute inset-0 h-full w-full border-0"
+              onLoad={(e) => lockIframeNavigation(e.currentTarget)}
+              className="showcase-fade absolute inset-0 h-full w-full border-0"
               loading="lazy"
               scrolling="yes"
               tabIndex={-1}
@@ -259,7 +292,8 @@ export function PlatformShowcase({ steps }: Props) {
                 key={`fs-${current.href}`}
                 title={current.title}
                 src={current.href}
-                className="showcase-fade pointer-events-none absolute inset-0 h-full w-full border-0"
+                onLoad={(e) => lockIframeNavigation(e.currentTarget)}
+                className="showcase-fade absolute inset-0 h-full w-full border-0"
                 loading="lazy"
                 scrolling="yes"
                 tabIndex={-1}
