@@ -38,12 +38,8 @@ function Hero() {
           Defensible AI diligence scores, explained.
         </h1>
         <p className="mt-6 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-          Kaptrix gives private equity and operating leaders a single,
-          auditable score for an AI-heavy company — plus the evidence
-          behind it. This page explains the shape of our scoring system
-          so you can trust the output. It intentionally does not reveal
-          the proprietary weighting and calibration logic that make the
-          score defensible.
+          Kaptrix provides a structured, evidence-based method for assessing AI solutions so leaders can make informed investment and operating decisions with greater confidence.
+        Our scoring framework is designed to cut through demos, claims, and surface-level narratives by translating technical, operational, and governance signals into a single auditable assessment. It shows how an AI solution should be evaluated, what evidence matters, and where real strengths or hidden risks exist. The underlying weighting and calibration logic remain proprietary to preserve the integrity and defensibility of the final score.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Link

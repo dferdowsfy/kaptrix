@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Document } from "@/lib/types";
 import {
   INDUSTRY_OPTIONS,
@@ -41,6 +41,11 @@ export function IndustryCoverageMatrix({
   const [industry, setIndustry] = useState<Industry>(defaultIndustry);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const onStateChangeRef = useRef(onStateChange);
+  useEffect(() => {
+    onStateChangeRef.current = onStateChange;
+  }, [onStateChange]);
+
   const profile = INDUSTRY_PROFILES[industry];
 
   const rows = useMemo(
@@ -76,9 +81,9 @@ export function IndustryCoverageMatrix({
   );
 
   useEffect(() => {
-    if (!onStateChange) return;
-    onStateChange(stateSnapshot);
-  }, [stateSnapshot, onStateChange]);
+    if (!onStateChangeRef.current) return;
+    onStateChangeRef.current(stateSnapshot);
+  }, [stateSnapshot]);
 
   return (
     <div className="space-y-5">

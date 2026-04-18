@@ -86,28 +86,57 @@ export type KnowledgeBase = Record<string, Partial<Record<KnowledgeStep, Knowled
 // Storage helpers
 // ------------------------------------------------------------------
 
+// Cache the parsed KB keyed off the raw localStorage string so that
+// `useSyncExternalStore` gets a stable snapshot reference between
+// renders. Without this, every render returns a freshly parsed object
+// and React enters an infinite update loop (error #185).
+let cachedRaw: string | null | undefined;
+let cachedKb: KnowledgeBase = {};
+const emptyClientEntry: Readonly<Partial<Record<KnowledgeStep, KnowledgeEntry>>> =
+  Object.freeze({});
+const clientEntryCache = new Map<
+  string,
+  Partial<Record<KnowledgeStep, KnowledgeEntry>>
+>();
+
 function readRaw(): KnowledgeBase {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(PREVIEW_KB_STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as KnowledgeBase) : {};
+    if (raw === cachedRaw) return cachedKb;
+    cachedRaw = raw;
+    cachedKb = raw ? (JSON.parse(raw) as KnowledgeBase) : {};
+    clientEntryCache.clear();
+    return cachedKb;
   } catch {
-    return {};
+    cachedRaw = null;
+    cachedKb = {};
+    clientEntryCache.clear();
+    return cachedKb;
   }
 }
 
 function writeRaw(kb: KnowledgeBase): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(PREVIEW_KB_STORAGE_KEY, JSON.stringify(kb));
+  const serialized = JSON.stringify(kb);
+  window.localStorage.setItem(PREVIEW_KB_STORAGE_KEY, serialized);
+  cachedRaw = serialized;
+  cachedKb = kb;
+  clientEntryCache.clear();
   window.dispatchEvent(new Event(STORAGE_EVENT));
 }
 
 export function readClientKb(
   clientId: string | null | undefined,
 ): Partial<Record<KnowledgeStep, KnowledgeEntry>> {
-  if (!clientId) return {};
+  if (!clientId) return emptyClientEntry;
   const kb = readRaw();
-  return kb[clientId] ?? {};
+  const entry = kb[clientId];
+  if (!entry) return emptyClientEntry;
+  const cached = clientEntryCache.get(clientId);
+  if (cached === entry) return cached;
+  clientEntryCache.set(clientId, entry);
+  return entry;
 }
 
 export function submitToKnowledgeBase(

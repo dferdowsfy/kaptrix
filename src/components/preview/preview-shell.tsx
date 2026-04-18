@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PREVIEW_TABS } from "@/lib/preview-tabs";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
+import { useNavVisibility } from "@/hooks/use-nav-visibility";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ConnectionStatus } from "@/components/preview/connection-status";
+import { ProfileMenu } from "@/components/preview/profile-menu";
+import { NavSettingsMenu } from "@/components/preview/nav-settings-menu";
 
 export function PreviewShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { client, ready } = useSelectedPreviewClient();
+  const { visibleTabs } = useNavVisibility();
   const isHome = pathname === "/preview";
 
   return (
@@ -25,13 +28,8 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="inline-flex items-center gap-3 self-start sm:self-auto">
-            <Link
-              href="/how-it-works"
-              className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700 hover:text-indigo-900"
-            >
-              How it works
-            </Link>
             <ConnectionStatus />
+            <ProfileMenu />
           </div>
         </div>
       </div>
@@ -72,28 +70,48 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="print-hide sticky top-0 z-40 border-b bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto max-w-7xl overflow-x-auto px-4 sm:px-6">
-          <nav className="flex min-w-max items-center gap-1.5 py-2 sm:gap-2 sm:py-3">
-            {PREVIEW_TABS.map((tab) => {
-              const isActive =
-                tab.href === "/preview"
-                  ? pathname === "/preview"
-                  : pathname.startsWith(tab.href);
-              return (
-                <Link
-                  key={tab.id}
-                  href={tab.href}
-                  className={`rounded-full px-3 py-1.5 text-sm font-medium transition sm:px-4 sm:py-2 sm:text-base ${
-                    isActive
-                      ? "bg-slate-900 text-white"
-                      : "border border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900"
-                  }`}
-                >
-                  {tab.label}
-                </Link>
-              );
-            })}
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 sm:px-6">
+          <nav className="flex-1 overflow-x-auto">
+            <ul className="flex min-w-max items-center gap-1.5 py-2 sm:gap-2 sm:py-3">
+              {visibleTabs.map((tab) => {
+                const isActive =
+                  tab.href === "/preview"
+                    ? pathname === "/preview"
+                    : pathname.startsWith(tab.href);
+                return (
+                  <li key={tab.id}>
+                    <Link
+                      href={tab.href}
+                      className={`inline-flex rounded-full px-3 py-1.5 text-sm font-medium transition sm:px-4 sm:py-2 sm:text-base ${
+                        isActive
+                          ? "bg-slate-900 text-white"
+                          : "border border-slate-200 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-900"
+                      }`}
+                    >
+                      {tab.label}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </nav>
+          <div className="flex shrink-0 items-center gap-2 py-2 sm:py-3">
+            <Link
+              href="/how-it-works"
+              className="group relative hidden items-center rounded-full px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.18em] text-indigo-700 transition sm:inline-flex"
+            >
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-100/60 via-white to-indigo-100/60 opacity-0 blur-sm transition group-hover:opacity-100"
+              />
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-full ring-1 ring-inset ring-indigo-200/70 transition group-hover:ring-indigo-400/80"
+              />
+              <span className="relative">How it works</span>
+            </Link>
+            <NavSettingsMenu />
+          </div>
         </div>
       </div>
 
