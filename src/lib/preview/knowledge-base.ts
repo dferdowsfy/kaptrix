@@ -170,3 +170,69 @@ export function subscribeKnowledgeBase(cb: () => void): () => void {
     window.removeEventListener(STORAGE_EVENT, onLocal);
   };
 }
+
+// ------------------------------------------------------------------
+// Formatting: render the submitted KB as plain-text evidence lines so
+// downstream surfaces (chatbot, scoring, recommendations) can fold
+// operator-submitted intake/coverage/insights/pre-analysis answers
+// into their prompts or local fallback matches.
+// ------------------------------------------------------------------
+
+export function formatKnowledgeBaseEvidence(
+  kb: Partial<Record<KnowledgeStep, KnowledgeEntry>>,
+): string[] {
+  const lines: string[] = [];
+  (Object.keys(KNOWLEDGE_STEP_LABELS) as KnowledgeStep[]).forEach((step) => {
+    const entry = kb[step];
+    if (!entry) return;
+    const label = KNOWLEDGE_STEP_LABELS[step];
+    lines.push(`[knowledge base · ${label}] ${entry.summary}`);
+    const p = entry.payload;
+    if (p.kind === "intake") {
+      if (p.regulatory_exposure.length)
+        lines.push(
+          `[knowledge base · Intake · regulatory exposure] ${p.regulatory_exposure.join(", ")}`,
+        );
+      if (p.diligence_priorities.length)
+        lines.push(
+          `[knowledge base · Intake · diligence priorities] ${p.diligence_priorities.join(", ")}`,
+        );
+      if (p.red_flag_priors.length)
+        lines.push(
+          `[knowledge base · Intake · red flag priors] ${p.red_flag_priors.join(", ")}`,
+        );
+      lines.push(
+        `[knowledge base · Intake · answered fields] ${p.answered_fields}`,
+      );
+    } else if (p.kind === "coverage") {
+      lines.push(
+        `[knowledge base · Coverage] industry=${p.industry ?? "unset"}, documents=${p.documents_total}, gaps=${p.gaps_count}`,
+      );
+      p.gap_summaries.forEach((g) =>
+        lines.push(`[knowledge base · Coverage · gap] ${g}`),
+      );
+    } else if (p.kind === "insights") {
+      lines.push(
+        `[knowledge base · Insights] total=${p.insights_total}, high_confidence=${p.high_confidence_count}`,
+      );
+      Object.entries(p.by_category).forEach(([cat, count]) =>
+        lines.push(`[knowledge base · Insights · ${cat}] count=${count}`),
+      );
+    } else if (p.kind === "pre_analysis") {
+      lines.push(
+        `[knowledge base · Pre-analysis] analyses=${p.analyses_total}, open_questions=${p.open_questions_total}`,
+      );
+      p.critical_red_flags.forEach((f) =>
+        lines.push(
+          `[knowledge base · Pre-analysis · critical red flag${f.dimension ? ` · ${f.dimension}` : ""}] ${f.flag}`,
+        ),
+      );
+      p.high_red_flags.forEach((f) =>
+        lines.push(
+          `[knowledge base · Pre-analysis · high red flag${f.dimension ? ` · ${f.dimension}` : ""}] ${f.flag}`,
+        ),
+      );
+    }
+  });
+  return lines;
+}

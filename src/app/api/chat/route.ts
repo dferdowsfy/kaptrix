@@ -11,6 +11,7 @@ type ChatTurn = { role: "user" | "assistant"; text: string };
 interface Body {
   question: string;
   context?: string;
+  knowledge_base?: string;
   history?: ChatTurn[];
   session_id?: string;
   client_id?: string;
@@ -120,6 +121,18 @@ export async function POST(req: Request) {
     } catch {
       // keep caller-provided context as fallback
     }
+  }
+
+  // Always append the client-submitted knowledge base (intake, coverage,
+  // insights, pre-analysis) so operator-submitted context is available
+  // to the model regardless of whether we built context from Supabase
+  // or the caller string.
+  const kbText = (body.knowledge_base ?? "").slice(0, 20_000);
+  if (kbText) {
+    context = `${context}\n\n--- OPERATOR-SUBMITTED KNOWLEDGE BASE ---\n${kbText}`.slice(
+      0,
+      80_000,
+    );
   }
 
   if (!isGoogleConfigured()) {

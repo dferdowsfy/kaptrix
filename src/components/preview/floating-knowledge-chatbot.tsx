@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   demoAnalyses,
   demoDocuments,
@@ -10,6 +10,15 @@ import {
 } from "@/lib/demo-data";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { usePreviewSnapshot } from "@/hooks/use-preview-data";
+import {
+  formatKnowledgeBaseEvidence,
+  readClientKb,
+  subscribeKnowledgeBase,
+  type KnowledgeEntry,
+  type KnowledgeStep,
+} from "@/lib/preview/knowledge-base";
+
+const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
 
 type ChatMessage = {
   id: string;
@@ -56,6 +65,12 @@ export function FloatingKnowledgeChatbot() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState(false);
   const sessionId = useMemo(getSessionId, []);
+
+  const kb = useSyncExternalStore(
+    subscribeKnowledgeBase,
+    () => readClientKb(selectedId),
+    () => EMPTY_KB,
+  );
 
   useEffect(() => {
     setMessages([
@@ -138,8 +153,26 @@ export function FloatingKnowledgeChatbot() {
       text: `${d.filename} category ${d.category} parse status ${d.parse_status} token count ${d.token_count ?? "unknown"}`,
     }));
 
-    return [...fromInsights, ...fromAnalysis, ...fromReport, ...fromScores, ...fromDocs];
-  }, [snapshot]);
+    const fromKb: KnowledgeChunk[] = formatKnowledgeBaseEvidence(kb).map(
+      (line, i) => {
+        const match = line.match(/^\[(.+?)\]\s*(.*)$/);
+        return {
+          id: `kb-${i}`,
+          source: match ? match[1] : "knowledge base",
+          text: match ? match[2] : line,
+        };
+      },
+    );
+
+    return [
+      ...fromKb,
+      ...fromInsights,
+      ...fromAnalysis,
+      ...fromReport,
+      ...fromScores,
+      ...fromDocs,
+    ];
+  }, [snapshot, kb]);
 
   const ask = async (raw: string) => {
     const question = raw.trim();
@@ -167,6 +200,7 @@ export function FloatingKnowledgeChatbot() {
     const contextText = corpus
       .map((c) => `[${c.source}] ${c.text}`)
       .join("\n");
+    const knowledgeBaseText = formatKnowledgeBaseEvidence(kb).join("\n");
 
     let answerText = "";
     let citations: string[] = [];
@@ -178,6 +212,7 @@ export function FloatingKnowledgeChatbot() {
         body: JSON.stringify({
           question,
           context: contextText,
+          knowledge_base: knowledgeBaseText,
           history,
           session_id: sessionId,
           client_id: selectedId,
