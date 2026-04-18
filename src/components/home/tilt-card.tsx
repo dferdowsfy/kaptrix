@@ -52,8 +52,8 @@ export function TiltCard({ children, className = "" }: TiltCardProps) {
   }, []);
 
   return (
-    <div ref={ref} className={`tilt-card ${className}`}>
-      <div className="tilt-card-inner">{children}</div>
+    <div ref={ref} className={`tilt-card h-full ${className}`}>
+      <div className="tilt-card-inner h-full">{children}</div>
     </div>
   );
 }

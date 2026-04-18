@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { calculateFinalScore } from "@/lib/scoring/calculator";
 import type { AdjustmentProposal, Score } from "@/lib/types";
+import {
+  requireAuth,
+  assertEngagementAccess,
+  authErrorResponse,
+} from "@/lib/security/authz";
 
 /**
  * GET /api/scores/final?engagement_id=...
@@ -15,13 +19,24 @@ import type { AdjustmentProposal, Score } from "@/lib/types";
  * Same engagement → same response, every time. No localStorage, no LLM.
  */
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  let ctx;
+  try {
+    ctx = await requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+  const supabase = ctx.supabase;
   const engagementId = request.nextUrl.searchParams.get("engagement_id");
   if (!engagementId) {
     return NextResponse.json(
       { error: "Missing engagement_id" },
       { status: 400 },
     );
+  }
+  try {
+    await assertEngagementAccess(ctx, engagementId);
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const [scoresRes, adjRes, confRes] = await Promise.all([

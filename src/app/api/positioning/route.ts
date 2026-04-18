@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { getOpenRouterApiKey, isOpenRouterConfigured } from "@/lib/env";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import { PREVIEW_CLIENTS } from "@/lib/preview-clients";
-import { sanitizeForExternalLLM } from "@/lib/sanitize";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -160,6 +159,26 @@ export async function POST(req: Request) {
     );
   }
 
+  // Rate-limit this endpoint — OpenRouter calls cost real money and
+  // leave our infra. Keyed by user when authenticated, IP otherwise.
+  const { checkRateLimit, callerKey } = await import(
+    "@/lib/security/rate-limit"
+  );
+  const rl = checkRateLimit({
+    key: callerKey(req.headers, null, "positioning"),
+    limit: 10,
+    windowSeconds: 60,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rl.retryAfterSeconds) },
+      },
+    );
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;
@@ -191,10 +210,33 @@ export async function POST(req: Request) {
 
   const operatorKb = (body.knowledge_base ?? "").slice(0, 2000);
 
-  // Sanitize all evidence going outbound to OpenRouter — strips client
-  // firm names, fees, emails, phone numbers, JWTs, account-like numbers.
-  const safeEvidence = sanitizeForExternalLLM(evidence);
-  const safeOperatorKb = sanitizeForExternalLLM(operatorKb);
+  // Gate every outbound piece through the LLM policy layer. This
+  // redacts evidence AND writes an audit row (provider, model, tier,
+  // content fingerprint). Policy still allows external here because
+  // the positioning endpoint is explicitly tier "redacted_ok".
+  const { gateInference } = await import("@/lib/security/llm-policy");
+  const [evDecision, kbDecision] = await Promise.all([
+    gateInference({
+      provider: "openrouter",
+      model: OPENROUTER_MODEL,
+      tier: "redacted_ok",
+      content: evidence,
+    }),
+    gateInference({
+      provider: "openrouter",
+      model: OPENROUTER_MODEL,
+      tier: "redacted_ok",
+      content: operatorKb,
+    }),
+  ]);
+  if (!evDecision.allowed) {
+    return NextResponse.json(
+      { error: "External inference blocked for this engagement" },
+      { status: 451 },
+    );
+  }
+  const safeEvidence = evDecision.safeContent;
+  const safeOperatorKb = kbDecision.safeContent;
 
   const userPrompt = `TARGET COMPANY: ${targetName}${industry ? ` (${industry})` : ""}
 
