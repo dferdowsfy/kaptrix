@@ -187,7 +187,11 @@ Return markdown only. No preamble. No closing remark. No code fences.`;
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
-      maxTokens: section.maxTokens,
+      // Hard cap per-section output so a single slow section cannot
+      // exceed the LLM request timeout. The self-hosted CPU inference
+      // runs at ~5-6 tok/s, so ~1400 tokens ≈ 250s, which fits inside
+      // Vercel Pro's 300s function window with headroom.
+      maxTokens: Math.min(section.maxTokens, 1400),
     });
 
     if (!content) {
