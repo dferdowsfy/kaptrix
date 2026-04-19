@@ -161,7 +161,7 @@ Return the report as clean markdown only. No preamble, no closing remarks, no co
         { role: "system", content: config.systemPrompt },
         { role: "user", content: userPrompt },
       ],
-      max_tokens: 4096,
+      max_tokens: 8192,
       temperature: 0.2,
     });
 

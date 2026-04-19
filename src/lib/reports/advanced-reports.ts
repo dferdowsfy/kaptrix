@@ -5,8 +5,8 @@
 
 export type AdvancedReportId =
   | "master_diligence"
+  | "ic_memo"
   | "risk_register"
-  | "competitive_posture"
   | "value_creation"
   | "evidence_coverage";
 
@@ -21,169 +21,246 @@ export interface AdvancedReportConfig {
   userPromptIntro: string;
 }
 
-const MASTER_PROMPT = `You are an AI diligence expert evaluating a company's AI capabilities for investment and operational risk.
+const FORMAT_RULES = `Output format: clean markdown. Use '#' for the report title, '##' for each numbered top-level section, '###' for sub-sections, '-' for bullet points, and bold ('**text**') sparingly for emphasis. Do NOT wrap the output in code fences. Do NOT include a preamble or closing remarks — return the report only.`;
 
-Using all available inputs (scores across dimensions, uploaded artifacts, extracted evidence, and knowledge base context), generate a comprehensive AI Diligence Report.
+const MASTER_PROMPT = `You are performing institutional-grade AI diligence for a private equity firm.
 
-Audience: sophisticated, non-technical investors.
+You have access to:
+- Dimension scores (0-5) and weights
+- Sub-criteria scoring
+- Uploaded artifacts (docs, diagrams, code, policies)
+- Extracted evidence and knowledge base context
 
-Structure the report with the following top-level sections and headings. Use markdown ('#' for report title, '##' for each numbered section, '###' for sub-sections, '-' for bullet points). Do not wrap the output in code fences.
+Your task is to produce a deep, evidence-backed AI Diligence Report that can withstand Investment Committee scrutiny.
 
-1. Overview
-- Summarize core AI use cases
-- Explain where AI sits in the product/workflow
-- Clarify whether AI is central or peripheral
+CRITICAL RULES:
+- No generic statements. Every claim must reference evidence or scoring.
+- If evidence is missing, explicitly state "No supporting evidence found."
+- Highlight contradictions between artifacts and claims.
+- Prioritize risk, not description.
+- Write like an operator, not a consultant.
 
-2. Product Credibility
-- Assess demo vs production gap
-- Evaluate customer validation and real-world usage
-- Determine if this is true AI capability or a wrapper
+STRUCTURE:
 
-3. Tooling & Vendor Exposure
-- Analyze reliance on external models/vendors
-- Identify concentration risk and switching cost
-- Highlight API dependency fragility
+1. System & AI Architecture Reality
+- Describe actual system design (not marketing claims)
+- Identify where AI is truly used vs implied
+- Call out mismatches between stated vs observed architecture
 
-4. Data & Sensitivity Risk
-- Evaluate data sources and ownership
-- Assess sensitivity (PII, regulated data)
-- Review training data provenance and tenant isolation
+2. Product Credibility Breakdown
+- Score-backed analysis of whether AI drives value or is superficial
+- Identify "demo quality vs production reality" gaps
+- Evidence: reference specific artifacts or missing proof
 
-5. Governance & Safety
-- Assess logging, traceability, and auditability
-- Evaluate human-in-the-loop controls
-- Identify gaps in output risk management
+3. Data Advantage vs Illusion
+- Explicitly determine if data is:
+  a) proprietary and compounding
+  b) operational but replaceable
+  c) commoditized
+- Justify classification using evidence
 
-6. Production Readiness
-- Evaluate scalability and system reliability
-- Assess monitoring, incident response, and drift handling
-- Analyze cost per inference and scaling constraints
+4. Vendor & Model Dependency Risk
+- Quantify reliance on specific providers (OpenAI, Anthropic, etc.)
+- Identify switching friction and margin risk
+- Call out hidden dependencies
 
-7. Open Validation / Unknowns
-- Identify missing evidence and blind spots
-- Highlight areas requiring deeper validation
+5. Failure Mode Analysis (MANDATORY)
+Identify top 3 ways this system breaks in production:
+- Trigger
+- Technical failure point
+- Business impact
+- Whether mitigation exists
 
-8. So What (Critical)
-For each major finding:
-- Explain business implication
-- Describe what could break
-- Quantify impact on valuation, scalability, or exit potential
+6. Governance Stress Test
+- Do not describe controls — test them
+- Where would controls fail under edge cases?
+- Is auditability real or superficial?
 
-Do not speculate without labeling uncertainty. Prioritize evidence-backed insights and decision-relevant clarity. When evidence is thin, say so explicitly rather than inventing detail.`;
+7. Production Reality Check
+- Can this scale? Why or why not?
+- Where will cost explode?
+- Where will reliability fail?
 
-const RISK_REGISTER_PROMPT = `You are producing a structured Technical Risk Register from all identified findings in the provided evidence.
+8. Score Decomposition
+For each dimension:
+- Score
+- Why it earned that score
+- What would need to change to move +1 point
 
-Each risk must be discrete, evidence-backed, and actionable.
+9. So What (Investment Impact)
+Translate findings into:
+- What breaks the business
+- What limits scale
+- What reduces exit multiple
 
-Output format: markdown. Start with '# Technical Risk Register'. Then for each risk use a '## R<N>. <Risk Title>' heading followed by the fields below rendered as a definition-style bullet list.
+10. Evidence Gaps
+- List missing artifacts that materially impact confidence
+- Label affected sections as LOW CONFIDENCE where applicable
 
-For each risk include:
-- Description
-- Evidence (quote or paraphrase the source from artifacts, scoring, or analysis)
-- Severity (Low / Medium / High / Critical)
-- Likelihood (Low / Medium / High)
-- Impact Area (Product, Data, Operations, Governance, Financial)
-- Mitigation Recommendation
-- Time Horizon (Immediate / Near-term / Long-term)
+Output must be dense, specific, and defensible. ${FORMAT_RULES}`;
 
-Prioritize the highest-severity risks first. Only emit risks that are supported by the evidence. Do not invent risks.`;
+const IC_MEMO_PROMPT = `You are writing an Investment Committee memo based on AI diligence.
 
-const COMPETITIVE_PROMPT = `You are analyzing the company's AI capability relative to comparable companies using all available engagement context.
+This is a DECISION document, not a summary.
 
-Avoid generic benchmarking. Be specific and evidence-driven. Only cite peers when the evidence or your own knowledge supports a real comparison.
+RULES:
+- No fluff
+- No repetition
+- Every statement must tie to risk, value, or decision impact
 
-Output format: markdown. Start with '# Competitive Posture Report'. Use '##' for each numbered section.
+STRUCTURE:
 
-1. Peer Identification
-- Identify relevant comparable companies based on use case, architecture, and AI maturity
-- Explain why each is comparable
+1. Final Recommendation
+- Invest / Proceed with Conditions / High Risk / Do Not Proceed
+- Confidence score (0-100%)
+- One sentence: "This deal works / breaks because…"
 
-2. Relative Positioning
-- Classify target as: Leader, Competitive, Average, or Lagging
-- Support classification using scoring dimensions and evidence
+2. Non-Obvious Insight (MANDATORY)
+- What is true about this company that is NOT obvious from a surface review?
 
-3. Strength vs Peers
-- Identify where the company outperforms peers
+3. 3 Critical Strengths
+- Must be specific and defensible
+- Tie to value creation or defensibility
 
-4. Weakness vs Peers
-- Identify where the company is structurally weaker
+4. 3 Critical Risks
+- Must be things that could realistically break the investment
+- No generic risks
 
-5. Strategic Implication
-Explain what this positioning means for:
-- Market competitiveness
-- Differentiation
-- Long-term defensibility
+5. What Would Kill This Deal
+- Single biggest failure point
 
-If evidence is insufficient to name peers with confidence, say so explicitly and describe the archetype of peer the target should be compared against.`;
+6. What Would 2x the Value
+- Most leveraged improvement opportunity
 
-const VALUE_CREATION_PROMPT = `You are producing a prioritized Value Creation / 100-Day Plan based on all identified risks and opportunities in the engagement evidence.
+7. Deal Implications
+- Impact on valuation (overvalued / fair / undervalued based on AI reality)
+- Scalability constraints
+- Exit risk
 
-Focus on practical, high-impact actions tied to business value. Each action must map back to a specific finding or risk in the evidence.
+Write this like a partner presenting to IC — direct, sharp, and high conviction. ${FORMAT_RULES}`;
 
-Output format: markdown. Start with '# Value Creation / 100-Day Plan'. Use '##' for each numbered section.
+const RISK_REGISTER_PROMPT = `Generate a non-generic, operator-grade Technical Risk Register.
 
-1. Priority Actions
-- 5 to 10 actions
-- Each must address a real, evidence-backed issue and be concretely actionable
+RULES:
+- No abstract risks (e.g., "scalability issues" is not acceptable)
+- Each risk must be tied to a specific system behavior, architecture decision, or missing control
+- Risks must be testable in reality
 
-2. Impact vs Effort
-For each action:
-- Impact (Low / Medium / High)
-- Effort (Low / Medium / High)
+Output: markdown. Start with '# Technical Risk Register'. For each risk use a '## R<N>. <Risk Title>' heading followed by the fields below as a bulleted list.
 
-3. 30 / 60 / 90 Day Plan
-- Sequence actions into 30, 60, and 90 day windows as '### 0-30 Days', '### 31-60 Days', '### 61-90 Days'
-- Reflect dependencies and execution order
+For each risk, include:
+- Risk Title (specific, not broad)
+- System Area (exact component: model, API, pipeline, data layer, etc.)
+- Description (what exactly fails and why)
+- Trigger Condition (when this risk materializes)
+- Evidence (artifact reference OR explicitly state "No direct evidence, inferred from X")
+- Severity (justify)
+- Likelihood (justify)
+- Business Impact (tie to revenue, cost, or operations)
+- Mitigation (must be actionable, not generic)
+- Residual Risk (after mitigation)
 
-4. Expected Outcomes
-Describe expected improvements across:
-- Risk reduction
-- Cost efficiency
-- Product strength
-- Competitive positioning`;
+Prioritize the top 10-15 risks only. Depth over volume. Order from highest to lowest residual risk. ${FORMAT_RULES}`;
 
-const COVERAGE_PROMPT = `You are assessing the quality, completeness, and reliability of the evidence used in this AI diligence engagement.
+const VALUE_CREATION_PROMPT = `You are creating a post-investment execution plan, not a generic roadmap.
 
-Focus on transparency and confidence. Be explicit about what is missing.
+RULES:
+- Every action must tie directly to a risk or missed opportunity identified earlier
+- No vague actions ("improve system", "enhance governance")
+- Actions must be executable by a real team
 
-Output format: markdown. Start with '# Evidence / Artifact Coverage Report'. Use '##' for each numbered section.
+STRUCTURE:
 
-1. Artifacts Reviewed
-- List and categorize artifacts reviewed (Product, Data, Infrastructure, Governance). Reference the actual filenames / document categories that appear in the evidence.
+1. Top 7 Actions (Ranked)
+For each:
+- What exactly to do
+- What problem it fixes
+- Why it matters economically
 
-2. Coverage Assessment
-- Identify areas with strong evidence
-- Identify weak or missing coverage across the six scoring dimensions (Product Credibility, Tooling Exposure, Data Sensitivity, Governance & Safety, Production Readiness, Open Validation)
+2. Value Leverage
+- Which 2 actions create disproportionate value?
 
-3. Confidence Levels
-- Assign Low / Medium / High confidence to each major scoring dimension
-- Justify based on evidence quality and completeness
+3. Cost Reduction Opportunities
+- Where can AI costs be reduced or optimized?
 
-4. Gaps & Blind Spots
-- Identify critical missing artifacts or data
-- Explain how these gaps impact overall confidence in the assessment
+4. Risk Reduction Moves
+- Which actions materially reduce catastrophic failure risk?
 
-Be explicit about uncertainty and evidence limitations. Never fabricate artifact names.`;
+5. 30 / 60 / 90 Execution Plan
+Use '### 0-30 Days', '### 31-60 Days', '### 61-90 Days' sub-headings.
+For each phase:
+- Who does what (engineering, product, ops)
+- What is delivered in each phase
+
+6. Measurable Outcomes
+- Define success in metrics (cost ↓ %, latency ↓, accuracy ↑, etc.)
+
+This should feel like an operating playbook, not advice. ${FORMAT_RULES}`;
+
+const COVERAGE_PROMPT = `You are auditing the QUALITY of the diligence itself.
+
+RULES:
+- Be critical — assume incomplete data
+- Do not overstate confidence
+
+STRUCTURE:
+
+1. Artifact Inventory
+- List artifacts analyzed (use actual filenames / categories from the evidence)
+- Categorize (Product, Data, Infra, Governance)
+
+2. Coverage by Dimension
+For each scoring dimension (Product Credibility, Tooling Exposure, Data Sensitivity, Governance & Safety, Production Readiness, Open Validation):
+- Evidence present (specific)
+- Evidence missing
+- Coverage rating (High / Medium / Low)
+
+3. Confidence Scoring
+- Assign confidence (0-100%) to each dimension score
+- Justify based on evidence strength
+
+4. Unsupported Conclusions (MANDATORY)
+- Identify where conclusions rely on weak or indirect evidence
+
+5. Critical Gaps
+- What missing artifacts would most change the outcome?
+
+6. Overall Reliability
+- Can this diligence be trusted for an investment decision? Why or why not?
+
+This report should increase trust by exposing weaknesses, not hiding them. ${FORMAT_RULES}`;
 
 export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
   {
     id: "master_diligence",
     title: "Master AI Diligence Report",
-    tagline: "Comprehensive investor-grade assessment",
+    tagline: "IC-grade, evidence-backed diligence",
     description:
-      "Full 8-section diligence write-up covering overview, credibility, vendor exposure, data risk, governance, production readiness, open validation, and the 'so what' for each finding.",
+      "Dense 10-section institutional-grade report covering architecture reality, data advantage, vendor risk, failure modes, governance stress tests, score decomposition, and investment impact.",
     accent: "from-indigo-600 via-indigo-500 to-violet-500",
     eyebrow: "Diligence · Master",
     systemPrompt: MASTER_PROMPT,
     userPromptIntro:
-      "Generate the Master AI Diligence Report for the target company below.",
+      "Produce the Master AI Diligence Report for the target company below.",
+  },
+  {
+    id: "ic_memo",
+    title: "Executive Summary / IC Memo",
+    tagline: "Decision document for the Investment Committee",
+    description:
+      "Sharp partner-style memo with final recommendation, non-obvious insight, 3 critical strengths, 3 critical risks, deal-killers, 2x levers, and deal implications for valuation, scalability, and exit.",
+    accent: "from-slate-900 via-slate-800 to-indigo-800",
+    eyebrow: "IC · Memo",
+    systemPrompt: IC_MEMO_PROMPT,
+    userPromptIntro:
+      "Write the Investment Committee memo for the target company below.",
   },
   {
     id: "risk_register",
     title: "Technical Risk Register",
-    tagline: "Discrete, evidence-backed risks",
+    tagline: "Operator-grade, testable risks",
     description:
-      "Structured register of every material technical risk surfaced by the evidence, with severity, likelihood, impact area, mitigation, and time horizon for each.",
+      "Top 10-15 concrete technical risks — each tied to a specific system behavior or missing control — with trigger, evidence, severity, likelihood, business impact, actionable mitigation, and residual risk.",
     accent: "from-rose-600 via-rose-500 to-amber-500",
     eyebrow: "Risk · Register",
     systemPrompt: RISK_REGISTER_PROMPT,
@@ -191,35 +268,23 @@ export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
       "Produce the Technical Risk Register for the target company below.",
   },
   {
-    id: "competitive_posture",
-    title: "Competitive Posture Report",
-    tagline: "Relative positioning vs comparable peers",
-    description:
-      "Specific, evidence-driven comparison against real or archetypal peers — classified as Leader, Competitive, Average, or Lagging — with strengths, weaknesses, and strategic implications.",
-    accent: "from-sky-600 via-cyan-500 to-teal-500",
-    eyebrow: "Competitive · Posture",
-    systemPrompt: COMPETITIVE_PROMPT,
-    userPromptIntro:
-      "Produce the Competitive Posture Report for the target company below.",
-  },
-  {
     id: "value_creation",
     title: "Value Creation / 100-Day Plan",
-    tagline: "Prioritized post-close action plan",
+    tagline: "Post-investment execution playbook",
     description:
-      "5 to 10 concrete priority actions with impact vs effort ratings, sequenced into a 30 / 60 / 90 day rollout, each tied to a real finding and the business value it unlocks.",
+      "Top 7 ranked actions tied to identified risks and opportunities, with value-leverage and cost-reduction picks, risk-reduction moves, a 30/60/90 execution plan with owners, and measurable metric outcomes.",
     accent: "from-emerald-600 via-emerald-500 to-lime-500",
     eyebrow: "Plan · 100 Days",
     systemPrompt: VALUE_CREATION_PROMPT,
     userPromptIntro:
-      "Produce the Value Creation / 100-Day Plan for the target company below.",
+      "Produce the Value Creation / 100-Day execution plan for the target company below.",
   },
   {
     id: "evidence_coverage",
     title: "Evidence / Artifact Coverage Report",
-    tagline: "Confidence and gaps in the evidence base",
+    tagline: "Critical audit of the diligence itself",
     description:
-      "Transparent assessment of which artifacts were reviewed, where coverage is strong vs weak across the six scoring dimensions, and which gaps materially affect confidence.",
+      "Self-critical audit of evidence quality: artifact inventory, coverage by dimension, 0-100% confidence scoring, unsupported conclusions, critical gaps, and an overall reliability verdict.",
     accent: "from-slate-700 via-slate-600 to-slate-500",
     eyebrow: "Evidence · Coverage",
     systemPrompt: COVERAGE_PROMPT,

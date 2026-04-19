@@ -37,7 +37,37 @@ export default function PreviewReportPage() {
   };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-10">
+      {/* On-demand reports live at the top so they are immediately
+          discoverable when the operator lands on the Reports page. */}
+      <section
+        id="on-demand-reports"
+        className="print-hide rounded-3xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 shadow-sm sm:p-8"
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <SectionHeader
+            eyebrow="On-demand reports"
+            title="Generate a deliverable"
+            description="Pick any report below — the assistant synthesizes it from the current knowledge base and exports to PDF or Word."
+          />
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700 shadow-sm ring-1 ring-indigo-200">
+            <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+            {ADVANCED_REPORTS.length} reports available
+          </span>
+        </div>
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {ADVANCED_REPORTS.map((config) => (
+            <AiReportCard
+              key={config.id}
+              config={config}
+              clientId={selectedId}
+              knowledgeBaseText={knowledgeBaseText}
+              target={client.target}
+            />
+          ))}
+        </div>
+      </section>
+
       <div className="print-hide flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <SectionHeader
           eyebrow="Module 5"
@@ -72,25 +102,6 @@ export default function PreviewReportPage() {
       <div className="print-area">
         <ExecutiveReport data={report} />
       </div>
-
-      <section className="print-hide space-y-4">
-        <SectionHeader
-          eyebrow="On-demand reports"
-          title="Generate additional deliverables"
-          description="Trigger any of the reports below to have the assistant synthesize a fresh deliverable from the current knowledge base. Each output is exportable as PDF or Word."
-        />
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-          {ADVANCED_REPORTS.map((config) => (
-            <AiReportCard
-              key={config.id}
-              config={config}
-              clientId={selectedId}
-              knowledgeBaseText={knowledgeBaseText}
-              target={client.target}
-            />
-          ))}
-        </div>
-      </section>
     </div>
   );
 }
