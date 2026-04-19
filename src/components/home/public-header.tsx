@@ -61,9 +61,6 @@ export function PublicHeader() {
           <Link href="/preview" className={linkClass("/preview")}>
             Platform
           </Link>
-          <Link href="/login" className={linkClass("/login")}>
-            Log in
-          </Link>
         </nav>
 
         <Link

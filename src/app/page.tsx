@@ -98,7 +98,7 @@ export default function HomePage() {
               <span className="headline-gradient"> one decision system.</span>
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-9 text-slate-300 sm:text-xl">
-              KAPTRIX combines deterministic scoring, evidence-backed AI signals, and operator judgment into one platform that stands up in IC and investment committee scrutiny.
+              KAPTRIX combines deterministic scoring, evidence-backed AI signals, and operator judgment into one platform that stands up in investment committee scrutiny.
             </p>
             <div className="mt-10 flex flex-wrap gap-3">
               <Link
@@ -153,13 +153,15 @@ export default function HomePage() {
             className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 bg-gradient-to-l from-slate-950 to-transparent"
           />
           <div className="marquee-track text-xs font-medium uppercase tracking-[0.32em] text-slate-400 sm:text-sm">
-            {[...MARQUEE, ...MARQUEE].map((word, i) => (
-              <span key={i} className="inline-flex items-center pr-10">
+            {MARQUEE.map((word, i) => (
+              <span key={i} className="inline-flex items-center">
                 <span>{word}</span>
-                <span
-                  aria-hidden
-                  className="ml-10 inline-block h-1.5 w-1.5 rounded-full bg-indigo-400/60"
-                />
+                {i < MARQUEE.length - 1 && (
+                  <span
+                    aria-hidden
+                    className="ml-6 inline-block h-1.5 w-1.5 rounded-full bg-indigo-400/60"
+                  />
+                )}
               </span>
             ))}
           </div>

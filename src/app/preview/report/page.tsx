@@ -1,15 +1,34 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { ExecutiveReport } from "@/components/reports/executive-report";
+import { AiReportCard } from "@/components/reports/ai-report-card";
+import { ADVANCED_REPORTS } from "@/lib/reports/advanced-reports";
 import { demoExecutiveReport } from "@/lib/demo-data";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { usePreviewSnapshot } from "@/hooks/use-preview-data";
+import {
+  formatKnowledgeBaseEvidence,
+  readClientKb,
+  subscribeKnowledgeBase,
+  type KnowledgeEntry,
+  type KnowledgeStep,
+} from "@/lib/preview/knowledge-base";
+
+const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
 
 export default function PreviewReportPage() {
-  const { selectedId } = useSelectedPreviewClient();
+  const { client, selectedId } = useSelectedPreviewClient();
   const { snapshot } = usePreviewSnapshot(selectedId);
   const report = snapshot?.executiveReport ?? demoExecutiveReport;
+
+  const kb = useSyncExternalStore(
+    subscribeKnowledgeBase,
+    () => readClientKb(selectedId),
+    () => EMPTY_KB,
+  );
+  const knowledgeBaseText = formatKnowledgeBaseEvidence(kb).join("\n");
 
   const handleExport = () => {
     if (typeof window !== "undefined") {
@@ -18,7 +37,7 @@ export default function PreviewReportPage() {
   };
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       <div className="print-hide flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <SectionHeader
           eyebrow="Module 5"
@@ -53,6 +72,25 @@ export default function PreviewReportPage() {
       <div className="print-area">
         <ExecutiveReport data={report} />
       </div>
+
+      <section className="print-hide space-y-4">
+        <SectionHeader
+          eyebrow="On-demand reports"
+          title="Generate additional deliverables"
+          description="Trigger any of the reports below to have the assistant synthesize a fresh deliverable from the current knowledge base. Each output is exportable as PDF or Word."
+        />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+          {ADVANCED_REPORTS.map((config) => (
+            <AiReportCard
+              key={config.id}
+              config={config}
+              clientId={selectedId}
+              knowledgeBaseText={knowledgeBaseText}
+              target={client.target}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
