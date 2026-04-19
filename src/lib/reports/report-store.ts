@@ -86,6 +86,89 @@ function persist() {
   }
 }
 
+// ---- Server sync (Supabase-backed, optional) ---------------------
+// Best-effort: if the user is not signed in, these calls are no-ops.
+// Runs alongside localStorage so offline still works.
+
+let serverHydrated = false;
+
+async function hydrateFromServer() {
+  if (serverHydrated) return;
+  serverHydrated = true;
+  if (typeof window === "undefined") return;
+  try {
+    const res = await fetch("/api/reports/store", { method: "GET" });
+    if (!res.ok) return;
+    const json = (await res.json()) as {
+      authenticated: boolean;
+      reports: Array<{
+        client_id: string;
+        report_type: string;
+        title: string;
+        target: string;
+        client_name: string | null;
+        content: string;
+        generated_at: string;
+      }>;
+    };
+    if (!json.authenticated || !Array.isArray(json.reports)) return;
+
+    const merged: Record<string, ReportRecord> = { ...state.records };
+    for (const r of json.reports) {
+      const key = recordKey(r.client_id, r.report_type as AdvancedReportId);
+      const existing = merged[key];
+      // Don't clobber an in-flight generation.
+      if (existing?.status === "generating") continue;
+      merged[key] = {
+        reportId: r.report_type as AdvancedReportId,
+        clientId: r.client_id,
+        target: r.target,
+        client: r.client_name ?? "",
+        title: r.title,
+        status: "done",
+        content: r.content,
+        generated_at: r.generated_at,
+      };
+    }
+    state = { records: merged };
+    persist();
+    notify();
+  } catch {
+    /* offline or network error — keep localStorage data */
+  }
+}
+
+function syncToServer(rec: ReportRecord) {
+  if (rec.status !== "done" || !rec.content) return;
+  if (typeof window === "undefined") return;
+  void fetch("/api/reports/store", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      client_id: rec.clientId,
+      report_type: rec.reportId,
+      title: rec.title,
+      target: rec.target,
+      client_name: rec.client,
+      content: rec.content,
+      generated_at: rec.generated_at,
+    }),
+  }).catch(() => {
+    /* silent — anonymous users get 401; offline is fine */
+  });
+}
+
+function deleteOnServer(clientId: string, reportId: AdvancedReportId) {
+  if (typeof window === "undefined") return;
+  void fetch("/api/reports/store", {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client_id: clientId, report_type: reportId }),
+  }).catch(() => {
+    /* silent */
+  });
+}
+
 function notify() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(EVENT));
@@ -165,6 +248,7 @@ function setRecord(rec: ReportRecord) {
     },
   };
   persist();
+  syncToServer(rec);
   notify();
 }
 
@@ -175,6 +259,7 @@ export function clearReport(clientId: string, reportId: AdvancedReportId) {
   delete next[key];
   state = { records: next };
   persist();
+  deleteOnServer(clientId, reportId);
   notify();
 }
 
@@ -262,6 +347,10 @@ async function runGeneration(args: StartArgs): Promise<void> {
 
 export function useReportStore() {
   const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // Kick off a one-shot server hydration on first client render.
+  if (typeof window !== "undefined" && !serverHydrated) {
+    void hydrateFromServer();
+  }
   const records = Object.values(snapshot.records);
   const generating = records.filter((r) => r.status === "generating");
   return {
