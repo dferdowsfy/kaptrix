@@ -160,7 +160,10 @@ Return the report as clean markdown only. No preamble, no closing remarks, no co
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
-      maxTokens: 8192,
+      // Self-hosted CPU inference on the VPS tops out around 5-13 tok/s,
+      // so ~2500 output tokens is the realistic ceiling inside Vercel
+      // Pro's 300s function timeout. Prompts are tuned to be tight.
+      maxTokens: 2500,
     });
 
     if (!content) {
