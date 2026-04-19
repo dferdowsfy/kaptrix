@@ -9,6 +9,7 @@ import { ConnectionStatus } from "@/components/preview/connection-status";
 import { ProfileMenu } from "@/components/preview/profile-menu";
 import { NavSettingsMenu } from "@/components/preview/nav-settings-menu";
 import { KbActivityIndicator } from "@/components/preview/kb-activity-indicator";
+import { ReportGenerationBanner } from "@/components/reports/report-generation-banner";
 
 export function PreviewShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -72,7 +73,8 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
       )}
 
       <div className="print-hide sticky top-0 z-40 border-b bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-3">
+        <div className="relative">
+          <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2 sm:flex-row sm:items-center sm:gap-3 sm:px-6 sm:py-3">
           <nav className="min-w-0 flex-1">
             <ul className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               {visibleTabs.map((tab) => {
@@ -114,6 +116,8 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
             </Link>
             <NavSettingsMenu />
           </div>
+        </div>
+          <ReportGenerationBanner />
         </div>
       </div>
 

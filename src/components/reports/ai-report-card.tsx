@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import type { AdvancedReportConfig } from "@/lib/reports/advanced-reports";
 import {
   ReportMarkdown,
   markdownToExportHtml,
   buildExportDocumentStyles,
 } from "@/components/reports/report-markdown";
+import {
+  startGeneration,
+  useReportStore,
+  type ReportRecord,
+} from "@/lib/reports/report-store";
 
 interface Props {
   config: AdvancedReportConfig;
@@ -15,71 +20,37 @@ interface Props {
   target: string;
 }
 
-interface GeneratedReport {
-  content: string;
-  generated_at: string;
-  title: string;
-  target: string;
-  client: string;
-}
-
 export function AiReportCard({
   config,
   clientId,
   knowledgeBaseText,
   target,
 }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<GeneratedReport | null>(null);
+  const { get } = useReportStore();
+  const record = clientId ? get(clientId, config.id) : undefined;
+
+  const loading = record?.status === "generating";
+  const error = record?.status === "error" ? (record.error ?? "Unknown error") : null;
+  const result =
+    record?.status === "done" && record.content
+      ? record
+      : null;
 
   const canGenerate = Boolean(clientId) && !loading;
 
-  const generate = useCallback(async () => {
-    if (!clientId) {
-      setError("Select an engagement first.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/reports/llm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          client_id: clientId,
-          report_type: config.id,
-          knowledge_base: knowledgeBaseText,
-        }),
-      });
-      const json = (await res.json()) as {
-        content?: string;
-        generated_at?: string;
-        title?: string;
-        target?: string;
-        client?: string;
-        error?: string;
-      };
-      if (!res.ok || !json.content) {
-        setError(json.error ?? `Request failed (${res.status})`);
-        return;
-      }
-      setResult({
-        content: json.content,
-        generated_at: json.generated_at ?? new Date().toISOString(),
-        title: json.title ?? config.title,
-        target: json.target ?? target,
-        client: json.client ?? "",
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
-    } finally {
-      setLoading(false);
-    }
+  const generate = useCallback(() => {
+    if (!clientId) return;
+    startGeneration({
+      reportId: config.id,
+      clientId,
+      target,
+      knowledgeBase: knowledgeBaseText,
+      title: config.title,
+    });
   }, [clientId, config.id, config.title, knowledgeBaseText, target]);
 
   const exportPdf = useCallback(() => {
-    if (!result) return;
+    if (!result?.content) return;
     openPrintWindow({
       title: `${result.title} — ${result.target}`,
       subtitle: buildSubtitle(result),
@@ -89,13 +60,12 @@ export function AiReportCard({
   }, [result]);
 
   const exportDocx = useCallback(() => {
-    if (!result) return;
+    if (!result?.content) return;
     const html = buildDocHtml({
       title: `${result.title} — ${result.target}`,
       subtitle: buildSubtitle(result),
       markdown: result.content,
     });
-    // Word opens HTML-based .doc files natively.
     const blob = new Blob([html], { type: "application/msword" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -108,7 +78,8 @@ export function AiReportCard({
   }, [result]);
 
   const rendered = useMemo(
-    () => (result ? <ReportMarkdown source={result.content} /> : null),
+    () =>
+      result?.content ? <ReportMarkdown source={result.content} /> : null,
     [result],
   );
 
@@ -157,9 +128,16 @@ export function AiReportCard({
                 Export DOCX
               </button>
               <span className="ml-auto text-[11px] text-slate-500">
-                Generated {formatTime(result.generated_at)}
+                Saved · generated{" "}
+                {result.generated_at ? formatTime(result.generated_at) : ""}
               </span>
             </>
+          )}
+          {loading && !result && (
+            <span className="ml-auto inline-flex items-center gap-2 text-[11px] font-medium text-indigo-700">
+              <Spinner />
+              Running in background — safe to switch pages
+            </span>
           )}
         </div>
 
@@ -170,7 +148,12 @@ export function AiReportCard({
         )}
 
         {loading && !result && (
-          <div className="mt-4 space-y-2">
+          <div className="mt-4 overflow-hidden rounded-lg bg-indigo-50">
+            <div className="h-1.5 w-full animate-report-progress bg-gradient-to-r from-indigo-300 via-indigo-500 to-violet-500" />
+          </div>
+        )}
+        {loading && !result && (
+          <div className="mt-3 space-y-2">
             <div className="h-3 w-1/3 animate-pulse rounded bg-slate-200" />
             <div className="h-3 w-2/3 animate-pulse rounded bg-slate-200" />
             <div className="h-3 w-1/2 animate-pulse rounded bg-slate-200" />
@@ -187,6 +170,15 @@ export function AiReportCard({
   );
 }
 
+function Spinner() {
+  return (
+    <span
+      aria-hidden
+      className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-indigo-300 border-t-indigo-700"
+    />
+  );
+}
+
 // ---------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------
@@ -199,12 +191,14 @@ function formatTime(iso: string): string {
   }
 }
 
-function buildSubtitle(r: GeneratedReport): string {
+function buildSubtitle(r: ReportRecord): string {
   const parts = [r.target];
   if (r.client) parts.push(r.client);
-  parts.push(`Generated ${new Date(r.generated_at).toLocaleString()}`);
+  if (r.generated_at)
+    parts.push(`Generated ${new Date(r.generated_at).toLocaleString()}`);
   return parts.filter(Boolean).join(" · ");
 }
+
 
 function slugify(s: string): string {
   return s

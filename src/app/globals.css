@@ -26,6 +26,19 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+@keyframes reportProgress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.animate-report-progress {
+  animation: reportProgress 1.8s ease-in-out infinite;
+}
+
 @keyframes tileFloat {
   0%,
   100% {
