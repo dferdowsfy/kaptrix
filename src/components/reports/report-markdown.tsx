@@ -37,7 +37,18 @@ type Block =
   | { kind: "hr" }
   | { kind: "quote"; lines: string[] }
   | { kind: "table"; header: string[]; rows: string[][]; align: Array<"left" | "right" | "center"> }
-  | { kind: "score-group"; scores: Array<{ label: string; value: number; max: number }> };
+  | { kind: "score-group"; scores: Array<{ label: string; value: number; max: number }> }
+  | { kind: "snapshot"; data: SnapshotData };
+
+export interface SnapshotData {
+  verdict: string;
+  posture?: string; // CRITICAL / HIGH / MEDIUM / LOW / OK
+  confidence?: number; // 0-100
+  thesis?: string;
+  strengths: string[];
+  risks: string[];
+  highlights: string[]; // neutral facts (used by non-IC reports)
+}
 
 function parseBlocks(src: string): Block[] {
   const lines = src.replace(/\r\n?/g, "\n").split("\n");
@@ -57,6 +68,19 @@ function parseBlocks(src: string): Block[] {
 
     if (!line.trim()) {
       i++;
+      continue;
+    }
+
+    // Decision snapshot fence: ":::snapshot" ... ":::"
+    if (/^\s*:::\s*snapshot\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++; // consume closing :::
+      blocks.push({ kind: "snapshot", data: parseSnapshot(buf) });
       continue;
     }
 
@@ -196,6 +220,59 @@ function parseScoreItem(
   return { label: m[1].trim(), value, max };
 }
 
+// Parse the body of a ':::snapshot ... :::' block into structured data.
+// Accepts "key: value" lines and grouped lists under "strengths:",
+// "risks:", "highlights:" where items start with "- ".
+function parseSnapshot(raw: string[]): SnapshotData {
+  const data: SnapshotData = {
+    verdict: "",
+    strengths: [],
+    risks: [],
+    highlights: [],
+  };
+  let bucket: "strengths" | "risks" | "highlights" | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) continue;
+
+    // Bullet under a list bucket
+    const bullet = /^[-*]\s+(.*)$/.exec(l);
+    if (bullet && bucket) {
+      data[bucket].push(bullet[1].trim());
+      continue;
+    }
+
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (!kv) continue;
+    const key = kv[1].toLowerCase();
+    const value = kv[2].trim();
+
+    if (key === "strengths" || key === "risks" || key === "highlights") {
+      bucket = key;
+      if (value) {
+        // allow inline comma-separated list
+        for (const part of value.split(/\s*[;|]\s*/)) {
+          if (part) data[bucket].push(part.trim());
+        }
+      }
+      continue;
+    }
+
+    bucket = null;
+    if (key === "verdict" || key === "recommendation" || key === "decision") {
+      data.verdict = value;
+    } else if (key === "posture" || key === "severity" || key === "status") {
+      data.posture = value.toUpperCase();
+    } else if (key === "confidence") {
+      const n = parseFloat(value.replace(/[^\d.]/g, ""));
+      if (Number.isFinite(n)) data.confidence = Math.max(0, Math.min(100, n));
+    } else if (key === "thesis" || key === "headline" || key === "summary") {
+      data.thesis = value;
+    }
+  }
+  return data;
+}
+
 // ---- Rendering --------------------------------------------------
 
 function renderBlock(block: Block, index: number): React.ReactNode {
@@ -304,6 +381,8 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       return <ReportTable key={index} block={block} />;
     case "score-group":
       return <ScoreGroup key={index} scores={block.scores} />;
+    case "snapshot":
+      return <SnapshotCard key={index} data={block.data} />;
   }
 }
 
@@ -398,6 +477,168 @@ function ScoreGroup({
       })}
     </div>
   );
+}
+
+// ---- Decision snapshot hero card --------------------------------
+function SnapshotCard({ data }: { data: SnapshotData }) {
+  const verdict = data.verdict || "Decision Snapshot";
+  const postureTone = posturePalette(data.posture);
+  const confidence = data.confidence ?? null;
+  const confPct = confidence == null ? 0 : Math.max(0, Math.min(100, confidence));
+  const confBar =
+    confPct >= 70
+      ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+      : confPct >= 50
+        ? "bg-gradient-to-r from-indigo-500 to-violet-500"
+        : confPct >= 30
+          ? "bg-gradient-to-r from-amber-500 to-orange-500"
+          : "bg-gradient-to-r from-rose-500 to-red-500";
+  const hasStrengths = data.strengths.length > 0;
+  const hasRisks = data.risks.length > 0;
+  const hasHighlights = data.highlights.length > 0;
+  return (
+    <section className="relative overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-6 text-white shadow-lg">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-indigo-500/30 blur-3xl"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-16 bottom-0 h-48 w-48 rounded-full bg-violet-500/20 blur-3xl"
+      />
+      <div className="relative">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-indigo-300">
+            Decision Snapshot
+          </span>
+          {data.posture && (
+            <span
+              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${postureTone}`}
+            >
+              {data.posture}
+            </span>
+          )}
+        </div>
+        <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
+          {verdict}
+        </h2>
+        {data.thesis && (
+          <p
+            className="mt-2 max-w-4xl text-sm leading-6 text-slate-200 sm:text-base sm:leading-7"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.thesis) }}
+          />
+        )}
+        {confidence != null && (
+          <div className="mt-4 max-w-sm">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-200">
+                Confidence
+              </span>
+              <span className="text-lg font-bold text-white">
+                {confPct}
+                <span className="ml-0.5 text-[10px] font-medium text-slate-400">
+                  /100
+                </span>
+              </span>
+            </div>
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+              <div
+                className={`h-full rounded-full ${confBar}`}
+                style={{ width: `${confPct}%` }}
+              />
+            </div>
+          </div>
+        )}
+        {(hasStrengths || hasRisks || hasHighlights) && (
+          <div
+            className={`mt-5 grid gap-3 ${
+              hasStrengths && hasRisks ? "sm:grid-cols-2" : "sm:grid-cols-1"
+            }`}
+          >
+            {hasStrengths && (
+              <SnapshotList
+                label="Key strengths"
+                accent="emerald"
+                items={data.strengths}
+              />
+            )}
+            {hasRisks && (
+              <SnapshotList label="Key risks" accent="rose" items={data.risks} />
+            )}
+            {!hasStrengths && !hasRisks && hasHighlights && (
+              <SnapshotList
+                label="Highlights"
+                accent="indigo"
+                items={data.highlights}
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function SnapshotList({
+  label,
+  accent,
+  items,
+}: {
+  label: string;
+  accent: "emerald" | "rose" | "indigo";
+  items: string[];
+}) {
+  const dot =
+    accent === "emerald"
+      ? "bg-emerald-400"
+      : accent === "rose"
+        ? "bg-rose-400"
+        : "bg-indigo-400";
+  const head =
+    accent === "emerald"
+      ? "text-emerald-300"
+      : accent === "rose"
+        ? "text-rose-300"
+        : "text-indigo-300";
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur">
+      <p className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${head}`}>
+        {label}
+      </p>
+      <ul className="mt-2 space-y-1.5">
+        {items.map((it, i) => (
+          <li key={i} className="flex gap-2 text-sm leading-6 text-slate-100">
+            <span
+              aria-hidden
+              className={`mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
+            />
+            <span
+              className="min-w-0 flex-1"
+              dangerouslySetInnerHTML={{ __html: renderInline(it) }}
+            />
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function posturePalette(posture?: string): string {
+  switch ((posture ?? "").toUpperCase()) {
+    case "CRITICAL":
+    case "HIGH":
+      return "bg-rose-500/20 text-rose-200 ring-1 ring-inset ring-rose-400/40";
+    case "MEDIUM":
+      return "bg-amber-500/20 text-amber-200 ring-1 ring-inset ring-amber-400/40";
+    case "LOW":
+      return "bg-sky-500/20 text-sky-200 ring-1 ring-inset ring-sky-400/40";
+    case "OK":
+    case "STRENGTH":
+    case "GO":
+      return "bg-emerald-500/20 text-emerald-200 ring-1 ring-inset ring-emerald-400/40";
+    default:
+      return "bg-indigo-500/20 text-indigo-200 ring-1 ring-inset ring-indigo-400/40";
+  }
 }
 
 function scoreTone(pct: number): string {
@@ -534,6 +775,9 @@ export function markdownToExportHtml(md: string): string {
       case "score-group":
         parts.push(scoreGroupToHtml(b));
         break;
+      case "snapshot":
+        parts.push(snapshotToHtml(b.data));
+        break;
     }
   }
   return parts.join("\n");
@@ -573,6 +817,65 @@ function scoreGroupToHtml(
     })
     .join("");
   return `<div class="score-grid">${rows}</div>`;
+}
+
+function snapshotToHtml(d: SnapshotData): string {
+  const verdict = escapeHtml(d.verdict || "Decision Snapshot");
+  const postureBg: Record<string, [string, string]> = {
+    CRITICAL: ["#fecdd3", "#9f1239"],
+    HIGH: ["#fecdd3", "#9f1239"],
+    MEDIUM: ["#fde68a", "#92400e"],
+    LOW: ["#bae6fd", "#075985"],
+    OK: ["#a7f3d0", "#065f46"],
+    STRENGTH: ["#a7f3d0", "#065f46"],
+    GO: ["#a7f3d0", "#065f46"],
+  };
+  const postureChip = d.posture
+    ? (() => {
+        const [bg, fg] = postureBg[d.posture.toUpperCase()] ?? [
+          "#e0e7ff",
+          "#3730a3",
+        ];
+        return `<span class="snap-pill" style="background:${bg};color:${fg}">${escapeHtml(
+          d.posture,
+        )}</span>`;
+      })()
+    : "";
+  const conf = d.confidence != null ? Math.max(0, Math.min(100, d.confidence)) : null;
+  const confColor =
+    conf == null
+      ? "#6366f1"
+      : conf >= 70
+        ? "#10b981"
+        : conf >= 50
+          ? "#6366f1"
+          : conf >= 30
+            ? "#f59e0b"
+            : "#ef4444";
+  const confBlock =
+    conf != null
+      ? `<div class="snap-conf"><div class="snap-conf-row"><span class="snap-conf-label">Confidence</span><span class="snap-conf-value">${conf}<span class="snap-conf-max">/100</span></span></div><div class="snap-conf-track"><div class="snap-conf-fill" style="width:${conf}%;background:${confColor}"></div></div></div>`
+      : "";
+  const thesis = d.thesis
+    ? `<p class="snap-thesis">${renderInlineExport(d.thesis)}</p>`
+    : "";
+  const list = (label: string, items: string[], dot: string) =>
+    items.length
+      ? `<div class="snap-col"><p class="snap-col-head" style="color:${dot}">${label}</p><ul class="snap-col-list">${items
+          .map((it) => `<li>${renderInlineExport(it)}</li>`)
+          .join("")}</ul></div>`
+      : "";
+  const colsInner = [
+    list("Key strengths", d.strengths, "#059669"),
+    list("Key risks", d.risks, "#e11d48"),
+    d.strengths.length === 0 && d.risks.length === 0
+      ? list("Highlights", d.highlights, "#4f46e5")
+      : "",
+  ]
+    .filter(Boolean)
+    .join("");
+  const cols = colsInner ? `<div class="snap-cols">${colsInner}</div>` : "";
+  return `<section class="snap"><p class="snap-eyebrow">DECISION SNAPSHOT</p><div class="snap-head"><h2 class="snap-verdict">${verdict}</h2>${postureChip}</div>${thesis}${confBlock}${cols}</section>`;
 }
 
 function renderInlineExport(text: string): string {
@@ -637,6 +940,24 @@ export function buildExportDocumentStyles(): string {
     .score-max { font-size: 8pt; color: #94a3b8; font-weight: 500; margin-left: 2px; }
     .score-track { height: 6px; background: #f1f5f9; border-radius: 999px; margin-top: 6px; overflow: hidden; }
     .score-fill { height: 100%; border-radius: 999px; }
-    @media print { body { margin: 0.55in; } .score-card { break-inside: avoid; } .report-table { break-inside: auto; } tr { break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    .snap { background: linear-gradient(135deg, #0f172a 0%, #312e81 55%, #1e1b4b 100%); color: #fff; border-radius: 14px; padding: 18px 22px; margin: 6px 0 18px 0; }
+    .snap-eyebrow { font-size: 8.5pt; font-weight: 700; letter-spacing: 0.28em; color: #a5b4fc; margin: 0 0 4px 0; }
+    .snap-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .snap-verdict { font-size: 18pt; margin: 0; color: #fff; letter-spacing: -0.01em; }
+    .snap-pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+    .snap-thesis { font-size: 11pt; color: #e2e8f0; margin: 8px 0 0 0; line-height: 1.55; }
+    .snap-conf { margin-top: 12px; max-width: 320px; }
+    .snap-conf-row { display: flex; justify-content: space-between; align-items: baseline; }
+    .snap-conf-label { font-size: 8pt; font-weight: 700; letter-spacing: 0.18em; color: #c7d2fe; text-transform: uppercase; }
+    .snap-conf-value { font-size: 13pt; font-weight: 700; color: #fff; }
+    .snap-conf-max { font-size: 8pt; color: #94a3b8; margin-left: 2px; font-weight: 500; }
+    .snap-conf-track { height: 5px; background: rgba(255,255,255,0.12); border-radius: 999px; margin-top: 4px; overflow: hidden; }
+    .snap-conf-fill { height: 100%; border-radius: 999px; }
+    .snap-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .snap-col { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 12px; }
+    .snap-col-head { font-size: 8pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 4px 0; }
+    .snap-col-list { margin: 0; padding-left: 16px; color: #f1f5f9; }
+    .snap-col-list li { font-size: 10pt; margin-bottom: 3px; line-height: 1.5; }
+    @media print { body { margin: 0.55in; } .score-card, .snap { break-inside: avoid; } .report-table { break-inside: auto; } tr { break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   `;
 }

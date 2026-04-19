@@ -25,12 +25,37 @@ const FORMAT_RULES = `Output format: clean GitHub-flavored markdown.
 - Use '#' for the report title (once), '##' for each numbered top-level section, '###' for sub-sections, '####' for small eyebrow labels.
 - Use '-' for bullet points.
 - Use **bold** for key terms and emphasis; use *italics* sparingly.
+- Keep paragraphs SHORT — 2 to 4 sentences maximum. Break long reasoning into multiple paragraphs separated by a blank line. Never produce a paragraph longer than ~90 words.
+- When explaining multiple points or factors, break them out as a bulleted list or a table — do NOT inline them inside a single dense paragraph.
 - When presenting scores, render them as a bulleted list where each item is exactly "Label: X.X / 5" so they can be rendered as progress bars. Example: "- Product credibility: 3.6 / 5".
-- When presenting risks, mitigations, levers, competitors, or any comparative data, ALWAYS use a proper markdown table with a header row and separator (| Column | Column |\\n|---|---|). Tables are strongly preferred over nested bullets for structured data.
+- When presenting risks, mitigations, levers, competitors, or any comparative data, ALWAYS use a proper markdown table with a header row and separator (| Column | Column |\\n|---|---|). Tables MUST be written across multiple lines — never as a single-line string.
 - Tag severity or status inline using bracketed tokens so the UI can color-code them: [CRITICAL], [HIGH], [MEDIUM], [LOW], [OK], [STRENGTH], [RISK], [GAP]. Example: "| Tenancy boundary [HIGH] | ... |".
 - Use '> ' blockquotes for key insights, partner-level takeaways, or callouts the reader should not miss.
 - Use '---' as a horizontal rule between major sections when it aids scanability.
 - Do NOT wrap the entire output in code fences. Do NOT include a preamble or closing remarks — return the report only.`;
+
+// Every report MUST begin with a standardized "decision snapshot"
+// hero block so the reader sees the bottom-line verdict before
+// diving into details. The renderer turns this block into a rich
+// graphic card; do not restyle it with markdown.
+const DECISION_SNAPSHOT_RULE = `MANDATORY: The VERY FIRST element of the report (before the '#' title, before any prose, before any horizontal rule) MUST be a ':::snapshot' decision block in this exact shape:
+
+:::snapshot
+verdict: <short verdict line — e.g. "Proceed with Conditions", "High-Risk Investment", "Ship After Remediation">
+posture: <one of CRITICAL | HIGH | MEDIUM | LOW | OK>
+confidence: <integer 0-100>
+thesis: <ONE sentence — why this deal works or breaks>
+strengths:
+- <key strength, ≤ 14 words>
+- <key strength, ≤ 14 words>
+- <key strength, ≤ 14 words>
+risks:
+- <key risk, ≤ 14 words — append severity tag like [CRITICAL] or [HIGH]>
+- <key risk, ≤ 14 words>
+- <key risk, ≤ 14 words>
+:::
+
+Then continue with the normal report starting at '#'. The snapshot is rendered as a graphic hero card — do not duplicate it as a markdown section.`;
 
 const MASTER_PROMPT = `You are performing institutional-grade AI diligence for a private equity firm.
 
@@ -106,7 +131,11 @@ Translate findings into:
 - List missing artifacts that materially impact confidence
 - Label affected sections as LOW CONFIDENCE where applicable
 
-Output must be dense, specific, and defensible. ${FORMAT_RULES}`;
+Output must be dense, specific, and defensible. ${FORMAT_RULES}
+
+${DECISION_SNAPSHOT_RULE}
+
+For the snapshot: "verdict" should summarize the AI-diligence disposition (e.g. "Credible with Conditions", "High-Risk — Fix Before Close", "Strong Signal, Weak Evidence"). Use "strengths" for the two or three architectural facts that genuinely work, and "risks" for the two or three failure modes that matter most — each tagged with a severity like [CRITICAL] or [HIGH].`;
 
 const IC_MEMO_PROMPT = `You are writing an Investment Committee memo based on AI diligence.
 
@@ -146,7 +175,11 @@ STRUCTURE:
 - Scalability constraints
 - Exit risk
 
-Write this like a partner presenting to IC — direct, sharp, and high conviction. ${FORMAT_RULES}`;
+Write this like a partner presenting to IC — direct, sharp, and high conviction. ${FORMAT_RULES}
+
+${DECISION_SNAPSHOT_RULE}
+
+For the snapshot: "verdict" must be one of Invest / Proceed with Conditions / High Risk / Do Not Proceed. "posture" reflects the risk level of the recommendation. "confidence" is the 0-100 conviction score. "thesis" is the one-sentence "works / breaks because…". "strengths" are the three critical strengths (ultra-condensed) and "risks" are the three critical risks with severity tags.`;
 
 const RISK_REGISTER_PROMPT = `Generate a non-generic, operator-grade Technical Risk Register.
 
@@ -169,7 +202,11 @@ For each risk, include:
 - Mitigation (must be actionable, not generic)
 - Residual Risk (after mitigation)
 
-Prioritize the top 10-15 risks only. Depth over volume. Order from highest to lowest residual risk. ${FORMAT_RULES}`;
+Prioritize the top 10-15 risks only. Depth over volume. Order from highest to lowest residual risk. ${FORMAT_RULES}
+
+${DECISION_SNAPSHOT_RULE}
+
+For the snapshot: "verdict" summarizes the overall technical risk posture (e.g. "Elevated — 3 Critical Risks Outstanding"). "posture" is the HIGHEST single-risk severity in the register. "confidence" reflects how well-evidenced the register is (0-100). "thesis" is one sentence on where the system is most likely to fail first. Use "risks" only (leave strengths empty) — list the top 3 residual risks with severity tags.`;
 
 const VALUE_CREATION_PROMPT = `You are creating a post-investment execution plan, not a generic roadmap.
 
@@ -204,7 +241,11 @@ For each phase:
 6. Measurable Outcomes
 - Define success in metrics (cost ↓ %, latency ↓, accuracy ↑, etc.)
 
-This should feel like an operating playbook, not advice. ${FORMAT_RULES}`;
+This should feel like an operating playbook, not advice. ${FORMAT_RULES}
+
+${DECISION_SNAPSHOT_RULE}
+
+For the snapshot: "verdict" summarizes the execution posture (e.g. "Aggressive 100-Day Plan — 7 Ranked Moves"). "posture" reflects execution difficulty (HIGH if multiple hard items). "confidence" is 0-100 on plan achievability. "thesis" is one sentence on the single biggest value-unlock. Use "strengths" to list the top 3 value levers (not risks) — leave risks empty, or put the top 3 execution risks there if material.`;
 
 const COVERAGE_PROMPT = `You are auditing the QUALITY of the diligence itself.
 
@@ -237,7 +278,11 @@ For each scoring dimension (Product Credibility, Tooling Exposure, Data Sensitiv
 6. Overall Reliability
 - Can this diligence be trusted for an investment decision? Why or why not?
 
-This report should increase trust by exposing weaknesses, not hiding them. ${FORMAT_RULES}`;
+This report should increase trust by exposing weaknesses, not hiding them. ${FORMAT_RULES}
+
+${DECISION_SNAPSHOT_RULE}
+
+For the snapshot: "verdict" summarizes whether the diligence is decision-ready (e.g. "Decision-Ready", "Directional Only — Material Gaps", "Not Reliable for IC"). "posture" reflects evidence quality (HIGH if many gaps, OK if strong). "confidence" is the overall reliability score 0-100. "thesis" is one sentence on whether this diligence can be trusted. Use "strengths" for well-evidenced dimensions and "risks" for the biggest evidence gaps (tagged [GAP] or [HIGH]).`;
 
 export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
   {
