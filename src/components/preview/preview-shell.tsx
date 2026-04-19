@@ -30,6 +30,7 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
             </h1>
           </div>
           <div className="inline-flex items-center gap-3 self-start sm:self-auto">
+            <ReportGenerationBanner />
             <ConnectionStatus />
             <ProfileMenu />
           </div>
@@ -117,7 +118,6 @@ export function PreviewShell({ children }: { children: React.ReactNode }) {
             <NavSettingsMenu />
           </div>
         </div>
-          <ReportGenerationBanner />
         </div>
       </div>
 
