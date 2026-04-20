@@ -113,6 +113,15 @@ export function useNavVisibility() {
       ? current.filter((x) => x !== id)
       : [...current, id];
     writeHidden(next);
+
+    // Persist to server via PATCH /api/user/profile
+    fetch("/api/user/profile", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ hidden_menu_keys: next }),
+    }).catch(() => {
+      // Silently fail if server update doesn't work; localStorage is still set
+    });
   }, []);
 
   const resetAll = useCallback(() => writeHidden([]), []);

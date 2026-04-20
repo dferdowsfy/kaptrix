@@ -210,7 +210,7 @@ export default function HomePage() {
               </Link>
               <Link
                 href="/preview"
-                className="ml-1 text-sm font-medium text-indigo-300/80 underline decoration-indigo-400/30 underline-offset-4 transition hover:text-indigo-200 hover:decoration-indigo-300/50"
+                className="ml-1 text-base font-medium text-indigo-200 underline decoration-indigo-400/40 underline-offset-4 transition hover:text-white hover:decoration-indigo-300"
               >
                 Try the demo
               </Link>

@@ -66,13 +66,13 @@ export function PublicHeader() {
           </Link>
         </nav>
 
-        {/* Single low-visual-weight link for returning users — not a button. */}
+        {/* Single pill-shaped link for returning users. */}
         <Link
           href="/login"
-          className={`text-sm font-medium transition sm:text-base ${
+          className={`rounded-full border px-3.5 py-1.5 text-sm font-medium transition sm:px-4 sm:py-2 sm:text-base ${
             scrolled
-              ? "text-slate-700 hover:text-slate-900"
-              : "text-slate-100 hover:text-white"
+              ? "border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+              : "border-slate-300/30 text-slate-100 hover:border-slate-200/50 hover:bg-white/10"
           }`}
         >
           Client login
