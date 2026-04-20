@@ -305,7 +305,15 @@ For each phase:
 - Who does what (engineering, product, ops)
 - What is delivered in each phase
 
-6. Measurable Outcomes
+6. Product Roadmap & Team Next Steps
+A contextual, per-team roadmap that translates the diligence findings, dimension scores, risks, AI unit-economics signals, and competitive posture into concrete next moves each function owns. This is the section a CTO, Head of AI, or CEO hands directly to their teams.
+For each team — Product, Engineering / Platform, AI / ML, Data & Analytics, Security & Governance, GTM / Commercial, Finance / Ops — state:
+- Top 2-3 near-term items (0-30 days) tied to a specific finding, score, or artifact with citation.
+- Mid-term items (31-90 days) that unlock the next score band or close the named evidence gap.
+- The explicit score or metric each item is designed to move (e.g. production_readiness/ai_unit_economics 2.4 → 3.5, cost-per-inference $0.14 → $0.08, governance_safety/audit_trail LOW → OK).
+At least ONE roadmap item must target the AI Unit Economics sub-criterion (model tiering, cost-per-output instrumentation, token controls, lower-cost substitution) whenever the inputs indicate Margin Compression, Fragile, or Neutral posture.
+
+7. Measurable Outcomes
 - Define success in metrics (cost ↓ %, latency ↓, accuracy ↑, etc.)
 
 This should feel like an operating playbook, not advice. ${FORMAT_RULES}
@@ -457,7 +465,8 @@ const VALUE_CREATION_SECTIONS: AdvancedReportSection[] = [
   { id: "leverage", label: "Value leverage & cost reduction", maxTokens: 1400, instruction: sectionBodyInstruction("## 2. Value Leverage & Cost Reduction", "Sub-sections '### Value Leverage' (which 2 actions create disproportionate value and why — show the math on revenue or multiple impact) and '### Cost Reduction Opportunities' (specific unit-economics moves: model routing, quantization, caching, reserved capacity, contract renegotiation — each with $ savings).") },
   { id: "risk_reduction", label: "Risk reduction moves", maxTokens: 1100, instruction: sectionBodyInstruction("## 3. Risk Reduction Moves", "Which actions materially reduce catastrophic failure risk? Tie each to a specific failure mode from the register. Quantify residual risk before and after.") },
   { id: "plan", label: "30 / 60 / 90 execution plan", maxTokens: 2000, instruction: sectionBodyInstruction("## 4. 30 / 60 / 90 Execution Plan", "Use '### 0-30 Days', '### 31-60 Days', '### 61-90 Days' sub-headings. For each phase, use a table: Workstream | Owner | Deliverable | Pass Criterion. Every row must be specific and testable.") },
-  { id: "metrics", label: "Measurable outcomes", maxTokens: 1000, instruction: sectionBodyInstruction("## 5. Measurable Outcomes", "Table: Metric | Baseline | Target | Timeline | Dashboard/Instrumentation. Cover cost-per-inference, p95 latency, gross margin, NDR, enterprise logo count, and at least one AI-quality metric (accuracy, hallucination rate, citation fidelity).") },
+  { id: "roadmap", label: "Product roadmap & team next steps", maxTokens: 2400, instruction: sectionBodyInstruction("## 5. Product Roadmap & Team Next Steps", "Produce a contextual, per-team roadmap the portfolio company can hand directly to its teams as a guide for what to do next. Use one '### ' sub-heading per team in this exact order (omit a team only if the evidence has zero signal for it): Product, Engineering / Platform, AI / ML, Data & Analytics, Security & Governance, GTM / Commercial, Finance / Ops. Under each team emit ONE multi-line markdown table with columns: Horizon (0-30 / 31-60 / 61-90) | Next Step | Trigger (cite specific finding, score, or artifact) | Owner | Score or Metric Moved (e.g. 'production_readiness/ai_unit_economics 2.4 \\u2192 3.5', 'cost-per-output $0.14 \\u2192 $0.08', 'governance_safety/audit_trail LOW \\u2192 OK') | Pass Criterion. At least 2 rows per team when evidence supports it; never pad with generic items. At least ONE row anywhere in the roadmap MUST target the AI Unit Economics sub-criterion (model tiering, cost-per-output instrumentation, token controls, lower-cost substitution) whenever the inputs indicate Margin Compression, Fragile, or Neutral posture. End the section with one blockquote naming the single roadmap move the CEO should personally own for the first 30 days, and a bold **Decision:** line stating whether the roadmap as-written is sufficient to hit the Day-90 board review or must be rescoped.") },
+  { id: "metrics", label: "Measurable outcomes", maxTokens: 1000, instruction: sectionBodyInstruction("## 6. Measurable Outcomes", "Table: Metric | Baseline | Target | Timeline | Dashboard/Instrumentation. Cover cost-per-inference, p95 latency, gross margin, NDR, enterprise logo count, and at least one AI-quality metric (accuracy, hallucination rate, citation fidelity). Include at least one AI Unit Economics metric (cost-per-output by workflow, % traffic on lower-cost tier, or token-budget adherence).") },
 ];
 
 const COMPETITIVE_SECTIONS: AdvancedReportSection[] = [
