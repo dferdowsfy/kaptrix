@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { llmChat } from "@/lib/llm/client";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
+import { getGroqClient } from "@/lib/anthropic/client";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   SCORING_GUIDANCE_SYSTEM_PROMPT,
@@ -50,9 +51,10 @@ function isGuidance(value: unknown): value is ScoringGuidance {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isSelfHostedLlmConfigured()) {
+  const useGroq = isGroqConfigured();
+  if (!useGroq && !isSelfHostedLlmConfigured()) {
     return NextResponse.json(
-      { error: "Scoring copilot is not configured (self-hosted LLM missing)." },
+      { error: "Scoring copilot is not configured (no LLM provider available)." },
       { status: 503 },
     );
   }
@@ -106,15 +108,31 @@ export async function POST(request: NextRequest) {
   const prompt = `${SCORING_GUIDANCE_SYSTEM_PROMPT}\n\n${userPrompt}`;
 
   try {
-    const guidanceModel = getSelfHostedLlmModelForTask("guidance");
-    const completion = await llmChat({
-      model: guidanceModel,
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1,
-      maxTokens: 800,
-      jsonMode: true,
-    });
-    const text = (completion.content ?? "").trim();
+    let text: string;
+    let guidanceModel: string;
+
+    if (useGroq) {
+      guidanceModel = "llama-3.3-70b-versatile";
+      const groq = getGroqClient();
+      const completion = await groq.chat.completions.create({
+        model: guidanceModel,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        max_completion_tokens: 800,
+        response_format: { type: "json_object" },
+      });
+      text = (completion.choices[0]?.message?.content ?? "").trim();
+    } else {
+      guidanceModel = getSelfHostedLlmModelForTask("guidance");
+      const completion = await llmChat({
+        model: guidanceModel,
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        maxTokens: 800,
+        jsonMode: true,
+      });
+      text = (completion.content ?? "").trim();
+    }
 
     let parsed: unknown;
     try {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
+import { getGroqClient } from "@/lib/anthropic/client";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import {
   getAdvancedReportConfig,
@@ -106,11 +107,12 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isSelfHostedLlmConfigured()) {
+  const useGroq = isGroqConfigured();
+  if (!useGroq && !isSelfHostedLlmConfigured()) {
     return NextResponse.json(
       {
         error:
-          "Self-hosted LLM is not configured. Set SELF_HOSTED_LLM_BASE_URL and SELF_HOSTED_LLM_MODEL in .env.local / Vercel to enable report generation.",
+          "No LLM provider configured. Set GROQ_API_KEY or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL in .env.local / Vercel.",
       },
       { status: 503 },
     );
@@ -154,18 +156,35 @@ ${combinedEvidence}
 Return the report as clean markdown only. No preamble, no closing remarks, no code fences.`;
 
   try {
-    const { content, finishReason } = await llmChat({
-      model: getSelfHostedLlmModelForTask("report"),
-      messages: [
-        { role: "system", content: config.systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.2,
-      // Self-hosted CPU inference tops out ~4.3 tok/s on qwen2.5:7b,
-      // so ~1100 output tokens is the realistic ceiling inside Vercel
-      // Pro's 300s function timeout.
-      maxTokens: 1100,
-    });
+    let content: string;
+    let finishReason: string | null;
+
+    if (useGroq) {
+      const groq = getGroqClient();
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: config.systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        max_completion_tokens: 4096,
+      });
+      content = (completion.choices[0]?.message?.content ?? "").trim();
+      finishReason = completion.choices[0]?.finish_reason ?? null;
+    } else {
+      const resp = await llmChat({
+        model: getSelfHostedLlmModelForTask("report"),
+        messages: [
+          { role: "system", content: config.systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        maxTokens: 1100,
+      });
+      content = resp.content;
+      finishReason = resp.finishReason;
+    }
 
     if (!content) {
       return NextResponse.json(

@@ -5,8 +5,9 @@
 // 300s function window on CPU-only inference.
 
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
+import { getGroqClient } from "@/lib/anthropic/client";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import {
   getAdvancedReportConfig,
@@ -125,11 +126,12 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isSelfHostedLlmConfigured()) {
+  const useGroq = isGroqConfigured();
+  if (!useGroq && !isSelfHostedLlmConfigured()) {
     return NextResponse.json(
       {
         error:
-          "Self-hosted LLM is not configured. Set SELF_HOSTED_LLM_BASE_URL and SELF_HOSTED_LLM_MODEL in .env.local / Vercel to enable report generation.",
+          "No LLM provider configured. Set GROQ_API_KEY or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL in .env.local / Vercel.",
       },
       { status: 503 },
     );
@@ -181,20 +183,37 @@ ${section.instruction}
 Return markdown only. No preamble. No closing remark. No code fences.`;
 
   try {
-    const { content, finishReason } = await llmChat({
-      model: getSelfHostedLlmModelForTask("report"),
-      messages: [
-        { role: "system", content: config.systemPrompt },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.2,
-      // Hard cap per-section output so a single slow section cannot
-      // exceed the LLM request timeout. Measured throughput on the
-      // self-hosted CPU-only box is ~4.3 tok/s for qwen2.5:7b, so
-      // ~1100 tokens ≈ 256s, which fits inside Vercel Pro's 300s
-      // function window with headroom.
-      maxTokens: Math.min(section.maxTokens, 1100),
-    });
+    let content: string;
+    let finishReason: string | null;
+
+    if (useGroq) {
+      // Groq: ~500 tok/s on Llama 3.3 70B — no need for the 1100-token cap.
+      const groq = getGroqClient();
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: config.systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        max_completion_tokens: section.maxTokens,
+      });
+      content = (completion.choices[0]?.message?.content ?? "").trim();
+      finishReason = completion.choices[0]?.finish_reason ?? null;
+    } else {
+      // Fallback: self-hosted Ollama (CPU, ~4 tok/s).
+      const resp = await llmChat({
+        model: getSelfHostedLlmModelForTask("report"),
+        messages: [
+          { role: "system", content: config.systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        maxTokens: Math.min(section.maxTokens, 1100),
+      });
+      content = resp.content;
+      finishReason = resp.finishReason;
+    }
 
     if (!content) {
       return NextResponse.json(

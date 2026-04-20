@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModel, getSelfHostedLlmModelForTask } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModel, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
+import { getGroqClient } from "@/lib/anthropic/client";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import { PREVIEW_CLIENTS } from "@/lib/preview-clients";
 
@@ -109,11 +110,12 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(req: Request) {
-  if (!isSelfHostedLlmConfigured()) {
+  const useGroq = isGroqConfigured();
+  if (!useGroq && !isSelfHostedLlmConfigured()) {
     return NextResponse.json(
       {
         error:
-          "Self-hosted LLM is not configured. Set SELF_HOSTED_LLM_BASE_URL and SELF_HOSTED_LLM_MODEL.",
+          "No LLM provider configured. Set GROQ_API_KEY or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL.",
       },
       { status: 503 },
     );
@@ -207,16 +209,34 @@ ${safeOperatorKb ? `OPERATOR KNOWLEDGE BASE (sanitized):\n"""\n${safeOperatorKb}
 Identify REAL competitors / analog products of "${targetName}" from your training knowledge. For each peer provide a best-effort source URL (company homepage is fine). Then produce the contextual benchmarking JSON exactly per the schema. Return ONLY the JSON object — no commentary.`;
 
   try {
-    const { content: text } = await llmChat({
-      model: getSelfHostedLlmModelForTask("positioning"),
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: userPrompt },
-      ],
-      temperature: 0.2,
-      maxTokens: 2500,
-      jsonMode: true,
-    });
+    let text: string;
+
+    if (useGroq) {
+      const groq = getGroqClient();
+      const completion = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        max_completion_tokens: 2500,
+        response_format: { type: "json_object" },
+      });
+      text = (completion.choices[0]?.message?.content ?? "").trim();
+    } else {
+      const resp = await llmChat({
+        model: getSelfHostedLlmModelForTask("positioning"),
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0.2,
+        maxTokens: 2500,
+        jsonMode: true,
+      });
+      text = resp.content;
+    }
 
     let parsed: unknown;
     try {
