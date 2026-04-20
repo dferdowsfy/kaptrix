@@ -63,16 +63,28 @@ export function PublicHeader() {
           </Link>
         </nav>
 
-        <Link
-          href="/login?mode=signup"
-          className={`inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold transition sm:px-6 sm:py-3 sm:text-base ${
-            scrolled
-              ? "bg-slate-900 text-white shadow-sm hover:bg-slate-800"
-              : "border border-white/30 bg-white/10 text-white backdrop-blur hover:bg-white/20"
-          }`}
-        >
-          Sign up
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/login"
+            className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-semibold transition sm:px-5 sm:py-2.5 sm:text-base ${
+              scrolled
+                ? "text-slate-700 hover:text-slate-900"
+                : "text-white/80 hover:text-white"
+            }`}
+          >
+            Log in
+          </Link>
+          <Link
+            href="/login?mode=signup"
+            className={`inline-flex items-center rounded-full px-5 py-2.5 text-sm font-semibold transition sm:px-6 sm:py-3 sm:text-base ${
+              scrolled
+                ? "bg-slate-900 text-white shadow-sm hover:bg-slate-800"
+                : "border border-white/30 bg-white/10 text-white backdrop-blur hover:bg-white/20"
+            }`}
+          >
+            Sign up
+          </Link>
+        </div>
       </div>
     </header>
   );

@@ -27,6 +27,11 @@ function LoginSkeleton() {
 function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [firmName, setFirmName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [agree, setAgree] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -49,6 +54,11 @@ function LoginForm() {
       return;
     }
 
+    if (isSignUp && !agree) {
+      setMessage("Please accept the terms to continue.");
+      return;
+    }
+
     setLoading(true);
     setMessage("");
 
@@ -58,12 +68,22 @@ function LoginForm() {
       const { error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+            firm_name: firmName.trim(),
+            job_title: jobTitle.trim(),
+            phone: phone.trim(),
+          },
+        },
       });
 
       if (error) {
         setMessage(error.message);
       } else {
-        setMessage("Account created! You can now sign in.");
+        setMessage(
+          "Account created — if email confirmation is required, check your inbox. Otherwise, log in below.",
+        );
         setIsSignUp(false);
         setPassword("");
       }
@@ -94,11 +114,15 @@ function LoginForm() {
           {isSignUp ? "Join Kaptrix" : "Welcome back"}
         </p>
         <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white">
-          {isSignUp ? "Create your account" : "Sign in to Kaptrix"}
+          {isSignUp ? "Create your account" : "Log in to Kaptrix"}
         </h2>
+        <p className="mt-2 text-sm text-white/60">
+          {isSignUp
+            ? "Tell us who you are — we tailor the workspace to your firm."
+            : "Pick up where you left off."}
+        </p>
       </div>
 
-      {/* Segmented Sign in / Sign up toggle */}
       <div
         role="tablist"
         aria-label="Authentication mode"
@@ -118,7 +142,7 @@ function LoginForm() {
               : "text-white/70 hover:text-white"
           }`}
         >
-          Sign in
+          Log in
         </button>
         <button
           type="button"
@@ -145,42 +169,123 @@ function LoginForm() {
         </div>
       )}
 
+      {isSignUp && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="sm:col-span-2">
+            <label htmlFor="fullName" className="block text-sm font-medium text-white/80">
+              Full name
+            </label>
+            <input
+              id="fullName"
+              type="text"
+              required
+              autoComplete="name"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className={inputClass}
+              placeholder="Alex Morgan"
+            />
+          </div>
+          <div>
+            <label htmlFor="firmName" className="block text-sm font-medium text-white/80">
+              Firm / company
+            </label>
+            <input
+              id="firmName"
+              type="text"
+              required
+              autoComplete="organization"
+              value={firmName}
+              onChange={(e) => setFirmName(e.target.value)}
+              className={inputClass}
+              placeholder="Meridian Capital"
+            />
+          </div>
+          <div>
+            <label htmlFor="jobTitle" className="block text-sm font-medium text-white/80">
+              Job title
+            </label>
+            <input
+              id="jobTitle"
+              type="text"
+              autoComplete="organization-title"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              className={inputClass}
+              placeholder="Principal"
+            />
+          </div>
+          <div className="sm:col-span-2">
+            <label htmlFor="phone" className="block text-sm font-medium text-white/80">
+              Phone <span className="text-white/40">(optional)</span>
+            </label>
+            <input
+              id="phone"
+              type="tel"
+              autoComplete="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className={inputClass}
+              placeholder="+1 (555) 123-4567"
+            />
+          </div>
+        </div>
+      )}
+
       <div>
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-white/80"
-        >
-          Email address
+        <label htmlFor="email" className="block text-sm font-medium text-white/80">
+          Work email
         </label>
         <input
           id="email"
           type="email"
           required
+          autoComplete="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className={inputClass}
-          placeholder="operator@kaptrix.com"
+          placeholder="you@yourfirm.com"
         />
       </div>
 
       <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-white/80"
-        >
+        <label htmlFor="password" className="block text-sm font-medium text-white/80">
           Password
         </label>
         <input
           id="password"
           type="password"
           required
-          minLength={6}
+          minLength={8}
+          autoComplete={isSignUp ? "new-password" : "current-password"}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className={inputClass}
-          placeholder="••••••••"
+          placeholder={isSignUp ? "At least 8 characters" : "••••••••"}
         />
+        {isSignUp && (
+          <p className="mt-1 text-xs text-white/50">
+            Use at least 8 characters. Mix letters, numbers, and symbols for a stronger password.
+          </p>
+        )}
       </div>
+
+      {isSignUp && (
+        <label className="flex items-start gap-2 text-xs text-white/70">
+          <input
+            type="checkbox"
+            checked={agree}
+            onChange={(e) => setAgree(e.target.checked)}
+            className="mt-0.5 h-4 w-4 rounded border-white/20 bg-white/10"
+            required
+          />
+          <span>
+            I agree that Kaptrix may process uploaded diligence materials to
+            generate scores, reports, and an evidence index for my clients. No
+            data is shared across firms.
+          </span>
+        </label>
+      )}
 
       <button
         type="submit"
@@ -190,20 +295,22 @@ function LoginForm() {
         {loading
           ? isSignUp
             ? "Creating account..."
-            : "Signing in..."
+            : "Logging in..."
           : isSignUp
-            ? "Create Account"
-            : "Sign In"}
+            ? "Create account"
+            : "Log in"}
       </button>
 
-      <p className="text-center text-sm text-white/60">
-        <Link
-          href="/forgot-password"
-          className="font-medium text-white/90 hover:text-white hover:underline"
-        >
-          Forgot password?
-        </Link>
-      </p>
+      {!isSignUp && (
+        <p className="text-center text-sm text-white/60">
+          <Link
+            href="/forgot-password"
+            className="font-medium text-white/90 hover:text-white hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </p>
+      )}
 
       {message && (
         <p className="text-center text-sm text-white/80">{message}</p>
