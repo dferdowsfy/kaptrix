@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isOpenRouterConfigured } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
-import { getGroqClient } from "@/lib/anthropic/client";
+import { openRouterChat, OPENROUTER_REPORT_MODEL } from "@/lib/llm/openrouter";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import {
   getAdvancedReportConfig,
@@ -107,12 +107,12 @@ export async function POST(req: Request) {
     );
   }
 
-  const useGroq = isGroqConfigured();
-  if (!useGroq && !isSelfHostedLlmConfigured()) {
+  const useOpenRouter = isOpenRouterConfigured();
+  if (!useOpenRouter && !isSelfHostedLlmConfigured()) {
     return NextResponse.json(
       {
         error:
-          "No LLM provider configured. Set GROQ_API_KEY or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL in .env.local / Vercel.",
+          "No LLM provider configured. Set OPENROUTER_API_KEY or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL in .env.local / Vercel.",
       },
       { status: 503 },
     );
@@ -159,19 +159,18 @@ Return the report as clean markdown only. No preamble, no closing remarks, no co
     let content: string;
     let finishReason: string | null;
 
-    if (useGroq) {
-      const groq = getGroqClient();
-      const completion = await groq.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
+    if (useOpenRouter) {
+      const resp = await openRouterChat({
+        model: OPENROUTER_REPORT_MODEL,
         messages: [
           { role: "system", content: config.systemPrompt },
           { role: "user", content: userPrompt },
         ],
         temperature: 0.2,
-        max_completion_tokens: 4096,
+        maxTokens: 4096,
       });
-      content = (completion.choices[0]?.message?.content ?? "").trim();
-      finishReason = completion.choices[0]?.finish_reason ?? null;
+      content = resp.content;
+      finishReason = resp.finishReason;
     } else {
       const resp = await llmChat({
         model: getSelfHostedLlmModelForTask("report"),

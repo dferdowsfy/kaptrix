@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { llmChat } from "@/lib/llm/client";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
-import { getGroqClient } from "@/lib/anthropic/client";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isOpenRouterConfigured } from "@/lib/env";
+import { openRouterChat, OPENROUTER_REPORT_MODEL } from "@/lib/llm/openrouter";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   SCORING_GUIDANCE_SYSTEM_PROMPT,
@@ -51,8 +51,8 @@ function isGuidance(value: unknown): value is ScoringGuidance {
 }
 
 export async function POST(request: NextRequest) {
-  const useGroq = isGroqConfigured();
-  if (!useGroq && !isSelfHostedLlmConfigured()) {
+  const useOpenRouter = isOpenRouterConfigured();
+  if (!useOpenRouter && !isSelfHostedLlmConfigured()) {
     return NextResponse.json(
       { error: "Scoring copilot is not configured (no LLM provider available)." },
       { status: 503 },
@@ -111,17 +111,16 @@ export async function POST(request: NextRequest) {
     let text: string;
     let guidanceModel: string;
 
-    if (useGroq) {
-      guidanceModel = "llama-3.3-70b-versatile";
-      const groq = getGroqClient();
-      const completion = await groq.chat.completions.create({
+    if (useOpenRouter) {
+      guidanceModel = OPENROUTER_REPORT_MODEL;
+      const resp = await openRouterChat({
         model: guidanceModel,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.1,
-        max_completion_tokens: 800,
-        response_format: { type: "json_object" },
+        maxTokens: 800,
+        jsonMode: true,
       });
-      text = (completion.choices[0]?.message?.content ?? "").trim();
+      text = resp.content;
     } else {
       guidanceModel = getSelfHostedLlmModelForTask("guidance");
       const completion = await llmChat({
