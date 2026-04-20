@@ -228,6 +228,81 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     type: "short_text",
   },
 
+  // ────────────────── AI Unit Economics ──────────────────
+  // Token consumption, model tiering, and margin durability as usage scales.
+  // Feeds the `ai_unit_economics` sub-criterion under Production Readiness and
+  // the "Economically Scalable AI / Neutral / Margin Compression Risk"
+  // classification surfaced in the report.
+  {
+    id: "ai_ue_high_cost_workflows",
+    section: "AI Unit Economics",
+    prompt: "Which workflows rely on high-cost model inference?",
+    help:
+      "Name the flows routed to frontier/premium models (e.g. GPT-4-class, Claude Opus, long-context calls, agentic loops). Be specific about volume and trigger.",
+    type: "long_text",
+  },
+  {
+    id: "ai_ue_cost_per_output_tracking",
+    section: "AI Unit Economics",
+    prompt: "Do you track cost per output (per report, per workflow, per task)?",
+    help:
+      "Token counts alone are not enough. We are asking whether unit cost is attributable to a specific product output.",
+    type: "single",
+    options: [
+      "Yes — cost-per-output is instrumented per workflow and visible per tenant",
+      "Partial — tokens tracked in aggregate; cost-per-output is estimated",
+      "No — only provider-level spend is known",
+      "Unknown",
+    ],
+  },
+  {
+    id: "ai_ue_margin_behavior_at_scale",
+    section: "AI Unit Economics",
+    prompt: "How does margin change as usage scales?",
+    help: "Pick the pattern observed in production, not the aspiration.",
+    type: "single",
+    options: [
+      "Improves — margin expands with usage (routing, caching, tiering)",
+      "Flat — margin holds",
+      "Compresses — margin shrinks as usage grows",
+      "Unknown / not measured",
+    ],
+  },
+  {
+    id: "ai_ue_lower_cost_substitution",
+    section: "AI Unit Economics",
+    prompt:
+      "Can lower-cost models handle parts of the workflow without degrading product value?",
+    help:
+      "We are probing model tiering / routing: small/open models for retrieval, classification, drafting, and tool use — premium models reserved for the high-value step only.",
+    type: "single",
+    options: [
+      "Yes — routing in production today with validated quality on the cheaper tier",
+      "Partial — tested in eval but not yet in production",
+      "No — premium model handles the full workflow end-to-end",
+      "Unknown",
+    ],
+  },
+  {
+    id: "ai_ue_token_controls",
+    section: "AI Unit Economics",
+    prompt:
+      "What controls exist to limit token-heavy operations?",
+    help:
+      "Select all that apply. These are the guardrails that protect margin under load.",
+    type: "multi",
+    options: [
+      "Context window caps per request",
+      "Retrieval budget / chunk limits",
+      "Agent loop / tool-call bounds",
+      "Per-tenant or per-user token quotas",
+      "Automatic model downgrade on repeat failures",
+      "Caching of deterministic sub-calls",
+      "Per-workflow cost ceilings with hard cut-off",
+      "None of the above",
+    ],
+  },
+
   // ────────────────── Success Criteria & KPIs ──────────────────
   {
     id: "primary_kpi",

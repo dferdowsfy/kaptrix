@@ -3,6 +3,17 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ── Landing-page subtext tuning knobs ── */
+  --kx-sub-size: 1.1875rem;    /* 19px */
+  --kx-sub-line: 1.9;
+  --kx-sub-weight: 450;
+  --kx-sub-color: #1e293b;     /* slate-800 */
+
+  --kx-sub-sm-size: 1.0625rem; /* 17px */
+  --kx-sub-sm-line: 1.8;
+  --kx-sub-sm-weight: 430;
+  --kx-sub-sm-color: #334155;  /* slate-700 */
 }
 
 @theme inline {
@@ -63,6 +74,21 @@ body {
 }
 
 /* ---------- Landing: scroll reveal — disabled (static site) ---------- */
+
+/* ── kx-sub / kx-sub-sm: single-point subtext control ── */
+.kx-sub {
+  font-size: var(--kx-sub-size);
+  line-height: var(--kx-sub-line);
+  font-weight: var(--kx-sub-weight);
+  color: var(--kx-sub-color);
+}
+.kx-sub-sm {
+  font-size: var(--kx-sub-sm-size);
+  line-height: var(--kx-sub-sm-line);
+  font-weight: var(--kx-sub-sm-weight);
+  color: var(--kx-sub-sm-color);
+}
+
 .reveal,
 .reveal.reveal-in {
   opacity: 1;

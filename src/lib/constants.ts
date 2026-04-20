@@ -313,6 +313,44 @@ export const SCORING_DIMENSIONS: DimensionConfig[] = [
           { max: 5, label: "Excellent", description: "Inference costs are well below industry benchmarks with cost optimization embedded in architecture." },
         ],
       },
+      {
+        key: "ai_unit_economics",
+        name: "AI Unit Economics (Inference Efficiency)",
+        description:
+          "Whether the company's AI-driven value delivery is economically scalable — controlled token consumption, model tiering, and margin durability as usage increases.",
+        score_bands: [
+          {
+            max: 1,
+            label: "Margin Compression Risk",
+            description:
+              "Workflows route all traffic to premium models with no tiering; no visibility into cost per task; margin compresses as usage scales.",
+          },
+          {
+            max: 2,
+            label: "Fragile",
+            description:
+              "Token usage is tracked but cost-per-output is not; premium-model reliance dominates; no controls on token-intensive loops or context growth.",
+          },
+          {
+            max: 3,
+            label: "Neutral",
+            description:
+              "Some model tiering exists and cost-per-task is partially instrumented; margin is flat as usage scales but lower-cost substitution is unproven.",
+          },
+          {
+            max: 4,
+            label: "Scalable",
+            description:
+              "Explicit model routing by task class, cost-per-output tracked per workflow, context and loop limits enforced, lower-cost models validated for meaningful portions of the workflow.",
+          },
+          {
+            max: 5,
+            label: "Economically Scalable AI",
+            description:
+              "Margin improves with scale: task-level cost observability, tiered routing by intent, aggressive substitution to smaller/cheaper models without product degradation, and hard controls on token-heavy operations (context caps, loop bounds, retrieval budgets).",
+          },
+        ],
+      },
     ],
   },
   {

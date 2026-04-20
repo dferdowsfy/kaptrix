@@ -219,8 +219,10 @@ function getSnapshot(): PersistedState {
   return state;
 }
 
+const SERVER_SNAPSHOT: PersistedState = { records: {} };
+
 function getServerSnapshot(): PersistedState {
-  return { records: {} };
+  return SERVER_SNAPSHOT;
 }
 
 // ---- Public API --------------------------------------------------
