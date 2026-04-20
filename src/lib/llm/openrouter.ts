@@ -56,7 +56,7 @@ export async function openRouterChat(
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || "https://kaptrix.vercel.app",
+        "HTTP-Referer": process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_SITE_URL || "https://kaptrix.com",
         "X-Title": "Kaptrix",
       },
       body: JSON.stringify(body),
