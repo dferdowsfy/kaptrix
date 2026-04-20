@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { llmChat } from "@/lib/llm/client";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModel } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   SCORING_GUIDANCE_SYSTEM_PROMPT,
@@ -106,7 +106,9 @@ export async function POST(request: NextRequest) {
   const prompt = `${SCORING_GUIDANCE_SYSTEM_PROMPT}\n\n${userPrompt}`;
 
   try {
+    const guidanceModel = getSelfHostedLlmModelForTask("guidance");
     const completion = await llmChat({
+      model: guidanceModel,
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
       maxTokens: 800,
@@ -137,7 +139,7 @@ export async function POST(request: NextRequest) {
         dimension,
         sub_criterion,
         score,
-        model: getSelfHostedLlmModel(),
+        model: guidanceModel,
         prompt_version: "scoring-guidance@1.0.0",
       },
     });

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { llmChat } from "@/lib/llm/client";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModel } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
 import { getServiceClient } from "@/lib/supabase/service";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 
@@ -179,13 +179,16 @@ Answer:`;
   try {
     // Run answer + follow-up suggestions in parallel via the unified
     // self-hosted LLM client. Suggestions are best-effort.
+    const chatModel = getSelfHostedLlmModelForTask("chat");
     const [answerResp, suggestionsResp] = await Promise.all([
       llmChat({
+        model: chatModel,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
         maxTokens: 800,
       }),
       llmChat({
+        model: chatModel,
         messages: [
           {
             role: "user",
@@ -230,7 +233,7 @@ JSON:`,
       client_id: clientId,
       role: "assistant",
       content: answer,
-      metadata: { model: getSelfHostedLlmModel() },
+      metadata: { model: chatModel },
     });
 
     return NextResponse.json({ answer, suggestions });

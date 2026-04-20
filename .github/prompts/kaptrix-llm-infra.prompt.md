@@ -7,9 +7,28 @@ description: Kaptrix LLM infrastructure — self-hosted Ollama, llmChat(), auth 
 
 ## Self-Hosted Ollama Server
 - **Base URL**: `http://72.62.83.236/ollama/v1` (from `SELF_HOSTED_LLM_BASE_URL`)
-- **Model**: `qwen2.5:7b` (from `SELF_HOSTED_LLM_MODEL`)
+- **Default model**: `qwen2.5:7b` (from `SELF_HOSTED_LLM_MODEL`)
 - **API Key**: `SELF_HOSTED_LLM_API_KEY` env var
-- **CPU inference speed**: ~5–6 tokens/second
+- **Hardware**: CPU-only
+
+## Per-Task Model Routing
+Use `getSelfHostedLlmModelForTask(task)` from `@/lib/env` to select the right model per workload:
+
+| Task | Default model | tok/s | Env override |
+|------|---------------|-------|--------------|
+| `chat` | `llama3.2:3b` | ~12 | `SELF_HOSTED_LLM_MODEL_CHAT` |
+| `guidance` | `llama3.2:3b` | ~12 | `SELF_HOSTED_LLM_MODEL_GUIDANCE` |
+| `report` | `qwen2.5:7b` | ~4.3 | `SELF_HOSTED_LLM_MODEL_REPORT` |
+| `positioning` | `qwen2.5:7b` | ~4.3 | `SELF_HOSTED_LLM_MODEL_POSITIONING` |
+
+Pattern in any route:
+```typescript
+import { getSelfHostedLlmModelForTask } from "@/lib/env";
+const { content } = await llmChat({
+  model: getSelfHostedLlmModelForTask("chat"),
+  messages: [...],
+});
+```
 
 ## CRITICAL: Auth Header
 ```typescript
@@ -44,12 +63,15 @@ if (!isSelfHostedLlmConfigured()) {
 - Detects placeholders: empty, contains `<from`, `your-`, `placeholder`
 
 ## Token Budget Rules
-- **Per-section max**: `Math.min(section.maxTokens, 1400)` — never exceed 1400 per call
+- **Per-section max (reports)**: `Math.min(section.maxTokens, 1100)` — never exceed 1100 per call on qwen2.5:7b (fits 300s Vercel limit at 4.3 tok/s)
+- **Chat max tokens**: 800 (short answer)
+- **Guidance max tokens**: 800 (structured JSON)
+- **Positioning max tokens**: 2500 (JSON payload)
 - **Evidence context**: ~70KB (truncated with `.slice(0, 70_000)`)
 - **Operator KB**: ~20KB (`.slice(0, 20_000)`)
 - **Combined evidence**: ~90KB total
 - **Prior markdown**: Last 12KB of previous sections (`.slice(-12_000)`)
-- **Temperature**: Always 0.2 for reports/scoring, slightly higher allowed for chat
+- **Temperature**: 0.2 for reports/scoring/positioning, 0.3 for chat, 0.7 for suggestion chips
 
 ## Error Handling Pattern
 ```typescript

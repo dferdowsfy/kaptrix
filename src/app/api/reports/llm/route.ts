@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import {
@@ -155,16 +155,16 @@ Return the report as clean markdown only. No preamble, no closing remarks, no co
 
   try {
     const { content, finishReason } = await llmChat({
+      model: getSelfHostedLlmModelForTask("report"),
       messages: [
         { role: "system", content: config.systemPrompt },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
-      // Self-hosted CPU inference on the VPS tops out around 5-6 tok/s,
-      // so ~1400 output tokens is the realistic ceiling inside Vercel
-      // Pro's 300s function timeout. Prompts tell the model to target
-      // a shorter response and finish cleanly inside the budget.
-      maxTokens: 1400,
+      // Self-hosted CPU inference tops out ~4.3 tok/s on qwen2.5:7b,
+      // so ~1100 output tokens is the realistic ceiling inside Vercel
+      // Pro's 300s function timeout.
+      maxTokens: 1100,
     });
 
     if (!content) {

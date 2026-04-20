@@ -5,7 +5,7 @@
 // 300s function window on CPU-only inference.
 
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import {
@@ -182,16 +182,18 @@ Return markdown only. No preamble. No closing remark. No code fences.`;
 
   try {
     const { content, finishReason } = await llmChat({
+      model: getSelfHostedLlmModelForTask("report"),
       messages: [
         { role: "system", content: config.systemPrompt },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.2,
       // Hard cap per-section output so a single slow section cannot
-      // exceed the LLM request timeout. The self-hosted CPU inference
-      // runs at ~5-6 tok/s, so ~1400 tokens ≈ 250s, which fits inside
-      // Vercel Pro's 300s function window with headroom.
-      maxTokens: Math.min(section.maxTokens, 1400),
+      // exceed the LLM request timeout. Measured throughput on the
+      // self-hosted CPU-only box is ~4.3 tok/s for qwen2.5:7b, so
+      // ~1100 tokens ≈ 256s, which fits inside Vercel Pro's 300s
+      // function window with headroom.
+      maxTokens: Math.min(section.maxTokens, 1100),
     });
 
     if (!content) {

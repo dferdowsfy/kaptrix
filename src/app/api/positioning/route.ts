@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModel } from "@/lib/env";
+import { isSelfHostedLlmConfigured, getSelfHostedLlmModel, getSelfHostedLlmModelForTask } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 import { PREVIEW_CLIENTS } from "@/lib/preview-clients";
@@ -208,6 +208,7 @@ Identify REAL competitors / analog products of "${targetName}" from your trainin
 
   try {
     const { content: text } = await llmChat({
+      model: getSelfHostedLlmModelForTask("positioning"),
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: userPrompt },

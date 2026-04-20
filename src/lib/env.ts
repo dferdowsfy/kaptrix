@@ -85,3 +85,27 @@ export function getSelfHostedLlmModel(): string {
 export function getSelfHostedLlmApiKey(): string {
   return getServerEnv("SELF_HOSTED_LLM_API_KEY");
 }
+
+/**
+ * Per-task model routing. Each task can override the default model via
+ * a dedicated env var. Falls back to SELF_HOSTED_LLM_MODEL if unset.
+ *
+ * Rationale (CPU-only Ollama at ~4–12 tok/s):
+ *   - chat / guidance: latency-sensitive, short outputs → use a faster
+ *     3B-class model (e.g. llama3.2:3b, ~12 tok/s).
+ *   - report / positioning: quality-sensitive, longer outputs, JSON mode →
+ *     use the stronger 7B default (qwen2.5:7b, ~4 tok/s).
+ */
+export type LlmTask = "chat" | "guidance" | "report" | "positioning";
+
+export function getSelfHostedLlmModelForTask(task: LlmTask): string {
+  const envKey: Record<LlmTask, string> = {
+    chat: "SELF_HOSTED_LLM_MODEL_CHAT",
+    guidance: "SELF_HOSTED_LLM_MODEL_GUIDANCE",
+    report: "SELF_HOSTED_LLM_MODEL_REPORT",
+    positioning: "SELF_HOSTED_LLM_MODEL_POSITIONING",
+  };
+  const override = getServerEnv(envKey[task]);
+  if (override && !isPlaceholder(override)) return override;
+  return getSelfHostedLlmModel();
+}
