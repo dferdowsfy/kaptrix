@@ -140,7 +140,7 @@ function buildEmailHtml(args: {
       <table role="presentation" cellpadding="0" cellspacing="0">
         <tr>
           <td style="vertical-align:middle; padding-right:12px;">
-            <div style="width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg, #818cf8, #a78bfa, #e879f9); display:inline-block; line-height:32px; text-align:center; font-size:16px; font-weight:bold; color:#ffffff;">K</div>
+            <img src="https://kaptrix.com/kaptrix-logo.png" width="32" height="32" alt="Kaptrix" style="display:block; width:32px; height:32px; border:0; outline:none; text-decoration:none; border-radius:8px;" />
           </td>
           <td style="vertical-align:middle;">
             <span style="font-size:18px; font-weight:900; letter-spacing:0.22em; color:#ffffff; text-transform:uppercase;">KAPTRIX</span>

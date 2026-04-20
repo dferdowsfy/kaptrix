@@ -73,6 +73,28 @@ export function AdminPanel() {
     [],
   );
 
+  const deleteUser = useCallback(async (id: string, email: string) => {
+    if (
+      !confirm(
+        `Delete ${email}? This permanently removes the account, its saved reports, and its access. This cannot be undone.`,
+      )
+    )
+      return;
+    setBusyUserId(id);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, { method: "DELETE" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error ?? `HTTP ${res.status}`);
+      setUsers((rows) => rows.filter((r) => r.id !== id));
+      setToast(`Deleted ${email}`);
+    } catch (e) {
+      setToast(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusyUserId(null);
+      setTimeout(() => setToast(null), 3500);
+    }
+  }, []);
+
   const sendReset = useCallback(async (id: string, email: string) => {
     if (!confirm(`Send password reset email to ${email}?`)) return;
     setBusyUserId(id);
@@ -238,14 +260,24 @@ export function AdminPanel() {
                       {new Date(u.created_at).toLocaleDateString()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        disabled={busyUserId === u.id}
-                        onClick={() => sendReset(u.id, u.email)}
-                        className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
-                      >
-                        Send reset email
-                      </button>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          disabled={busyUserId === u.id}
+                          onClick={() => sendReset(u.id, u.email)}
+                          className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+                        >
+                          Send reset email
+                        </button>
+                        <button
+                          type="button"
+                          disabled={busyUserId === u.id}
+                          onClick={() => deleteUser(u.id, u.email)}
+                          className="rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-60"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -75,3 +75,49 @@ export async function PATCH(
 
   return NextResponse.json({ user: data });
 }
+
+/**
+ * DELETE /api/admin/users/:id
+ * Admin-only. Removes the user from auth.users (which cascades to
+ * public.users and user_reports via FK ON DELETE CASCADE).
+ * Refuses to delete the currently signed-in admin to avoid lock-out.
+ */
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  let ctx;
+  try {
+    ctx = await requireAuth();
+    requireAdmin(ctx);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const { id } = await params;
+  if (!id) {
+    return NextResponse.json({ error: "Missing user id" }, { status: 400 });
+  }
+  if (id === ctx.userId) {
+    return NextResponse.json(
+      { error: "You cannot delete your own account from the admin panel." },
+      { status: 400 },
+    );
+  }
+
+  const svc = getServiceClient();
+  if (!svc) {
+    return NextResponse.json(
+      { error: "Service client not configured" },
+      { status: 503 },
+    );
+  }
+
+  // Delete from auth.users — cascades to public.users via the FK.
+  const { error } = await svc.auth.admin.deleteUser(id);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true });
+}

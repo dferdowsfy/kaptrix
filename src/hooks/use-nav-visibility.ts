@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { PREVIEW_TABS } from "@/lib/preview-tabs";
 
 // ------------------------------------------------------------------
@@ -68,28 +69,42 @@ const EMPTY: NavTabId[] = [];
 export function useNavVisibility() {
   const hidden = useSyncExternalStore(subscribe, readHidden, () => EMPTY);
   const [serverHidden, setServerHidden] = useState<NavTabId[]>([]);
+  const pathname = usePathname();
 
-  // Fetch server-side hidden tabs (admin-enforced) once per mount. If the
-  // user isn't signed in or the endpoint fails, we just fall back to the
-  // local preference — same as before.
+  // Fetch server-side hidden tabs (admin-enforced). Re-runs on every
+  // route change and on window focus so an admin toggling a user's
+  // tabs reflects the next time that user navigates or refocuses the
+  // tab — no full reload required.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/user/profile", { cache: "no-store" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (cancelled || !data) return;
-        const keys = Array.isArray(data.hidden_menu_keys)
-          ? (data.hidden_menu_keys as string[])
-          : [];
-        setServerHidden(keys.filter((k): k is NavTabId => typeof k === "string") as NavTabId[]);
-      })
-      .catch(() => {
-        // not signed in or endpoint unavailable — ignore
-      });
+    const load = () => {
+      fetch("/api/user/profile", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (cancelled || !data) return;
+          const keys = Array.isArray(data.hidden_menu_keys)
+            ? (data.hidden_menu_keys as string[])
+            : [];
+          setServerHidden(
+            keys.filter((k): k is NavTabId => typeof k === "string") as NavTabId[],
+          );
+        })
+        .catch(() => {
+          // not signed in or endpoint unavailable — ignore
+        });
+    };
+    load();
+    const onFocus = () => load();
+    if (typeof window !== "undefined") {
+      window.addEventListener("focus", onFocus);
+    }
     return () => {
       cancelled = true;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("focus", onFocus);
+      }
     };
-  }, []);
+  }, [pathname]);
 
   const toggleTab = useCallback((id: NavTabId) => {
     if (ALWAYS_VISIBLE.includes(id)) return;

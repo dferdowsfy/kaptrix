@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from "react";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { AiReportCard } from "@/components/reports/ai-report-card";
+import { SavedReportsList } from "@/components/reports/saved-reports-list";
 import { ADVANCED_REPORTS } from "@/lib/reports/advanced-reports";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import {
@@ -54,6 +55,17 @@ export default function PreviewReportPage() {
               target={client.target}
             />
           ))}
+        </div>
+      </section>
+
+      <section id="saved-reports" className="print-hide">
+        <SectionHeader
+          eyebrow="Your history"
+          title="Saved reports"
+          description="Every report you have generated, with the date and time it was produced. Reports sync across your browsers and devices once you are signed in."
+        />
+        <div className="mt-5">
+          <SavedReportsList />
         </div>
       </section>
     </div>

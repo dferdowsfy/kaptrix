@@ -7,6 +7,7 @@ export type AdvancedReportId =
   | "master_diligence"
   | "ic_memo"
   | "risk_register"
+  | "competitive_posture"
   | "value_creation"
   | "evidence_coverage";
 
@@ -59,6 +60,25 @@ const FORMAT_RULES = `Output format: clean GitHub-flavored markdown.
 - Do NOT wrap the entire output in code fences. Do NOT include a preamble or closing remark — return the report only.
 - LENGTH: produce rigorous, IC-grade depth. Use the section's full token budget when the material justifies it. Prefer density (more evidence, more numerics, more specificity) over brevity. Finish cleanly — never truncate mid-sentence.`;
 
+// The operating-mode directive every report inherits. Forces the
+// model out of descriptive summarization and into prove / stress-test
+// / decide posture. This is the single biggest lever against reports
+// that merely restate what the evidence says.
+const OPERATING_MODE = `OPERATING MODE — PROVE, STRESS-TEST, DECIDE.
+
+You are not a summarizer. You are an adversarial operator auditing a live deal.
+
+For every claim, do three things in order:
+1. PROVE. Cite the exact artifact + section/page, the exact score + value, or the exact absent-artifact that would settle the claim. No evidence, no claim.
+2. STRESS-TEST. Name the edge case, adversarial input, scale multiple, vendor event, or audit trigger that would break the claim. If nothing breaks it, say so and why.
+3. DECIDE. State the consequence for the investment — in dollars, basis points, % ARR, logos, days-to-close, multiple turns, or IRR delta. End every sub-section on a decision, not a description.
+
+Banned verbs when they replace analysis: "describes", "discusses", "covers", "touches on", "outlines", "presents", "highlights". Banned hedges: "may", "could", "potential" without a quantified magnitude. Banned meta-statements: "this section will", "in this report", "overall".
+
+If the evidence is thin, say "LOW CONFIDENCE — requires <named artifact>" and still render your best-supported decision. Never pad around a gap; name it.
+
+Every section must end with a one-line bolded "**Decision:**" or "**Verdict:**" that states the operator action implied by the analysis (e.g. "**Decision:** Require per-tenant Pinecone namespace in SPA §6.4 or walk.").`;
+
 // Every report MUST begin with a standardized "decision snapshot"
 // hero block so the reader sees the bottom-line verdict before
 // diving into details. The renderer turns this block into a rich
@@ -82,7 +102,9 @@ risks:
 
 Then continue with the normal report starting at '#'. The snapshot is rendered as a graphic hero card — do not duplicate it as a markdown section.`;
 
-const MASTER_PROMPT = `You are a senior technical operating partner performing institutional-grade AI diligence for a private equity firm writing a nine-figure equity check. The reader is an Investment Committee chair who will underwrite or kill this deal based on what you write. Clients pay high five figures for this report. Under-deliver and they do not come back.
+const MASTER_PROMPT = `${OPERATING_MODE}
+
+You are a senior technical operating partner performing institutional-grade AI diligence for a private equity firm writing a nine-figure equity check. The reader is an Investment Committee chair who will underwrite or kill this deal based on what you write. Clients pay high five figures for this report. Under-deliver and they do not come back.
 
 You have access to:
 - Dimension scores (0-5) and weights
@@ -165,7 +187,11 @@ ${DECISION_SNAPSHOT_RULE}
 
 For the snapshot: "verdict" should summarize the AI-diligence disposition (e.g. "Credible with Conditions", "High-Risk — Fix Before Close", "Strong Signal, Weak Evidence"). Use "strengths" for the two or three architectural facts that genuinely work, and "risks" for the two or three failure modes that matter most — each tagged with a severity like [CRITICAL] or [HIGH].`;
 
-const IC_MEMO_PROMPT = `You are a Managing Partner writing the IC memo for a nine-figure check. Three other MDs will read this memo and vote. You have 20 minutes of their attention. The memo must be sharper and more specific than anything they have seen this quarter.
+const IC_MEMO_PROMPT = `${OPERATING_MODE}
+
+You are a Managing Partner writing the IC memo for a nine-figure check. Three other MDs will read this memo and vote. You have 20 minutes of their attention. The memo must be sharper and more specific than anything they have seen this quarter.
+
+This is a DECISION document, not a summary. Every section must resolve to a vote-relevant implication — valuation turns, conditions precedent, walk triggers, or leverage points — not a description of the company.
 
 RULES:
 - No fluff. No repetition across sections. Every sentence must drive toward the decision.
@@ -211,7 +237,9 @@ ${DECISION_SNAPSHOT_RULE}
 
 For the snapshot: "verdict" must be one of Invest / Proceed with Conditions / High Risk / Do Not Proceed. "posture" reflects the risk level of the recommendation. "confidence" is the 0-100 conviction score. "thesis" is the one-sentence "works / breaks because…". "strengths" are the three critical strengths (ultra-condensed) and "risks" are the three critical risks with severity tags.`;
 
-const RISK_REGISTER_PROMPT = `Generate an operator-grade Technical Risk Register. This is not a generic SOC 2 checklist — it is the post-close remediation backlog that the portfolio operating team will actually work against.
+const RISK_REGISTER_PROMPT = `${OPERATING_MODE}
+
+Generate an operator-grade Technical Risk Register. This is not a generic SOC 2 checklist — it is the post-close remediation backlog that the portfolio operating team will actually work against. Each risk must be TESTABLE in reality: a named engineer could reproduce the failure path from the description, and a named owner could close it against the pass criterion.
 
 RULES:
 - No abstract risks. "Scalability issues" is a rejection. Each risk must be tied to a specific system behavior, architecture decision, vendor contract clause, or missing control with a named artifact reference.
@@ -242,7 +270,9 @@ ${DECISION_SNAPSHOT_RULE}
 
 For the snapshot: "verdict" summarizes the overall technical risk posture (e.g. "Elevated — 3 Critical Risks Outstanding"). "posture" is the HIGHEST single-risk severity in the register. "confidence" reflects how well-evidenced the register is (0-100). "thesis" is one sentence on where the system is most likely to fail first. Use "risks" only (leave strengths empty) — list the top 3 residual risks with severity tags.`;
 
-const VALUE_CREATION_PROMPT = `You are writing the first 100-day operating plan that the portfolio team will execute on Day 1 of ownership. Every action is something a named function (CTO, Head of Platform, Head of AI, GC, CFO) will be measured against at the Day 90 board review.
+const VALUE_CREATION_PROMPT = `${OPERATING_MODE}
+
+You are writing the first 100-day operating plan that the portfolio team will execute on Day 1 of ownership. Every action is something a named function (CTO, Head of Platform, Head of AI, GC, CFO) will be measured against at the Day 90 board review. This is an execution playbook — every line item must be traceable to a specific risk or unit-economics lever identified in the diligence, and executable by a real team with a named owner, effort, and pass criterion.
 
 RULES:
 - Every action must tie directly to a risk, missed opportunity, or unit-economics lever identified in the diligence.
@@ -284,7 +314,49 @@ ${DECISION_SNAPSHOT_RULE}
 
 For the snapshot: "verdict" summarizes the execution posture (e.g. "Aggressive 100-Day Plan — 7 Ranked Moves"). "posture" reflects execution difficulty (HIGH if multiple hard items). "confidence" is 0-100 on plan achievability. "thesis" is one sentence on the single biggest value-unlock. Use "strengths" to list the top 3 value levers (not risks) — leave risks empty, or put the top 3 execution risks there if material.`;
 
-const COVERAGE_PROMPT = `You are auditing the QUALITY of the diligence itself.
+const COMPETITIVE_PROMPT = `${OPERATING_MODE}
+
+You are analyzing the competitive positioning of an AI system in a real market. Your reader is an IC that has already seen the management deck's "competitive landscape" slide and does not trust it. Your job is to strip the marketing veneer and decide whether this company is building something durable or something replaceable.
+
+RULES:
+- No vague comparisons. Every positioning claim must be tied to a capability, data asset, distribution channel, or switching-cost structure — not to branding or messaging.
+- Do NOT invent named competitors. Use realistic archetypes (e.g. "API-wrapper copilot", "data-moat incumbent", "workflow-integrated vertical AI") unless the data room cites specific competitors with attributed intel.
+- STRESS-TEST positioning under two futures: (a) foundation-model capability doubles in 18 months, (b) a well-capitalized incumbent ships a comparable feature. State whether the position holds or collapses.
+- The "Hidden Weakness" section is MANDATORY and must name one positioning element that looks strong today but is structurally fragile, with the specific evidence that exposes the fragility.
+- Every section ends with a decision line: where it wins, where it loses, whether the moat is real or rhetoric.
+
+STRUCTURE:
+
+1. Comparable Archetypes
+- 3-4 real competitive archetypes, each with a one-sentence capability definition and a concrete public example if known.
+
+2. Relative Positioning
+- Place the company within these archetypes: Leader / Competitive / Parity / Lagging — with the specific capability delta that justifies the placement.
+
+3. Where It Actually Wins
+- Capability-backed wins only. Each backed by a named system, data, or distribution advantage with evidence.
+
+4. Where It Loses
+- Structural disadvantages only (not fixable in <12 months). Quantify the gap.
+
+5. Hidden Weakness (MANDATORY)
+- What looks strong but is actually fragile? Name the evidence that exposes it.
+
+6. Strategic Reality
+- Durable or replaceable? Decide and defend.
+
+7. 2-Year Outlook
+- Does the position improve or deteriorate as foundation models, tooling, and incumbent distribution mature?
+
+Make this uncomfortable and honest. ${FORMAT_RULES}
+
+${DECISION_SNAPSHOT_RULE}
+
+For the snapshot: "verdict" summarizes durability (e.g. "Durable \u2014 Workflow Moat Holds", "Replaceable \u2014 Wrapper Exposed", "Contested \u2014 12-Month Window"). "posture" reflects competitive risk (HIGH if replaceable, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence take on whether this company wins or loses the category. "strengths" are the genuine capability wins; "risks" are the structural losses and hidden fragilities with severity tags.`;
+
+const COVERAGE_PROMPT = `${OPERATING_MODE}
+
+You are auditing the QUALITY of the diligence itself. Your job is to increase IC trust by exposing weakness — not hide it. Assume the data room is incomplete until proven otherwise, and refuse to overstate confidence on any dimension.
 
 RULES:
 - Be critical — assume incomplete data
@@ -340,7 +412,8 @@ function sectionBodyInstruction(headingMarkdown: string, guidance: string, addit
     `OUTPUT ONLY the markdown for the "${headingMarkdown}" section. Begin your response with that exact heading line and go directly into the content. Do NOT repeat earlier sections. Do NOT re-emit the ':::snapshot' block or '#' title. Do NOT write a closing remark.`,
     guidance,
     additional ?? "",
-    `Use the full token budget. Paragraphs 3-6 sentences (80-170 words) of specific analysis with named artifacts, quantified impact, and concrete technical detail. Tables must be multi-line markdown. No repetition with other sections — every sentence adds NEW information.`,
+    `Operate in PROVE / STRESS-TEST / DECIDE mode. Every claim must cite a specific artifact, score, or the absence of one. Name the edge case that would break each claim. End the section with a single bolded '**Decision:**' or '**Verdict:**' line stating the operator action implied \u2014 never end on a descriptive sentence.`,
+    `Use the full token budget. Paragraphs 3-6 sentences (80-170 words) of specific analysis with named artifacts, quantified impact, and concrete technical detail. Tables must be multi-line markdown. No repetition with other sections \u2014 every sentence adds NEW information.`,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -348,12 +421,12 @@ function sectionBodyInstruction(headingMarkdown: string, guidance: string, addit
 
 const MASTER_SECTIONS: AdvancedReportSection[] = [
   { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
-  { id: "architecture", label: "System & architecture reality", maxTokens: 2400, instruction: sectionBodyInstruction("## 1. System & AI Architecture Reality", "Describe the ACTUAL system design inferred from artifacts vs what marketing claims. Name every component, vendor, model version, and data store. Include a multi-line table with columns: Component | Stated | Observed | Evidence | Gap. Call out at least 2 specific mismatches between deck/marketing and architecture docs, with page-level citations on both sides. End with a partner-level takeaway in a blockquote.") },
-  { id: "credibility", label: "Product credibility breakdown", maxTokens: 2000, instruction: sectionBodyInstruction("## 2. Product Credibility Breakdown", "Separate genuine AI-driven value from thin wrappers. Quantify: % of workflow touched by model vs deterministic rules, claimed accuracy vs observed benchmark, # of named customers using the AI feature in production, reference-call findings if available. Include a scores bullet list (AI value vs wrapper, demo-production gap, customer vs claimed, differentiation — each on its own 'Label: X.X / 5' line). Name at least 2 specific missing proofs and the artifact that would close each.") },
-  { id: "data", label: "Data advantage vs illusion", maxTokens: 1500, instruction: sectionBodyInstruction("## 3. Data Advantage vs Illusion", "Classify the data moat: proprietary & compounding, operational but replaceable, or commoditized. Justify with: data volume (GB / rows), growth rate, unique rights, contract clauses that grant training rights, and whether a competitor could replicate from public sources. Include a table with columns: Data Asset | Classification | Source | Exclusivity | Replication Cost for Competitor.") },
+  { id: "architecture", label: "System & architecture reality", maxTokens: 2400, instruction: sectionBodyInstruction("## 1. System & AI Architecture Reality", "PROVE or DISPROVE the stated architecture. Reconstruct the ACTUAL system from artifacts (repos, IaC, diagrams, SOC reports) and contrast it line-by-line with what marketing claims. Name every component, vendor, model version, and data store. Include a multi-line table with columns: Component | Stated | Observed | Evidence | Gap. Call out at least 2 specific mismatches between deck/marketing and architecture docs, with page-level citations on both sides. STRESS-TEST: name the single architectural decision most likely to break at 3x tenant growth and why. End with a partner-level takeaway in a blockquote and a bold **Decision:** line stating whether the architecture supports the deal thesis as-is, with conditions, or not at all.") },
+  { id: "credibility", label: "Product credibility breakdown", maxTokens: 2000, instruction: sectionBodyInstruction("## 2. Product Credibility Breakdown", "PROVE whether AI drives value or the product is a thin wrapper. Quantify: % of workflow touched by model vs deterministic rules, claimed accuracy vs observed benchmark, # of named customers using the AI feature in production, reference-call findings if available. STRESS-TEST the demo-vs-production gap: what fails under adversarial input, long-tail data, or production concurrency that does not fail in a scripted demo? Include a scores bullet list (AI value vs wrapper, demo-production gap, customer vs claimed, differentiation — each on its own 'Label: X.X / 5' line). Name at least 2 specific missing proofs and the artifact that would close each. End with **Decision:** credible / credible-with-conditions / superficial.") },
+  { id: "data", label: "Data advantage vs illusion", maxTokens: 1500, instruction: sectionBodyInstruction("## 3. Data Advantage vs Illusion", "DECIDE the moat classification: (a) proprietary and compounding, (b) operational but replaceable, or (c) commoditized. PROVE it with data volume (GB / rows), growth rate, unique rights, contract clauses that grant training rights, and whether a competitor could replicate from public sources. STRESS-TEST: if a well-funded competitor spent $5M and 6 months, which slice of the data advantage survives? Include a table with columns: Data Asset | Classification | Source | Exclusivity | Replication Cost for Competitor. End with **Decision:** one of the three classifications with a one-sentence rationale.") },
   { id: "vendor", label: "Vendor & model dependency risk", maxTokens: 1600, instruction: sectionBodyInstruction("## 4. Vendor & Model Dependency Risk", "Quantify exposure per vendor: % of compute spend, contract expiry, auto-renewal terms, price protection, volume commitments, termination clauses. Include a table with columns: Vendor | Dependency | Contract Term | Switching Cost ($ + weeks) | Fallback | Risk [tag]. Name at least one hidden dependency (identity provider, CDN, observability stack). State margin compression risk in bps if the primary model vendor raises prices by 25%.") },
   { id: "failure_modes", label: "Failure mode analysis", maxTokens: 2000, instruction: sectionBodyInstruction("## 5. Failure Mode Analysis", "Top 3 production failure modes. For each: the exact trigger, the technical failure path (which file / service / API), the blast radius in % ARR or $ impact or # tenants affected, whether a mitigation exists today (yes/partial/no), and what a correct mitigation looks like with owner + effort. Present as a multi-line table with columns: Failure Mode | Trigger | Technical Failure Point | Blast Radius | Existing Mitigation | Needed Mitigation.") },
-  { id: "governance", label: "Governance stress test", maxTokens: 1600, instruction: sectionBodyInstruction("## 6. Governance Stress Test", "Do not describe controls — STRESS TEST them. For logging, access control, incident response, model change management, data retention, and third-party risk: what is the edge case that breaks the control? Name the edge case, the failure, and the control gap. Include a governance scores bullet list. End with one blockquote takeaway the IC must hear.") },
+  { id: "governance", label: "Governance stress test", maxTokens: 1600, instruction: sectionBodyInstruction("## 6. Governance Stress Test", "Do not describe controls — STRESS-TEST them. For logging, access control, incident response, model change management, data retention, and third-party risk: name the precise edge case that breaks the control, the resulting failure, the blast radius, and whether auditability is real or superficial (i.e. could an external auditor reconstruct a specific tenant incident from the logs alone?). Include a governance scores bullet list. End with one blockquote takeaway the IC must hear and a **Decision:** on whether controls are audit-ready, patch-ready, or must be rebuilt.") },
   { id: "production", label: "Production reality check", maxTokens: 1500, instruction: sectionBodyInstruction("## 7. Production Reality Check", "Scale ceiling: at what user/request volume does cost, latency, or reliability break? Quantify cost-per-inference today, project it at 3x and 10x scale. Name the top 2 cost explosion triggers and the top 2 reliability failure triggers, each with a numeric threshold.") },
   { id: "scores", label: "Score decomposition", maxTokens: 1800, instruction: sectionBodyInstruction("## 8. Score Decomposition", "For each dimension: render as 'Label: X.X / 5' bullet, then a short paragraph explaining WHY it earned that exact score (cite scoring rubric + evidence) and WHAT specific change (named artifact or control) would move it +1.0 point. Cover every dimension scored in the engagement.") },
   { id: "impact", label: "Investment impact", maxTokens: 1600, instruction: sectionBodyInstruction("## 9. So What — Investment Impact", "Translate findings into deal terms: (a) what breaks the business (quantified blast radius), (b) what limits scale (specific bottleneck + cost curve), (c) what reduces exit multiple (which strategic buyer pulls their bid and why). Include a scenario table with columns: Scenario | Key Assumption | Revenue Impact | Multiple Impact | Probability. Cover base / bull / bear.") },
@@ -387,6 +460,17 @@ const VALUE_CREATION_SECTIONS: AdvancedReportSection[] = [
   { id: "metrics", label: "Measurable outcomes", maxTokens: 1000, instruction: sectionBodyInstruction("## 5. Measurable Outcomes", "Table: Metric | Baseline | Target | Timeline | Dashboard/Instrumentation. Cover cost-per-inference, p95 latency, gross margin, NDR, enterprise logo count, and at least one AI-quality metric (accuracy, hallucination rate, citation fidelity).") },
 ];
 
+const COMPETITIVE_SECTIONS: AdvancedReportSection[] = [
+  { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
+  { id: "archetypes", label: "Comparable archetypes", maxTokens: 1400, instruction: sectionBodyInstruction("## 1. Comparable Archetypes", "Define 3-4 real competitive archetypes relevant to this target's category (examples: 'horizontal API-wrapper copilot', 'data-moat vertical incumbent', 'workflow-integrated AI platform', 'open-source with managed tier'). For each: one-sentence capability definition, one public or widely-known example, and the structural advantage/disadvantage that defines the archetype. Table columns: Archetype | Capability Core | Public Example | Structural Advantage | Structural Weakness.") },
+  { id: "positioning", label: "Relative positioning", maxTokens: 1400, instruction: sectionBodyInstruction("## 2. Relative Positioning", "Place the target within the archetypes above. Assign a posture per capability axis (model sophistication, proprietary data, workflow depth, distribution, governance) on the Leader / Competitive / Parity / Lagging scale. Show the specific capability delta (feature, dataset, integration, latency, cost) that justifies each placement. Table columns: Capability Axis | Target Posture | Closest Archetype | Delta vs Archetype | Evidence.") },
+  { id: "wins", label: "Where it actually wins", maxTokens: 1300, instruction: sectionBodyInstruction("## 3. Where It Actually Wins", "Capability-backed wins only. For each win: the specific system/data/distribution advantage, the evidence, the customer outcome it produces, and why a competitor cannot trivially replicate it. No marketing claims. Minimum 3 wins, maximum 5.") },
+  { id: "losses", label: "Where it loses", maxTokens: 1300, instruction: sectionBodyInstruction("## 4. Where It Loses", "Structural disadvantages only \u2014 things that cannot be fixed in <12 months. For each: the gap, the competitor archetype that exploits it, the quantified impact (churn risk, win-rate delta, ACV ceiling), and the reason it is structural rather than tactical.") },
+  { id: "hidden", label: "Hidden weakness", maxTokens: 1100, instruction: sectionBodyInstruction("## 5. Hidden Weakness", "MANDATORY. Name the ONE positioning element that looks strong today but is structurally fragile. Cite the exact evidence that exposes the fragility (artifact + section, contract clause, architectural dependency, or named vendor reliance). Explain what event collapses it and the blast radius to ARR or exit multiple.") },
+  { id: "strategic", label: "Strategic reality", maxTokens: 1100, instruction: sectionBodyInstruction("## 6. Strategic Reality", "Decide: is this company building something DURABLE or something REPLACEABLE? Defend the call with the specific compounding or eroding forces (data flywheel, workflow lock-in, distribution lock, vendor leverage, talent density). End with **Verdict:** Durable / Contested / Replaceable.") },
+  { id: "outlook", label: "2-year outlook", maxTokens: 1100, instruction: sectionBodyInstruction("## 7. Two-Year Outlook", "Stress-test the position under two futures in parallel: (a) foundation-model capability doubles and token costs drop 70%, (b) a well-capitalized incumbent (name the archetype) ships a comparable feature in 12 months. For each future: does the target's position improve, hold, or deteriorate? Quantify the impact on win-rate, ACV, or churn. End with **Decision:** whether the competitive posture supports the underwriting case.") },
+];
+
 const COVERAGE_SECTIONS: AdvancedReportSection[] = [
   { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
   { id: "inventory", label: "Artifact inventory", maxTokens: 1200, instruction: sectionBodyInstruction("## 1. Artifact Inventory", "Every artifact analyzed, with exact filename/category. Table columns: Artifact | Category (Product/Data/Infra/Governance/Financial) | Pages or Size | Freshness (date) | Usability [tag].") },
@@ -394,7 +478,7 @@ const COVERAGE_SECTIONS: AdvancedReportSection[] = [
   { id: "confidence", label: "Confidence scoring", maxTokens: 1100, instruction: sectionBodyInstruction("## 3. Confidence Scoring", "Assign 0-100 confidence to each dimension score and justify based on artifact strength, recency, and corroboration. Use a table: Dimension | Score | Confidence | Justification.") },
   { id: "unsupported", label: "Unsupported conclusions", maxTokens: 1000, instruction: sectionBodyInstruction("## 4. Unsupported Conclusions", "Identify every place where a conclusion rests on weak or indirect evidence. Name the conclusion, cite the weak evidence, and state what would strengthen it.") },
   { id: "gaps", label: "Critical gaps", maxTokens: 1000, instruction: sectionBodyInstruction("## 5. Critical Gaps", "Missing artifacts ranked by impact on decision. Table: Gap | Impact on Outcome | Obtainable Pre-Close? | Action to Request.") },
-  { id: "reliability", label: "Overall reliability", maxTokens: 900, instruction: sectionBodyInstruction("## 6. Overall Reliability", "Can this diligence be trusted for an IC decision? One clear verdict, supported by the coverage and confidence ratings above. State the single biggest thing that would flip reliability from directional to decision-ready.") },
+  { id: "reliability", label: "Overall reliability", maxTokens: 900, instruction: sectionBodyInstruction("## 6. Overall Reliability", "DECIDE: can this diligence be trusted for an IC decision? Render a single verdict — Decision-Ready / Directional Only / Not Reliable — supported by the coverage and confidence ratings above. State the single biggest artifact request that would flip reliability from directional to decision-ready, with its expected confidence lift in points. End with a bold **Decision:** line.") },
 ];
 
 export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
@@ -436,6 +520,19 @@ export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
     userPromptIntro:
       "Produce the Technical Risk Register for the target company below.",
     sections: RISK_REGISTER_SECTIONS,
+  },
+  {
+    id: "competitive_posture",
+    title: "Competitive Posture Report",
+    tagline: "Durable or replaceable — decided, not described",
+    description:
+      "Capability-first competitive read. Places the target against realistic archetypes, calls where it wins and loses structurally, names the hidden weakness, and stress-tests the position under foundation-model and incumbent-distribution futures.",
+    accent: "from-amber-600 via-orange-500 to-rose-500",
+    eyebrow: "Market · Posture",
+    systemPrompt: COMPETITIVE_PROMPT,
+    userPromptIntro:
+      "Produce the Competitive Posture Report for the target company below.",
+    sections: COMPETITIVE_SECTIONS,
   },
   {
     id: "value_creation",
