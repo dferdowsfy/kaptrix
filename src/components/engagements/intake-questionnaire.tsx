@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   INDUSTRY_PROFILES,
   type Industry,
@@ -525,6 +525,9 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
       "Explicit opt-in, documented in MSA",
       "Contractual default-in with opt-out",
       "Aggregated / anonymized only",
+      "Customer data excluded from training by default",
+      "Per-tenant isolation with no cross-tenant training",
+      "Rights revocable at any time with audit trail",
       "Ambiguous / not documented",
       "Not applicable",
     ],
@@ -537,6 +540,8 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     options: [
       "Required — unlimited or high cap",
       "Required — limited cap acceptable",
+      "Required — carve-outs for training-data claims",
+      "Required — mutual indemnification acceptable",
       "Preferred but not a gating item",
       "Not material to this deal",
     ],
@@ -549,11 +554,13 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     prompt: "Maximum tolerable AI-system downtime",
     type: "single",
     options: [
+      "Seconds — live customer-facing",
       "Minutes (safety-critical / real-time)",
       "Hours",
       "1 business day",
       "<1 week",
       "Flexible — batch workflows",
+      "Graceful degradation acceptable (human fallback)",
     ],
   },
   {
@@ -574,7 +581,10 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
       "US-only is acceptable",
       "US + EU required",
       "US + EU + APAC required",
+      "Canada-resident data required",
+      "UK-resident data required",
       "Country-specific residency required (name below)",
+      "Sovereign cloud / government region required",
       "Not applicable",
     ],
   },
@@ -700,7 +710,11 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
         "SOX controls",
         "Trade surveillance controls",
         "Credit decision controls",
+        "AML / KYC model controls",
+        "Market-risk model controls",
+        "Fair-lending / ECOA controls",
         "Model retraining governance",
+        "Third-party model risk (SR 11-7 / OCC 2011-12)",
         "No defined controls yet",
       ],
     },
@@ -714,7 +728,10 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       options: [
         "No PHI touches AI pipeline",
         "PHI redacted before model call",
-        "PHI allowed with controls",
+        "PHI tokenized / pseudonymized before use",
+        "PHI allowed in prompts only, never in logs",
+        "PHI allowed with controls (BAA + encryption)",
+        "PHI processed on-premise only",
         "Unknown / not documented",
       ],
     },
@@ -733,10 +750,13 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       prompt: "Which clinical bias controls are documented?",
       type: "multi",
       options: [
-        "Subgroup performance testing",
-        "Fairness thresholds",
-        "Independent clinical review",
+        "Subgroup performance testing (race, sex, age)",
+        "Fairness thresholds with monitoring alerts",
+        "Independent clinical review board sign-off",
+        "Prospective validation on external cohorts",
+        "Adverse-event reporting pipeline",
         "Post-market drift monitoring",
+        "Human-in-the-loop override logging",
         "No formal controls",
       ],
     },
@@ -775,6 +795,10 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
         "Privilege leakage risk",
         "Client disclosure / consent risk",
         "Hallucinated authority risk",
+        "Conflict-of-interest detection gaps",
+        "Cross-matter data contamination",
+        "Attorney-client-privileged training data risk",
+        "Candor-to-the-tribunal risk (fabricated cites)",
         "Limited exposure",
       ],
     },
@@ -795,10 +819,14 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       prompt: "Which abuse vectors are most material?",
       type: "multi",
       options: [
-        "Prompt injection",
+        "Prompt injection (direct + indirect)",
         "Data exfiltration via tool calls",
         "Account takeover on AI admins",
         "Model jailbreak behavior",
+        "Training-data poisoning via user content",
+        "Abuse of generous free tiers for scraping",
+        "Insecure output handling (XSS via model text)",
+        "Excessive autonomy in agent workflows",
         "No formal abuse model",
       ],
     },
@@ -809,8 +837,11 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       type: "single",
       options: [
         "Low — predictable unit costs",
+        "Low — cost caps enforced per tenant",
         "Moderate — occasional spikes",
+        "Moderate — hedged via multi-model routing",
         "High — materially volatile",
+        "High — exposed to upstream API repricing",
         "Unknown / insufficient data",
       ],
     },
@@ -833,8 +864,10 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       options: [
         "Not implemented",
         "Manual and inconsistent",
+        "Templated reason codes, manual mapping",
         "Partially automated",
-        "Fully traceable and auditable",
+        "Automated with human QA sampling",
+        "Fully traceable and auditable end-to-end",
       ],
     },
     {
@@ -845,8 +878,11 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       options: [
         "NYDFS Circular Letter 7",
         "NAIC AI model guidance",
+        "Colorado Division of Insurance AI bulletin",
         "State DOI-specific guidance",
         "FCRA / ECOA notices",
+        "HIPAA (for health-related underwriting)",
+        "Unfair-discrimination state rules",
         "No explicit mapping",
       ],
     },
@@ -860,8 +896,10 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       options: [
         "No substantiation workflow",
         "Ad hoc review",
+        "Legal-only review",
         "Standardized review workflow",
         "Auditable, policy-enforced workflow",
+        "Automated claim-fact check against source catalog",
       ],
     },
     {
@@ -874,6 +912,9 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
         "Inappropriate demographic targeting",
         "Cross-border consent mismatch",
         "Model drift in recommendations",
+        "Price-discrimination exposure",
+        "Minor-targeted content risk (COPPA)",
+        "Retargeting without fresh consent",
         "Low concern",
       ],
     },
@@ -897,8 +938,12 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
         "No plan",
         "Roadmap only",
         "Sponsor identified",
+        "3PAO assessment scheduled",
         "In process with evidence",
-        "Authorized",
+        "Authorized — FedRAMP Moderate",
+        "Authorized — FedRAMP High",
+        "Authorized — IL4 / IL5",
+        "Authorized — IL6",
       ],
     },
     {
@@ -908,9 +953,13 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       type: "multi",
       options: [
         "ITAR controls",
+        "EAR dual-use controls",
         "CJIS / CUI controls",
+        "CMMC Level 2 or higher",
         "Geo-fencing and residency",
         "Cleared personnel restrictions",
+        "Supply-chain provenance (C-SCRM)",
+        "Foreign-national access controls",
         "No formal safeguards",
       ],
     },
@@ -943,7 +992,9 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
         "Not measured",
         "Measured with major variance",
         "Stable within safe thresholds",
+        "Deterministic fail-safe fallback on timeout",
         "Validated under stress scenarios",
+        "IEC 61508 / ISO 26262 aligned",
       ],
     },
     {
@@ -952,10 +1003,13 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       prompt: "Legacy protocol and OT attack surface",
       type: "multi",
       options: [
-        "Unencrypted legacy protocols",
+        "Unencrypted legacy protocols (Modbus, DNP3)",
         "Weak remote access controls",
         "No OT anomaly detection",
         "Patch latency in field assets",
+        "Hard-coded credentials in firmware",
+        "Unsigned firmware updates",
+        "Flat network between OT and corporate IT",
         "Low material exposure",
       ],
     },
@@ -981,6 +1035,8 @@ export function IntakeQuestionnaire({
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const sectionTopRef = useRef<HTMLDivElement | null>(null);
+  const isFirstSectionRender = useRef(true);
 
   const profile = INDUSTRY_PROFILES[industry];
   const questions = [...CORE_INTAKE_QUESTIONS, ...INDUSTRY_INTAKE_QUESTIONS[industry]];
@@ -993,9 +1049,12 @@ export function IntakeQuestionnaire({
 
   const isAnswered = (q: IntakeQuestion) => {
     const v = answers[q.id];
-    if (Array.isArray(v)) return v.length > 0;
-    if (typeof v === "string") return v.trim().length > 0;
-    return v !== undefined;
+    const other = answers[`${q.id}__other`];
+    const hasOther = typeof other === "string" && other.trim().length > 0;
+    if (Array.isArray(v)) return v.length > 0 || hasOther;
+    if (typeof v === "string") return v.trim().length > 0 || hasOther;
+    if (v !== undefined) return true;
+    return hasOther;
   };
 
   const sections = Array.from(new Set(questions.map((q) => q.section)));
@@ -1013,6 +1072,26 @@ export function IntakeQuestionnaire({
 
   const answered = questions.filter(isAnswered).length;
   const completionPct = Math.round((answered / questions.length) * 100);
+
+  // When the active section changes (Next / Previous / sidebar pick),
+  // bring the first question of that section into view so the user
+  // doesn't have to hunt for it.
+  useEffect(() => {
+    if (isFirstSectionRender.current) {
+      isFirstSectionRender.current = false;
+      return;
+    }
+    const el = sectionTopRef.current;
+    if (!el) return;
+    if (typeof window === "undefined") return;
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    el.scrollIntoView({
+      behavior: prefersReducedMotion ? "auto" : "smooth",
+      block: "start",
+    });
+  }, [currentSection]);
 
   return (
     <div className="space-y-6">
@@ -1136,7 +1215,7 @@ export function IntakeQuestionnaire({
           </nav>
         </aside>
 
-        <section className="space-y-4">
+        <section ref={sectionTopRef} className="space-y-4 scroll-mt-24">
           {/* Mobile-only section picker — sits at the top of the content
               area so the CURRENT section's questions are the first thing
               the user sees, while still giving a one-tap way into the
@@ -1194,8 +1273,10 @@ export function IntakeQuestionnaire({
                 question={q}
                 value={answers[q.id]}
                 note={typeof answers[`${q.id}__note`] === "string" ? (answers[`${q.id}__note`] as string) : ""}
+                otherText={typeof answers[`${q.id}__other`] === "string" ? (answers[`${q.id}__other`] as string) : ""}
                 onChange={(v) => update(q.id, v)}
                 onNoteChange={(v) => update(`${q.id}__note`, v)}
+                onOtherChange={(v) => update(`${q.id}__other`, v)}
               />
             ))}
           </div>
@@ -1325,15 +1406,21 @@ function QuestionCard({
   question,
   value,
   note,
+  otherText,
   onChange,
   onNoteChange,
+  onOtherChange,
 }: {
   question: IntakeQuestion;
   value: string | number | string[] | undefined;
   note: string;
+  otherText: string;
   onChange: (v: string | number | string[]) => void;
   onNoteChange: (v: string) => void;
+  onOtherChange: (v: string) => void;
 }) {
+  const showOtherInput =
+    question.type === "single" || question.type === "multi";
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md">
       <p className="text-base font-semibold text-slate-900">{question.prompt}</p>
@@ -1388,6 +1475,21 @@ function QuestionCard({
                 </button>
               );
             })}
+          </div>
+        )}
+
+        {showOtherInput && (
+          <div className="mt-3">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Other — describe in your own words
+            </label>
+            <input
+              type="text"
+              value={otherText}
+              onChange={(e) => onOtherChange(e.target.value)}
+              placeholder="Type a custom answer if none of the options fit…"
+              className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none"
+            />
           </div>
         )}
 
