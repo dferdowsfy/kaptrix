@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Logo } from "@/components/home/logo";
 
 /**
  * Shared top navigation for all non-authenticated / public pages.
@@ -46,12 +45,13 @@ export function PublicHeader() {
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
         <Link href="/" aria-label="KAPTRIX home" className="group">
-          <Logo
-            wordClassName={`text-lg sm:text-xl transition-colors ${
+          <span
+            className={`text-sm font-semibold uppercase tracking-[0.32em] transition-colors sm:text-base ${
               scrolled ? "text-slate-900" : "text-white"
             }`}
-            markClassName="h-7 w-7"
-          />
+          >
+            Kaptrix
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-8 sm:flex">
