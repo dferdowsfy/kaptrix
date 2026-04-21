@@ -283,4 +283,3 @@ function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
     xhr.send(form);
   });
 }
-"use client";
