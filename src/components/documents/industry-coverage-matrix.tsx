@@ -8,7 +8,6 @@ import {
   uploadFilesForCategory,
 } from "@/lib/preview/upload-file";
 import {
-  INDUSTRY_OPTIONS,
   INDUSTRY_PROFILES,
   type Industry,
   type IndustryArtifact,
@@ -216,22 +215,6 @@ export function IndustryCoverageMatrix({
           <p className="mt-1 max-w-xl text-xs text-gray-500">
             {profile.tagline}
           </p>
-        </div>
-        <div className="flex flex-col gap-2 md:items-end">
-          <label className="text-xs font-medium text-gray-600">
-            Industry profile
-          </label>
-          <select
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value as Industry)}
-            className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm focus:border-gray-900 focus:outline-none"
-          >
-            {INDUSTRY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
         </div>
       </div>
 

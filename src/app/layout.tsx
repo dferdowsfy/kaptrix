@@ -22,6 +22,13 @@ export const metadata: Metadata = {
   description:
     "Evidence-backed AI diligence for investors and operators. Expose fragile systems, score what's real, and produce decision-grade outputs before capital moves.",
   metadataBase: new URL(baseUrl),
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/kaptrix-logo.png", type: "image/png", sizes: "192x192" },
+    ],
+    apple: "/kaptrix-logo.png",
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
