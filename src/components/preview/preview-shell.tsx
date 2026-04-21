@@ -29,15 +29,11 @@ export function PreviewShell({
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      <div className="print-hide sticky top-0 z-40">
-        <div
-          aria-hidden={!headerVisible}
-          className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out ${
-            headerVisible
-              ? "max-h-20 opacity-100"
-              : "pointer-events-none max-h-0 opacity-0"
-          }`}
-        >
+      <div
+        className={`print-hide sticky top-0 z-40 transition-transform duration-300 ease-out will-change-transform ${
+          headerVisible ? "translate-y-0" : "-translate-y-16 sm:-translate-y-[68px]"
+        }`}
+      >
         <header className="border-b border-white/10 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 text-white shadow-sm">
           <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:h-[68px] sm:gap-4 sm:px-6">
             <Link
@@ -87,7 +83,6 @@ export function PreviewShell({
             </div>
           </div>
         </header>
-        </div>
 
         <div className="border-b bg-white/95 shadow-sm backdrop-blur">
           <div className="relative">
