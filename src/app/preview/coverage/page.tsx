@@ -5,7 +5,6 @@ import {
   IndustryCoverageMatrix,
   type IndustryCoverageState,
 } from "@/components/documents/industry-coverage-matrix";
-import { DocumentsPanel } from "@/components/pre-analysis/documents-panel";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { demoDocuments } from "@/lib/demo-data";
 import {
@@ -66,8 +65,6 @@ export default function PreviewCoveragePage() {
     () => [] as readonly UploadedDoc[],
   );
 
-  // Merge seeded + live-uploaded so the coverage matrix reacts as soon
-  // as a file finishes parsing.
   const documents = useMemo(
     () => [
       ...baseDocuments,
@@ -77,30 +74,20 @@ export default function PreviewCoveragePage() {
   );
 
   const [, setCoverageState] = useState<IndustryCoverageState | null>(null);
-  const [target, setTarget] = useState<{
-    category: string;
-    label: string;
-  } | null>(null);
 
   return (
     <div className="space-y-4">
       <SectionHeader
         eyebrow="Module 1"
         title="Evidence & Coverage"
-        description="Missing artifacts surface as the primary action. Upload directly and watch status update inline — no page switches, no duplicate logs."
-      />
-      <DocumentsPanel
-        targetCategory={target?.category ?? null}
-        targetLabel={target?.label ?? null}
-        onClearTarget={() => setTarget(null)}
+        description="Missing artifacts surface as the primary action. Click Upload on any row to open the file picker directly — progress and status appear inline."
       />
       <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
         <IndustryCoverageMatrix
           documents={documents}
           uploadedDocs={uploaded}
+          clientId={selectedId}
           onStateChange={setCoverageState}
-          onArtifactClick={(category, label) => setTarget({ category, label })}
-          activeCategory={target?.category ?? null}
         />
       </div>
     </div>

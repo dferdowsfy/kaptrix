@@ -7,6 +7,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 // back that workspace and must also be reachable anonymously.
 const PUBLIC_PATH_PREFIXES = [
   "/preview",
+  "/app",
   "/login",
   "/account",
   "/how-it-works",

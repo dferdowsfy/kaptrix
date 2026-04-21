@@ -45,7 +45,7 @@ export default function SettingsPage() {
             <h1 className="mt-1 text-2xl font-bold sm:text-3xl">Settings</h1>
           </div>
           <Link
-            href="/preview"
+            href="/app"
             className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400"
           >
             Back to workspace

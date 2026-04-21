@@ -90,10 +90,17 @@ export function PreviewShell({
               <nav className="min-w-0 flex-1">
                 <ul className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                   {visibleTabs.map((tab) => {
+                    // Both `/app/*` (rewritten) and `/preview/*` (direct)
+                    // resolve to the same pages. Match either so tabs
+                    // stay highlighted regardless of which URL the
+                    // operator arrived from.
+                    const normalized = pathname.startsWith("/preview")
+                      ? pathname.replace(/^\/preview/, "/app")
+                      : pathname;
                     const isActive =
-                      tab.href === "/preview"
-                        ? pathname === "/preview"
-                        : pathname.startsWith(tab.href);
+                      tab.href === "/app"
+                        ? normalized === "/app"
+                        : normalized.startsWith(tab.href);
                     return (
                       <li key={tab.id}>
                         <Link

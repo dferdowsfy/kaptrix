@@ -96,7 +96,7 @@ function LoginForm() {
       if (error) {
         setMessage(error.message);
       } else {
-        router.push("/preview");
+        router.push("/app");
         return;
       }
     }

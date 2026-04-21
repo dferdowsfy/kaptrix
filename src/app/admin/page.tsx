@@ -23,7 +23,7 @@ export default async function AdminPage() {
 
   const isAdmin = profile?.role === "admin" || isAdminEmail(user.email);
   if (!isAdmin) {
-    redirect("/preview");
+    redirect("/app");
   }
 
   return (

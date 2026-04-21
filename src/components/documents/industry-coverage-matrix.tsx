@@ -4,6 +4,10 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import type { Document } from "@/lib/types";
 import type { UploadedDoc } from "@/lib/preview/uploaded-docs";
 import {
+  UPLOAD_ACCEPT_ATTR,
+  uploadFilesForCategory,
+} from "@/lib/preview/upload-file";
+import {
   INDUSTRY_OPTIONS,
   INDUSTRY_PROFILES,
   type Industry,
@@ -23,10 +27,8 @@ interface Props {
   documents: Document[];
   defaultIndustry?: Industry;
   onStateChange?: (state: IndustryCoverageState) => void;
-  /** Called when an operator clicks the inline "Upload evidence" CTA on a row. */
-  onArtifactClick?: (category: string, displayName: string) => void;
-  /** Highlight the row currently anchored by the upload zone. */
-  activeCategory?: string | null;
+  /** Required so we can route uploaded files into the right client's KB. */
+  clientId: string | null;
   /** In-flight + parsed uploads for the current client. Used to render
    *  per-row progress bars inside the artifact table. */
   uploadedDocs?: readonly UploadedDoc[];
@@ -45,12 +47,33 @@ export function IndustryCoverageMatrix({
   documents,
   defaultIndustry = "legal_tech",
   onStateChange,
-  onArtifactClick,
-  activeCategory,
+  clientId,
   uploadedDocs = [],
 }: Props) {
   const [industry, setIndustry] = useState<Industry>(defaultIndustry);
   const [expanded, setExpanded] = useState<string | null>(null);
+  // Category the hidden <input type=file> is bound to for the current
+  // click. Set immediately before we call .click() and read back in
+  // onChange. Using a ref avoids a stale-state race if the user clicks
+  // a second Upload button before the first file picker opens.
+  const pendingCategoryRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const triggerUpload = (category: string) => {
+    if (!clientId) return;
+    pendingCategoryRef.current = category;
+    // Reset value so selecting the same file twice still fires change.
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    const category = pendingCategoryRef.current;
+    pendingCategoryRef.current = null;
+    if (!files || files.length === 0 || !category || !clientId) return;
+    await uploadFilesForCategory({ clientId, category, files });
+  };
 
   const onStateChangeRef = useRef(onStateChange);
   useEffect(() => {
@@ -107,6 +130,15 @@ export function IndustryCoverageMatrix({
 
   return (
     <div className="space-y-5">
+      {/* Hidden input drives every Upload button on the page. */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        accept={UPLOAD_ACCEPT_ATTR}
+        className="sr-only"
+        onChange={handleFileChange}
+      />
       {/* Primary CTA — missing required artifacts, above everything else. */}
       {missingRequired.length > 0 && (
         <div className="rounded-2xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 p-5 shadow-sm">
@@ -131,42 +163,41 @@ export function IndustryCoverageMatrix({
           </div>
           <ul className="mt-4 grid gap-2 sm:grid-cols-2">
             {missingRequired.map((r) => {
-              const isActive = activeCategory === r.artifact.category;
+              const uploads = uploadsByCategory[r.artifact.category] ?? [];
+              const inFlight = uploads.some(
+                (u) =>
+                  u.parse_status === "uploading" ||
+                  u.parse_status === "parsing" ||
+                  u.parse_status === "queued",
+              );
               return (
                 <li
                   key={r.artifact.category}
-                  className={`flex items-center justify-between gap-3 rounded-lg border bg-white/90 px-3 py-2 ${
-                    isActive
-                      ? "border-indigo-400 ring-1 ring-indigo-300"
-                      : "border-amber-200"
-                  }`}
+                  className="flex flex-col gap-1 rounded-lg border border-amber-200 bg-white/90 px-3 py-2"
                 >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-amber-900">
-                      {r.artifact.display_name}
-                    </p>
-                    <p className="truncate text-[11px] text-amber-700">
-                      {r.artifact.why_it_matters}
-                    </p>
-                  </div>
-                  {onArtifactClick && (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-amber-900">
+                        {r.artifact.display_name}
+                      </p>
+                      <p className="truncate text-[11px] text-amber-700">
+                        <span className="font-mono uppercase tracking-wide">
+                          {r.artifact.category}
+                        </span>
+                        {" · "}
+                        {r.artifact.why_it_matters}
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        onArtifactClick(
-                          r.artifact.category,
-                          r.artifact.display_name,
-                        )
-                      }
-                      className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold ring-1 transition ${
-                        isActive
-                          ? "bg-indigo-600 text-white ring-indigo-600"
-                          : "bg-amber-900 text-white ring-amber-900 hover:bg-amber-800"
-                      }`}
+                      disabled={!clientId || inFlight}
+                      onClick={() => triggerUpload(r.artifact.category)}
+                      className="shrink-0 rounded-full bg-amber-900 px-3 py-1 text-[11px] font-semibold text-white ring-1 ring-amber-900 transition hover:bg-amber-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isActive ? "✓ Anchored" : "Upload"}
+                      {inFlight ? "Uploading…" : "Upload"}
                     </button>
-                  )}
+                  </div>
+                  <RowUploads uploads={uploads} compact />
                 </li>
               );
             })}
@@ -263,15 +294,10 @@ export function IndustryCoverageMatrix({
           <tbody className="divide-y divide-gray-100 text-sm">
             {rows.map((row) => {
               const isOpen = expanded === row.artifact.category;
-              const isActive = activeCategory === row.artifact.category;
               return (
                 <Fragment key={row.artifact.category}>
                   <tr
-                    className={`cursor-pointer transition ${
-                      isActive
-                        ? "bg-indigo-50/70 ring-1 ring-inset ring-indigo-300"
-                        : "hover:bg-gray-50"
-                    }`}
+                    className="cursor-pointer transition hover:bg-gray-50"
                     onClick={() =>
                       setExpanded(isOpen ? null : row.artifact.category)
                     }
@@ -305,24 +331,17 @@ export function IndustryCoverageMatrix({
                       />
                     </td>
                     <td className="px-4 py-3">
-                      {onArtifactClick && row.status !== "provided" ? (
+                      {row.status !== "provided" ? (
                         <button
                           type="button"
+                          disabled={!clientId}
                           onClick={(e) => {
                             e.stopPropagation();
-                            onArtifactClick(
-                              row.artifact.category,
-                              row.artifact.display_name,
-                            );
+                            triggerUpload(row.artifact.category);
                           }}
-                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 transition ${
-                            isActive
-                              ? "bg-indigo-600 text-white ring-indigo-600"
-                              : "bg-white text-indigo-700 ring-indigo-200 hover:bg-indigo-50"
-                          }`}
-                          title="Anchor the upload zone to this requirement"
+                          className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {isActive ? "✓ Anchored" : "Upload evidence ↓"}
+                          Upload
                         </button>
                       ) : row.docs.length > 0 ? (
                         <span className="text-[11px] text-gray-500">
@@ -400,11 +419,29 @@ function StatusPill({ status }: { status: Status }) {
 }
 
 // Render recent uploads tied to an artifact row with live progress bars.
-function RowUploads({ uploads }: { uploads: UploadedDoc[] }) {
+function RowUploads({
+  uploads,
+  compact = false,
+}: {
+  uploads: UploadedDoc[];
+  compact?: boolean;
+}) {
   if (uploads.length === 0) return null;
+  // Compact variant (used inside the amber CTA) shows only in-flight
+  // files so the card doesn't grow after a successful upload.
+  const visible = compact
+    ? uploads.filter(
+        (d) =>
+          d.parse_status === "uploading" ||
+          d.parse_status === "parsing" ||
+          d.parse_status === "queued" ||
+          d.parse_status === "failed",
+      )
+    : uploads;
+  if (visible.length === 0) return null;
   return (
-    <ul className="mt-2 space-y-1.5">
-      {uploads.map((d) => (
+    <ul className={compact ? "space-y-1" : "mt-2 space-y-1.5"}>
+      {visible.map((d) => (
         <li key={d.id} className="max-w-xs">
           <div className="flex items-center justify-between gap-2">
             <span

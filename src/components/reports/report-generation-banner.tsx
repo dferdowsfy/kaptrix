@@ -17,7 +17,7 @@ export function ReportGenerationBanner() {
 
   return (
     <Link
-      href="/preview/report#on-demand-reports"
+      href="/app/report#on-demand-reports"
       title={summary}
       className="print-hide group relative inline-flex items-center gap-2 overflow-hidden rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-[11px] font-medium text-indigo-700 shadow-sm transition hover:border-indigo-400 hover:text-indigo-900"
     >

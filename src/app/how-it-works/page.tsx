@@ -64,7 +64,7 @@ function Hero() {
         </p>
         <div className="mt-10 flex flex-wrap gap-3">
           <Link
-            href="/preview"
+            href="/app"
             className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100"
           >
             Open the platform preview
@@ -774,7 +774,7 @@ function CallToAction() {
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
-          href="/preview"
+          href="/app"
           className="inline-flex items-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-indigo-900 shadow-sm transition hover:bg-indigo-50"
         >
           Open the platform preview
@@ -790,7 +790,7 @@ function Footer() {
       <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-3 px-6 py-8 text-xs text-slate-500 sm:flex-row sm:items-center">
         <p>© {new Date().getFullYear()} Kaptrix. Independent AI product diligence.</p>
         <div className="flex gap-4">
-          <Link href="/preview" className="hover:text-slate-800">
+          <Link href="/app" className="hover:text-slate-800">
             Platform
           </Link>
           <Link href="/how-it-works" className="hover:text-slate-800">

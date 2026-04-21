@@ -1,10 +1,10 @@
 export const PREVIEW_TABS = [
-  { id: "home", label: "Home", href: "/preview" },
-  { id: "overview", label: "Overview", href: "/preview/overview" },
-  { id: "intake", label: "Intake", href: "/preview/intake" },
-  { id: "coverage", label: "Evidence & Coverage", href: "/preview/coverage" },
-  { id: "insights", label: "Insights", href: "/preview/insights" },
-  { id: "scoring", label: "Scoring", href: "/preview/scoring" },
-  { id: "positioning", label: "Positioning", href: "/preview/positioning" },
-  { id: "report", label: "Report", href: "/preview/report" },
+  { id: "home", label: "Home", href: "/app" },
+  { id: "overview", label: "Overview", href: "/app/overview" },
+  { id: "intake", label: "Intake", href: "/app/intake" },
+  { id: "coverage", label: "Evidence & Coverage", href: "/app/coverage" },
+  { id: "insights", label: "Insights", href: "/app/insights" },
+  { id: "scoring", label: "Scoring", href: "/app/scoring" },
+  { id: "positioning", label: "Positioning", href: "/app/positioning" },
+  { id: "report", label: "Report", href: "/app/report" },
 ] as const;
