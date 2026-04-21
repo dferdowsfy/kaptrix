@@ -18,6 +18,12 @@ import {
   type KnowledgeEntry,
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
+import {
+  formatUploadedDocsEvidence,
+  readUploadedDocs,
+  subscribeUploadedDocs,
+  type UploadedDoc,
+} from "@/lib/preview/uploaded-docs";
 import { useChatPanel } from "@/components/preview/chat-panel-context";
 
 const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
@@ -74,6 +80,12 @@ export function KnowledgeChatPanel() {
     subscribeKnowledgeBase,
     () => readClientKb(selectedId),
     () => EMPTY_KB,
+  );
+
+  const uploadedDocs = useSyncExternalStore(
+    subscribeUploadedDocs,
+    () => readUploadedDocs(selectedId),
+    () => [] as readonly UploadedDoc[],
   );
 
   useEffect(() => {
@@ -173,15 +185,27 @@ export function KnowledgeChatPanel() {
       },
     );
 
+    // Operator-uploaded documents that were parsed through the real
+    // parser stack (including vision for images). Surface each as a
+    // citable evidence chunk so the chat assistant can quote them.
+    const fromUploaded: KnowledgeChunk[] = uploadedDocs
+      .filter((d) => d.parse_status === "parsed" && d.parsed_text)
+      .map((d) => ({
+        id: `upload-${d.id}`,
+        source: `uploaded · ${d.filename}`,
+        text: (d.parsed_text ?? "").slice(0, 4_000),
+      }));
+
     return [
       ...fromKb,
+      ...fromUploaded,
       ...fromInsights,
       ...fromAnalysis,
       ...fromReport,
       ...fromScores,
       ...fromDocs,
     ];
-  }, [snapshot, kb]);
+  }, [snapshot, kb, uploadedDocs]);
 
   const ask = async (raw: string) => {
     const question = raw.trim();
@@ -209,7 +233,10 @@ export function KnowledgeChatPanel() {
     const contextText = corpus
       .map((c) => `[${c.source}] ${c.text}`)
       .join("\n");
-    const knowledgeBaseText = formatKnowledgeBaseEvidence(kb).join("\n");
+    const knowledgeBaseText = [
+      ...formatKnowledgeBaseEvidence(kb),
+      ...formatUploadedDocsEvidence(selectedId),
+    ].join("\n");
 
     let answerText = "";
     let citations: string[] = [];

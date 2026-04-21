@@ -221,11 +221,25 @@ async function seedIfEmpty(): Promise<void> {
   }
 }
 
-export async function getPreviewClients(): Promise<PreviewClientSummary[]> {
+export async function getPreviewClients(
+  options: { ownerId?: string | null; includeAllEngagements?: boolean } = {},
+): Promise<PreviewClientSummary[]> {
   const supabase = getServiceClient();
   if (!supabase) return PREVIEW_CLIENTS;
 
   await seedIfEmpty();
+
+  const engagementsQuery = supabase
+    .from("engagements")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  // Scope real engagements to this owner unless caller explicitly opts in
+  // to the full roster (e.g. admins).
+  const scopedQuery =
+    options.includeAllEngagements || !options.ownerId
+      ? engagementsQuery
+      : engagementsQuery.eq("assigned_operator_id", options.ownerId);
 
   const [{ data: previewRows, error: previewError }, { data: realRows }] =
     await Promise.all([
@@ -233,10 +247,9 @@ export async function getPreviewClients(): Promise<PreviewClientSummary[]> {
         .from("preview_clients")
         .select("*")
         .order("display_order", { ascending: true }),
-      supabase
-        .from("engagements")
-        .select("*")
-        .order("created_at", { ascending: false }),
+      options.ownerId || options.includeAllEngagements
+        ? scopedQuery
+        : Promise.resolve({ data: [] as Engagement[] }),
     ]);
 
   const previewClients: PreviewClientSummary[] =

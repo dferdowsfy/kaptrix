@@ -6,15 +6,30 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const supabase = getServiceClient();
-  if (!supabase) {
+  // Scope engagements to the signed-in user. Admins see everything.
+  let ctx;
+  try {
+    ctx = await requireAuth();
+  } catch {
+    // Not signed in → no engagements. Preview demo clients still render
+    // from the client-side roster, so home won't be empty.
     return NextResponse.json({ engagements: [] });
   }
 
-  const { data, error } = await supabase
+  const service = getServiceClient();
+  if (!service) {
+    return NextResponse.json({ engagements: [] });
+  }
+
+  const isAdmin = ctx.role === "admin";
+  const query = service
     .from("engagements")
     .select("*")
     .order("created_at", { ascending: false });
+
+  const { data, error } = isAdmin
+    ? await query
+    : await query.eq("assigned_operator_id", ctx.userId);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -76,6 +91,8 @@ export async function POST(request: NextRequest) {
       industry,
       engagement_type: engagement_type || null,
       buyer_archetype: buyer_archetype || null,
+      // Scope ownership so only this user (or an admin) can see it later.
+      assigned_operator_id: ctx.userId,
     })
     .select()
     .single();

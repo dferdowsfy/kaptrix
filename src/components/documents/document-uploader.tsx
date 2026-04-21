@@ -93,14 +93,14 @@ export function DocumentUploader({ engagementId }: Props) {
           {uploading ? "Uploading…" : "Drop files here or click to browse"}
         </p>
         <p className="mt-1 text-xs text-gray-500">
-          PDF, DOCX, XLSX, PPTX, TXT — max 100MB per file, 50 files per upload
+          PDF, DOCX, XLSX, PPTX, PNG, JPEG, TXT, CSV — max 100MB per file, 50 files per upload
         </p>
         <input
           ref={fileInputRef}
           type="file"
           multiple
           className="hidden"
-          accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv"
+          accept=".pdf,.docx,.xlsx,.pptx,.txt,.csv,.png,.jpg,.jpeg"
           onChange={(e) => handleFiles(e.target.files)}
         />
       </div>

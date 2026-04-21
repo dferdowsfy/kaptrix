@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { llmChat } from "@/lib/llm/client";
-import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isGroqConfigured } from "@/lib/env";
-import { getGroqClient } from "@/lib/anthropic/client";
+import {
+  getSelfHostedLlmModelForTask,
+  isOpenRouterConfigured,
+  isSelfHostedLlmConfigured,
+} from "@/lib/env";
+import {
+  OPENROUTER_REPORT_MODEL,
+  openRouterChat,
+} from "@/lib/llm/openrouter";
 import { getServiceClient } from "@/lib/supabase/service";
 import { getPreviewSnapshot } from "@/lib/preview/data";
 
@@ -161,8 +168,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const useGroq = isGroqConfigured();
-  if (!useGroq && !isSelfHostedLlmConfigured()) {
+  const useOpenRouter = isOpenRouterConfigured();
+  if (!useOpenRouter && !isSelfHostedLlmConfigured()) {
     await persistTurn({
       session_id: sessionId,
       client_id: clientId,
@@ -172,7 +179,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         error:
-          "No LLM provider configured. Set GROQ_API_KEY (preferred for chat) or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL in .env.local or Vercel.",
+          "No LLM provider configured. Set OPENROUTER_API_KEY (preferred for chat) or SELF_HOSTED_LLM_BASE_URL + SELF_HOSTED_LLM_MODEL in .env.local or Vercel.",
       },
       { status: 503 },
     );
@@ -206,21 +213,20 @@ Answer:`;
     let answer: string;
     let usedModel: string;
 
-    if (useGroq) {
-      // Groq: ~500 tok/s on Llama 3.3 70B — sub-second chat responses.
-      const groqModel = "llama-3.3-70b-versatile";
-      const groq = getGroqClient();
-      const completion = await groq.chat.completions.create({
-        model: groqModel,
+    if (useOpenRouter) {
+      // OpenRouter primary path using the same Llama 3.3 70B class
+      // model family as report generation.
+      const completion = await openRouterChat({
+        model: OPENROUTER_REPORT_MODEL,
         messages: [
           { role: "system", content: SYSTEM_INSTRUCTION },
           { role: "user", content: `EVIDENCE CONTEXT:\n"""\n${context}\n"""\n\n${history ? `RECENT CONVERSATION:\n${history}\n\n` : ""}USER QUESTION:\n${question}` },
         ],
         temperature: 0.3,
-        max_completion_tokens: 400,
+        maxTokens: 400,
       });
-      answer = (completion.choices[0]?.message?.content ?? "").trim();
-      usedModel = groqModel;
+      answer = (completion.content ?? "").trim();
+      usedModel = OPENROUTER_REPORT_MODEL;
     } else {
       // Fallback: self-hosted Ollama (slow on CPU, ~12 tok/s best case).
       const chatModel = getSelfHostedLlmModelForTask("chat");
@@ -242,7 +248,10 @@ Answer:`;
       client_id: clientId,
       role: "assistant",
       content: answer,
-      metadata: { model: usedModel, provider: useGroq ? "groq" : "self_hosted" },
+      metadata: {
+        model: usedModel,
+        provider: useOpenRouter ? "openrouter" : "self_hosted",
+      },
     });
 
     return NextResponse.json({ answer, suggestions });

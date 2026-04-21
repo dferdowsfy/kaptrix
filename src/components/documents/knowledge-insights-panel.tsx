@@ -22,7 +22,10 @@ export interface KnowledgeInsight {
 interface Props {
   documents: Document[];
   insights: KnowledgeInsight[];
+  /** Optional: legacy manual "insert to intake" action. */
   onInsertToIntake?: (insight: KnowledgeInsight) => void;
+  /** Pull this insight out of the auto-synced KB / intake. */
+  onRemove?: (insight: KnowledgeInsight) => void;
 }
 
 const categoryStyles: Record<
@@ -40,6 +43,7 @@ export function KnowledgeInsightsPanel({
   documents,
   insights,
   onInsertToIntake,
+  onRemove,
 }: Props) {
   const [filter, setFilter] = useState<
     "all" | KnowledgeInsight["category"]
@@ -66,8 +70,9 @@ export function KnowledgeInsightsPanel({
           </h3>
           <p className="mt-1 max-w-2xl text-xs text-gray-500">
             Every uploaded document is chunked, embedded, and queried against
-            Kaptrix diligence prompts. Promote any insight directly into the
-            intake questionnaire to speed operator setup.
+            Kaptrix diligence prompts. Insights are auto-synced into the
+            intake model and this client&rsquo;s knowledge base — remove any
+            that shouldn&rsquo;t inform downstream reasoning.
           </p>
         </div>
         <div className="rounded-2xl border border-gray-200 bg-white px-4 py-2 text-xs text-gray-600">
@@ -114,44 +119,62 @@ export function KnowledgeInsightsPanel({
               key={insight.id}
               className="flex flex-col rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span
                   className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${style.cls}`}
                 >
                   {style.label}
                 </span>
-                <span className="text-[11px] uppercase tracking-wide text-gray-400">
-                  {insight.confidence} confidence
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] uppercase tracking-wide text-gray-400">
+                    {insight.confidence} confidence
+                  </span>
+                  {onRemove && (
+                    <button
+                      type="button"
+                      onClick={() => onRemove(insight)}
+                      className="text-[11px] font-medium text-rose-600 transition hover:text-rose-800"
+                      title="Remove from knowledge base and intake"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
               <p className="mt-3 text-sm font-medium text-gray-900">
                 {insight.insight}
               </p>
               <blockquote className="mt-2 rounded-lg bg-gray-50 p-3 text-xs italic text-gray-600">
-                “{insight.excerpt}”
+                &ldquo;{insight.excerpt}&rdquo;
                 <footer className="mt-1 not-italic text-[11px] text-gray-500">
                   — {insight.source_document}
                 </footer>
               </blockquote>
               {insight.suggested_intake_field && (
-                <div className="mt-3 flex items-center justify-between rounded-lg border border-dashed border-gray-300 px-3 py-2">
+                <div className="mt-3 flex items-center justify-between rounded-lg border border-dashed border-emerald-300 bg-emerald-50/40 px-3 py-2">
                   <div className="text-[11px] text-gray-600">
-                    Promote to intake:{" "}
+                    {onInsertToIntake ? "Promote to intake:" : "Auto-synced to intake:"}{" "}
                     <span className="font-semibold text-gray-800">
                       {insight.suggested_intake_field}
                     </span>
                   </div>
-                  <button
-                    onClick={() => handleInsert(insight)}
-                    disabled={isInserted}
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-                      isInserted
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-gray-900 text-white hover:bg-gray-700"
-                    }`}
-                  >
-                    {isInserted ? "Inserted ✓" : "Insert into intake"}
-                  </button>
+                  {onInsertToIntake ? (
+                    <button
+                      onClick={() => handleInsert(insight)}
+                      disabled={isInserted}
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                        isInserted
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-gray-900 text-white hover:bg-gray-700"
+                      }`}
+                    >
+                      {isInserted ? "Inserted ✓" : "Insert into intake"}
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800">
+                      Synced ✓
+                    </span>
+                  )}
                 </div>
               )}
             </div>
