@@ -205,7 +205,7 @@ export default function HomePage() {
               <Link href="/contact" className={BTN_PRIMARY_ON_DARK}>
                 Start a diligence engagement
               </Link>
-              <Link href="/preview/report" className={BTN_SECONDARY_ON_DARK}>
+              <Link href="/sample-report" className={BTN_SECONDARY_ON_DARK}>
                 See a sample report
               </Link>
               <Link
@@ -413,7 +413,7 @@ export default function HomePage() {
 
           <Reveal delay={120}>
             <div className="mt-10">
-              <Link href="/preview/report" className={BTN_PRIMARY}>
+              <Link href="/sample-report" className={BTN_PRIMARY}>
                 See a sample report
               </Link>
             </div>
@@ -667,7 +667,7 @@ export default function HomePage() {
                 <Link href="/contact" className={BTN_PRIMARY}>
                   Start a diligence engagement
                 </Link>
-                <Link href="/preview/report" className={BTN_SECONDARY}>
+                <Link href="/sample-report" className={BTN_SECONDARY}>
                   See a sample report
                 </Link>
               </div>
