@@ -26,3 +26,10 @@ CREATE INDEX idx_benchmark_cases_deal_size ON public.benchmark_cases(deal_size_b
 CREATE INDEX idx_benchmark_cases_arch ON public.benchmark_cases(ai_architecture_type);
 
 ALTER TABLE public.benchmark_cases ENABLE ROW LEVEL SECURITY;
+
+-- scores table is created in 00006, but benchmark_cases is created here.
+-- Add the FK after benchmark_cases exists so clean migration runs succeed.
+ALTER TABLE public.scores
+  ADD CONSTRAINT scores_pattern_match_case_id_fkey
+  FOREIGN KEY (pattern_match_case_id)
+  REFERENCES public.benchmark_cases(id);

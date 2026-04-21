@@ -12,7 +12,7 @@ CREATE TABLE public.scores (
   weight NUMERIC(4, 3) NOT NULL DEFAULT 1.0,
   operator_rationale TEXT NOT NULL CHECK (length(operator_rationale) >= 20),
   evidence_citations JSONB DEFAULT '[]',
-  pattern_match_case_id UUID REFERENCES public.benchmark_cases(id),
+  pattern_match_case_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_by UUID REFERENCES public.users(id),
