@@ -10,6 +10,7 @@ const STORAGE_EVENT = "kaptrix:preview-uploaded-docs-change";
 
 export type UploadedDocStatus =
   | "queued"
+  | "uploading"
   | "parsing"
   | "parsed"
   | "failed";
@@ -23,6 +24,8 @@ export interface UploadedDoc {
   file_size_bytes: number;
   uploaded_at: string;
   parse_status: UploadedDocStatus;
+  /** 0–100 while status is "uploading". */
+  upload_percent?: number;
   /** Extracted text (vision markdown for images). Present when parsed. */
   parsed_text?: string;
   /** Rough token estimate of the parsed_text. */

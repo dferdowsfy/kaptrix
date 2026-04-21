@@ -55,57 +55,21 @@ export function DocumentsPanel({ baseDocs }: { baseDocs: DocRecord[] }) {
       mime_type: f.type || "application/octet-stream",
       uploaded_at: now,
       parse_status: "queued",
+      upload_percent: 0,
     }));
 
     // Optimistic insert so the row appears immediately.
     for (const d of pendingDocs) upsertUploadedDoc(d);
     if (inputRef.current) inputRef.current.value = "";
 
-    // Send each file to the real parser. Images go through the vision
-    // pipeline; text/office formats go through the native parsers.
-    // Result is stored in per-engagement localStorage so the chatbot
-    // can cite it as evidence alongside the seeded KB.
-    await Promise.all(
-      Array.from(files).map(async (file, i) => {
-        const meta = pendingDocs[i];
-        upsertUploadedDoc({ ...meta, parse_status: "parsing" });
-        const form = new FormData();
-        form.append("file", file);
-        try {
-          const res = await fetch("/api/preview/parse", {
-            method: "POST",
-            body: form,
-          });
-          if (!res.ok) {
-            const errBody = (await res.json().catch(() => ({}))) as {
-              error?: string;
-            };
-            upsertUploadedDoc({
-              ...meta,
-              parse_status: "failed",
-              error: errBody.error ?? `HTTP ${res.status}`,
-            });
-            return;
-          }
-          const data = (await res.json()) as {
-            text?: string;
-            tokenCount?: number;
-          };
-          upsertUploadedDoc({
-            ...meta,
-            parse_status: "parsed",
-            parsed_text: (data.text ?? "").trim(),
-            token_count: data.tokenCount,
-          });
-        } catch (err) {
-          upsertUploadedDoc({
-            ...meta,
-            parse_status: "failed",
-            error: err instanceof Error ? err.message : "Parse failed",
-          });
-        }
-      }),
-    );
+    // Upload + parse each file sequentially so the user sees one bar
+    // advance at a time instead of all stalling at the same percent.
+    // XHR is required because fetch() can't report upload progress.
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const meta = pendingDocs[i];
+      await uploadAndParse(file, meta);
+    }
   };
 
   const remove = (id: string) => {
@@ -123,6 +87,7 @@ export function DocumentsPanel({ baseDocs }: { baseDocs: DocRecord[] }) {
       parse_status: d.parse_status,
       error: d.error,
       token_count: d.token_count,
+      upload_percent: d.upload_percent,
       source: "added" as const,
     })),
     ...baseDocs.map((d) => ({
@@ -244,23 +209,36 @@ export function DocumentsPanel({ baseDocs }: { baseDocs: DocRecord[] }) {
                   {formatBytes(d.file_size_bytes)}
                 </td>
                 <td className="px-4 py-2">
-                  <StatusPill status={d.parse_status} />
-                  {d.source === "added" && "error" in d && d.error && (
-                    <span
-                      className="ml-2 text-[11px] text-rose-600"
-                      title={d.error}
-                    >
-                      · {d.error.length > 60 ? `${d.error.slice(0, 57)}…` : d.error}
-                    </span>
-                  )}
-                  {d.source === "added" &&
-                    "token_count" in d &&
-                    d.parse_status === "parsed" &&
-                    typeof d.token_count === "number" && (
-                      <span className="ml-2 text-[11px] text-slate-500">
-                        · ~{d.token_count.toLocaleString()} tokens
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <StatusPill status={d.parse_status} />
+                    {d.source === "added" && "error" in d && d.error && (
+                      <span
+                        className="text-[11px] text-rose-600"
+                        title={d.error}
+                      >
+                        · {d.error.length > 60 ? `${d.error.slice(0, 57)}…` : d.error}
                       </span>
                     )}
+                    {d.source === "added" &&
+                      "token_count" in d &&
+                      d.parse_status === "parsed" &&
+                      typeof d.token_count === "number" && (
+                        <span className="text-[11px] text-slate-500">
+                          · ~{d.token_count.toLocaleString()} tokens
+                        </span>
+                      )}
+                    {d.source === "added" && d.parse_status === "uploading" && (
+                      <span className="text-[11px] font-medium tabular-nums text-sky-700">
+                        {Math.max(0, Math.min(100, d.upload_percent ?? 0))}%
+                      </span>
+                    )}
+                  </div>
+                  {d.source === "added" && d.parse_status === "uploading" && (
+                    <ProgressBar percent={d.upload_percent} tone="sky" />
+                  )}
+                  {d.source === "added" && d.parse_status === "parsing" && (
+                    <ProgressBar indeterminate tone="amber" />
+                  )}
                 </td>
                 <td className="px-4 py-2 text-right">
                   {d.source === "added" ? (
@@ -290,9 +268,11 @@ function StatusPill({ status }: { status: string }) {
       ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
       : status === "parsing"
         ? "bg-amber-50 text-amber-800 ring-amber-200"
-        : status === "failed"
-          ? "bg-rose-50 text-rose-700 ring-rose-200"
-          : "bg-slate-100 text-slate-700 ring-slate-200";
+        : status === "uploading"
+          ? "bg-sky-50 text-sky-700 ring-sky-200"
+          : status === "failed"
+            ? "bg-rose-50 text-rose-700 ring-rose-200"
+            : "bg-slate-100 text-slate-700 ring-slate-200";
   return (
     <span
       className={`rounded-full px-2 py-0.5 text-xs font-semibold capitalize ring-1 ${style}`}
@@ -300,6 +280,128 @@ function StatusPill({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+function ProgressBar({
+  percent,
+  indeterminate,
+  tone,
+}: {
+  percent?: number;
+  indeterminate?: boolean;
+  tone: "sky" | "amber";
+}) {
+  const toneBg = tone === "sky" ? "bg-sky-500" : "bg-amber-500";
+  const toneTrack = tone === "sky" ? "bg-sky-100" : "bg-amber-100";
+  if (indeterminate) {
+    return (
+      <div className={`mt-1 h-1 w-40 overflow-hidden rounded-full ${toneTrack}`}>
+        <div className={`h-full w-full rounded-full ${toneBg} animate-pulse`} />
+      </div>
+    );
+  }
+  return (
+    <div className={`mt-1 h-1 w-40 overflow-hidden rounded-full ${toneTrack}`}>
+      <div
+        className={`h-full rounded-full ${toneBg} transition-[width] duration-200 ease-out`}
+        style={{ width: `${Math.max(2, Math.min(100, percent ?? 0))}%` }}
+      />
+    </div>
+  );
+}
+
+// Upload one file via XHR so we can report real upload progress,
+// then advance through parsing → parsed/failed.
+function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
+  return new Promise((resolve) => {
+    upsertUploadedDoc({ ...meta, parse_status: "uploading", upload_percent: 0 });
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/preview/parse", true);
+
+    xhr.upload.onprogress = (e) => {
+      if (!e.lengthComputable) return;
+      const pct = Math.round((e.loaded / e.total) * 100);
+      upsertUploadedDoc({
+        ...meta,
+        parse_status: "uploading",
+        upload_percent: pct,
+      });
+    };
+
+    xhr.upload.onload = () => {
+      // Upload finished; server is now running the parser (vision for
+      // images can take several seconds — show indeterminate bar).
+      upsertUploadedDoc({
+        ...meta,
+        parse_status: "parsing",
+        upload_percent: 100,
+      });
+    };
+
+    xhr.onerror = () => {
+      upsertUploadedDoc({
+        ...meta,
+        parse_status: "failed",
+        error: "Network error during upload",
+      });
+      resolve();
+    };
+
+    xhr.ontimeout = () => {
+      upsertUploadedDoc({
+        ...meta,
+        parse_status: "failed",
+        error: "Upload timed out",
+      });
+      resolve();
+    };
+
+    xhr.onload = () => {
+      try {
+        const status = xhr.status;
+        const body = xhr.responseText;
+        let parsed: { text?: string; tokenCount?: number; error?: string } = {};
+        try {
+          parsed = JSON.parse(body);
+        } catch {
+          // Non-JSON response (e.g. Vercel error page). Surface a short
+          // excerpt so the operator can see what actually came back.
+          if (status >= 200 && status < 300) {
+            upsertUploadedDoc({
+              ...meta,
+              parse_status: "failed",
+              error: "Server returned non-JSON response",
+            });
+            return resolve();
+          }
+        }
+        if (status < 200 || status >= 300) {
+          upsertUploadedDoc({
+            ...meta,
+            parse_status: "failed",
+            error: parsed.error ?? `HTTP ${status}`,
+          });
+          return resolve();
+        }
+        upsertUploadedDoc({
+          ...meta,
+          parse_status: "parsed",
+          parsed_text: (parsed.text ?? "").trim(),
+          token_count: parsed.tokenCount,
+          upload_percent: 100,
+        });
+      } finally {
+        resolve();
+      }
+    };
+
+    const form = new FormData();
+    form.append("file", file);
+    // No explicit timeout — vision extraction can legitimately take
+    // 20–60s. Browsers will still abort on navigation.
+    xhr.send(form);
+  });
 }
 
 function formatBytes(n: number | null): string {
