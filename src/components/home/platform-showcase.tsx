@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Step = {
   kicker: string;
@@ -16,23 +16,39 @@ type Props = {
 
 // Inject CSS into a same-origin iframe that blocks navigation/clicks on
 // links, buttons and inputs — but keeps the document scrollable.
+// Also prevents the iframe from hijacking the parent's scroll position
+// (e.g. when an autofocused input inside scrolls the iframe into view).
 function lockIframeNavigation(iframe: HTMLIFrameElement | null) {
   if (!iframe) return;
+  // Snapshot parent scroll so an autofocused element inside the iframe
+  // cannot scroll the landing page away from the top.
+  const parentScrollY =
+    typeof window !== "undefined" ? window.scrollY : 0;
+  const restoreParentScroll = () => {
+    if (typeof window === "undefined") return;
+    if (window.scrollY !== parentScrollY) {
+      window.scrollTo({ top: parentScrollY, left: 0, behavior: "auto" });
+    }
+  };
   try {
     const doc = iframe.contentDocument;
     if (!doc) return;
+    // Blur anything that auto-focused on load.
+    const active = doc.activeElement as HTMLElement | null;
+    if (active && active !== doc.body) active.blur();
     const existing = doc.getElementById("kx-demo-lock");
-    if (existing) return;
-    const style = doc.createElement("style");
-    style.id = "kx-demo-lock";
-    style.textContent = `
-      a, button, [role="button"], input, select, textarea, label {
-        pointer-events: none !important;
-      }
-      html, body { overflow: auto !important; }
-    `;
-    doc.head.appendChild(style);
-    // Also block form submissions defensively
+    if (!existing) {
+      const style = doc.createElement("style");
+      style.id = "kx-demo-lock";
+      style.textContent = `
+        a, button, [role="button"], input, select, textarea, label {
+          pointer-events: none !important;
+        }
+        html, body { overflow: auto !important; }
+      `;
+      doc.head.appendChild(style);
+    }
+    // Block form submissions defensively
     doc.addEventListener(
       "submit",
       (e) => {
@@ -41,8 +57,25 @@ function lockIframeNavigation(iframe: HTMLIFrameElement | null) {
       },
       true,
     );
+    // Intercept focus events so the parent page is not scrolled to
+    // reveal elements inside the iframe.
+    doc.addEventListener(
+      "focusin",
+      (e) => {
+        const target = e.target as HTMLElement | null;
+        target?.blur?.();
+        restoreParentScroll();
+      },
+      true,
+    );
   } catch {
     // Cross-origin — nothing we can do; fall back to no-op
+  }
+  // Always restore parent scroll after the iframe loads, even if the
+  // document is cross-origin or focus already moved.
+  restoreParentScroll();
+  if (typeof window !== "undefined") {
+    window.requestAnimationFrame(restoreParentScroll);
   }
 }
 
@@ -50,16 +83,39 @@ export function PlatformShowcase({ steps }: Props) {
   const [active, setActive] = useState(0);
   const [autoplay, setAutoplay] = useState(true);
   const [expanded, setExpanded] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const current = steps[active];
 
+  // Defer iframe mount and autoplay until the showcase scrolls into view.
+  // Prevents the embedded preview from triggering any scroll/focus side
+  // effects on the landing page before the user has reached this section.
   useEffect(() => {
-    if (!autoplay) return;
+    const el = rootRef.current;
+    if (!el || visible) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setVisible(true);
+            observer.disconnect();
+          }
+        });
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  useEffect(() => {
+    if (!autoplay || !visible) return;
     const id = window.setTimeout(
       () => setActive((prev) => (prev + 1) % steps.length),
       5500,
     );
     return () => window.clearTimeout(id);
-  }, [active, autoplay, steps.length]);
+  }, [active, autoplay, steps.length, visible]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -178,7 +234,7 @@ export function PlatformShowcase({ steps }: Props) {
 
   return (
     <>
-      <div className="mt-14">
+      <div ref={rootRef} className="mt-14">
         <div className="relative overflow-hidden rounded-[2rem] border border-slate-800/20 bg-slate-950 p-4 shadow-2xl sm:p-6">
           <div
             aria-hidden
@@ -223,16 +279,25 @@ export function PlatformShowcase({ steps }: Props) {
           </div>
 
           <div className="relative mx-auto aspect-[16/10] w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
-            <iframe
-              key={current.href}
-              title={current.title}
-              src={current.href}
-              onLoad={(e) => lockIframeNavigation(e.currentTarget)}
-              className="showcase-fade absolute inset-0 h-full w-full border-0"
-              loading="lazy"
-              scrolling="yes"
-              tabIndex={-1}
-            />
+            {visible ? (
+              <iframe
+                key={current.href}
+                title={current.title}
+                src={current.href}
+                onLoad={(e) => lockIframeNavigation(e.currentTarget)}
+                className="showcase-fade absolute inset-0 h-full w-full border-0"
+                loading="lazy"
+                scrolling="yes"
+                tabIndex={-1}
+              />
+            ) : (
+              <div
+                aria-hidden
+                className="absolute inset-0 flex items-center justify-center bg-slate-900 text-xs font-semibold uppercase tracking-[0.3em] text-slate-500"
+              >
+                Preview loads as you scroll
+              </div>
+            )}
           </div>
 
           <div className="relative mt-5">

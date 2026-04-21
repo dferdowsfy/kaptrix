@@ -4,20 +4,49 @@ import { Logo } from "@/components/home/logo";
 import { Reveal } from "@/components/home/reveal";
 import { PublicHeader } from "@/components/home/public-header";
 import { PlatformShowcase } from "@/components/home/platform-showcase";
+import { ScrollToTop } from "@/components/home/scroll-to-top";
 
 export const metadata: Metadata = {
   title: "KAPTRIX | Don't write a check on AI you can't defend",
   description:
-    "Evidence-backed AI diligence for investors and operators. Expose fragile systems, score what's real, and produce decision-grade outputs before capital moves.",
+    "Evidence-backed AI diligence for investors and operators. Score what's real, expose contradictions, produce decision-grade outputs before capital moves.",
 };
 
 // ---------------------------------------------------------------------------
-// Visual system is intentionally restrained (Stripe / Linear / Vanta):
-// - Primary CTA:  bg #0B0B1A, white text, hover #1F1F2E
-// - Secondary:    white bg, 1px #E5E7EB border, black text, hover #F9FAFB
-// - Accent:       indigo #6B5BFF on eyebrow labels and section borders
-// - Dark sections: flat deep-navy, no fuchsia/violet gradients
+// Visual system (unchanged): Stripe / Linear restraint.
+// Primary CTA #0B0B1A · Secondary white/border · Accent indigo #6B5BFF.
 // ---------------------------------------------------------------------------
+
+const HERO_PROOF = [
+  "Every score traced to a specific source passage.",
+  "Contradictions across decks, contracts, and code flagged automatically.",
+  "IC-ready outputs defensible at committee — and eighteen months later.",
+];
+
+const COST_OF_WRONG = [
+  "Overpay for a wrapper priced like a platform.",
+  "Undisclosed vendor and model dependencies surface post-close.",
+  "Narrative scored as capability; the cliff appears in quarter three.",
+  "A thesis you can't defend when LPs, the board, or the exit committee asks how the call got made.",
+];
+
+const HOW_IT_WORKS = [
+  {
+    id: "01",
+    step: "Intake",
+    line: "Ingest the full room — CIMs, contracts, code artifacts, customer calls, model specs.",
+  },
+  {
+    id: "02",
+    step: "Scoring",
+    line: "Apply a fixed rubric to the dimensions that break AI companies — every score tied to evidence.",
+  },
+  {
+    id: "03",
+    step: "Outputs",
+    line: "Ship an IC memo, risk register, and execution plan with a full audit trail from artifact to decision.",
+  },
+];
 
 const SNAPSHOTS = [
   {
@@ -43,106 +72,54 @@ const SNAPSHOTS = [
   },
 ];
 
-const PROBLEM_BULLETS = [
-  "Firms overpay for AI wrappers that look like platforms but collapse at scale.",
-  "Model and vendor dependencies go undisclosed until they break post-close.",
-  "Demos and founder narrative get scored as capability, not as claims to verify.",
-  "Diligence output is unfalsifiable — opinions without evidence, impossible to defend 18 months later.",
-  "Internal teams don't have the muscle to pressure-test AI architectures on deal timelines.",
-];
-
-const CAPABILITIES = [
-  {
-    id: "01",
-    title: "Forces evidence-backed decisions",
-    body: "Every score, claim, and recommendation links to a specific source passage. No evidence, no score.",
-    soWhat: "So what: no one on the IC can hide behind vibes.",
-  },
-  {
-    id: "02",
-    title: "Exposes where AI breaks in production",
-    body: "The scoring engine is tuned for the failure modes AI systems actually exhibit — data drift, eval gaps, prompt fragility, vendor lock, silent degradation.",
-    soWhat: "So what: you find the cliff before you drive off it.",
-  },
-  {
-    id: "03",
-    title: "Separates real capability from narrative",
-    body: "Contradictions between decks, code, contracts, and customer calls surface automatically. Overstated capability gets flagged, not flattered.",
-    soWhat: "So what: you stop paying platform multiples for thin wrappers.",
-  },
-  {
-    id: "04",
-    title: "Produces decision-grade outputs",
-    body: "IC memo, risk register, competitive posture, value-creation plan. Not a slide deck of observations — a package that can stand up at committee.",
-    soWhat: "So what: the decision is defensible the day it's made and 18 months later.",
-  },
-  {
-    id: "05",
-    title: "Compounds across every deal",
-    body: "Every document, adjustment, and investor rationale folds into a private knowledge base. Pattern recognition gets sharper with every engagement.",
-    soWhat: "So what: the tenth deal is faster and more accurate than the first.",
-  },
-  {
-    id: "06",
-    title: "Converts diligence into execution",
-    body: "Findings don't die in a PDF. They translate into a sequenced 100-day and value-creation plan the operating team can actually run.",
-    soWhat: "So what: the work you paid for survives signing.",
-  },
-];
-
 const DELIVERABLES = [
   {
     name: "AI Diligence Report",
-    includes:
-      "Ten-section master report covering architecture, data, evals, team, moat, vendor risk, scaling, compliance, and commercial posture. Every finding sourced.",
-    matters:
-      "This is the document the partner reads on the train. It has to survive scrutiny.",
+    what: "Ten-section master report: architecture, data, evals, team, moat, vendor risk, scaling, compliance, commercial posture.",
+    why: "The document the partner reads on the train. It has to survive scrutiny.",
   },
   {
     name: "Investment Committee Memo",
-    includes:
-      "Recommendation, thesis, key risks, mitigations, and decision rationale — condensed to IC format with links back to the underlying evidence.",
-    matters:
-      "Gives the committee a clear call, not a summary. Dissent is grounded in the same facts.",
+    what: "Recommendation, thesis, key risks, mitigations, and decision rationale — condensed to IC format.",
+    why: "A clear call, not a summary. Dissent is grounded in the same facts.",
   },
   {
     name: "Technical Risk Register",
-    includes:
-      "Ranked register of technical, model, data, vendor, and operational risks. Each with severity, likelihood, trigger conditions, and mitigation owner.",
-    matters:
-      "The thing you hand the post-close team so nothing gets dropped in the first 90 days.",
+    what: "Ranked register of technical, model, data, vendor, and operational risks with severity, triggers, and owners.",
+    why: "The handoff to the post-close team so nothing drops in the first 90 days.",
   },
   {
     name: "Competitive Posture",
-    includes:
-      "Where the company genuinely leads, where it's exposed, and what happens when the next model release lands. Includes substitution and commoditization analysis.",
-    matters:
-      "Shows whether the moat is real or a six-month lead dressed up as one.",
+    what: "Where the company leads, where it's exposed, and what happens when the next model release lands.",
+    why: "Tells you whether the moat is real or a six-month lead dressed up as one.",
   },
   {
     name: "Value Creation & Execution Plan",
-    includes:
-      "Enhanced 100-day plan: what to fix, scale, restructure, or kill. Sequenced, owner-tagged, tied to thesis levers.",
-    matters:
-      "The gap between a good thesis and a good return is execution. This is where that gap closes.",
+    what: "Sequenced 100-day plan: what to fix, scale, restructure, or kill — owner-tagged, tied to thesis levers.",
+    why: "The gap between a good thesis and a good return is execution. This is where that gap closes.",
   },
 ];
 
-const WHY_KAPTRIX = [
-  "Evidence over opinion — every claim is traceable, every score is defensible.",
-  "Consistency across deals — the same system evaluates every company the same way.",
-  "Speed without shortcuts — IC-ready output in days, not months.",
-  "Compounding knowledge — every engagement strengthens your proprietary edge.",
-  "Decision-grade outputs — built to withstand scrutiny before and after the investment.",
-  "Economic reality — evaluates whether AI actually scales profitably, not just technically.",
+const DIFFERENTIATION = [
+  "Evidence or nothing — no score exists without a source passage behind it.",
+  "Tuned to AI failure modes — data drift, eval gaps, prompt fragility, vendor lock, silent degradation.",
+  "Contradiction-native — the gap between deck, contract, and code is the product, not an afterthought.",
+  "Reproducible — the same rubric applied the same way across every deal in the pipeline.",
+  "Compounding — your private knowledge base gets sharper with every engagement you run through it.",
 ];
 
 const EXECUTION_BULLETS = [
-  "A sequenced 100-day plan with explicit owners, dependencies, and success criteria.",
-  "Architecture and data-layer remediation where the diligence surfaced fragility.",
-  "Eval, observability, and model-governance scaffolding — what to instrument and when.",
-  "Vendor and model-dependency hardening: reduce lock-in, add fallbacks, renegotiate terms.",
-  "Commercial and org moves tied directly to thesis levers, not generic best practice.",
+  "Sequenced 100-day plan with owners, dependencies, and success criteria.",
+  "Architecture and data-layer remediation targeted at the fragility diligence surfaced.",
+  "Eval, observability, and model-governance scaffolding — instrumented before it breaks.",
+  "Vendor and model hardening: reduce lock-in, add fallbacks, renegotiate before leverage shifts.",
+];
+
+const MOAT_BULLETS = [
+  "Every artifact, adjustment, and rationale folds into your private index — nothing is discarded.",
+  "Patterns across architectures and failure modes carry from deal to deal.",
+  "Institutional memory survives team turnover and market cycles.",
+  "The tenth engagement is materially sharper — and harder to match — than the first.",
 ];
 
 const MARQUEE = [
@@ -156,7 +133,6 @@ const MARQUEE = [
   "IC-ready",
 ];
 
-// Reusable button styles ----------------------------------------------------
 const BTN_PRIMARY =
   "inline-flex items-center justify-center rounded-md bg-[#0B0B1A] px-6 py-3 text-base font-medium text-white transition hover:bg-[#1F1F2E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B0B1A]";
 const BTN_SECONDARY =
@@ -169,6 +145,7 @@ const BTN_SECONDARY_ON_DARK =
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-white text-[#0B0B1A]">
+      <ScrollToTop />
       <PublicHeader />
 
       {/* ====================================================================
@@ -196,11 +173,26 @@ export default function HomePage() {
               </span>
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-8 text-slate-100 sm:text-xl">
-              Kaptrix pressure-tests AI companies before capital moves.
-              Evidence-backed scoring, contradiction detection, and
-              decision-grade outputs — so the call you make at IC survives
-              the next eighteen months.
+              Kaptrix pressure-tests AI companies before capital moves —
+              scoring what&apos;s real, exposing what contradicts, and
+              producing the decision-grade package your IC can stand behind.
             </p>
+
+            <ul className="mt-8 space-y-2.5">
+              {HERO_PROOF.map((p) => (
+                <li
+                  key={p}
+                  className="flex items-start gap-3 text-base leading-7 text-slate-100 sm:text-lg"
+                >
+                  <span
+                    aria-hidden
+                    className="mt-2.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-300"
+                  />
+                  <span>{p}</span>
+                </li>
+              ))}
+            </ul>
+
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link href="/contact" className={BTN_PRIMARY_ON_DARK}>
                 Start a diligence engagement
@@ -245,34 +237,24 @@ export default function HomePage() {
       </section>
 
       {/* ====================================================================
-          2. PROBLEM
+          2. THE COST OF BEING WRONG
       ==================================================================== */}
       <section className="border-b border-[#E5E7EB] bg-[#FAFAFA]">
         <div className="mx-auto max-w-6xl px-6 py-24 sm:py-28">
           <Reveal>
             <div className="max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-                The problem
+                The cost of being wrong
               </p>
               <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-                Most AI diligence is narrative.
-                <br />
-                <span className="text-slate-600">
-                  Narrative is how firms overpay.
-                </span>
+                The check clears fast.{" "}
+                <span className="text-slate-600">The bill comes later.</span>
               </h2>
-              <p className="kx-sub mt-8 max-w-2xl">
-                The AI category moves faster than diligence can keep up.
-                Capability gets confused with capability claims. Vendor
-                dependencies hide inside &ldquo;proprietary&rdquo;
-                architecture. Post-close, the thing you bought doesn&apos;t
-                match the thing you were shown. The bill arrives anyway.
-              </p>
             </div>
           </Reveal>
 
           <ul className="mt-12 grid gap-4 sm:grid-cols-2">
-            {PROBLEM_BULLETS.map((b, i) => (
+            {COST_OF_WRONG.map((b, i) => (
               <Reveal key={i} delay={i * 80}>
                 <li className="kx-sub-sm flex gap-3 rounded-lg border border-[#E5E7EB] border-l-[3px] border-l-[#6B5BFF] bg-white p-5 shadow-[0_1px_2px_rgba(11,11,26,0.04)] transition hover:border-l-[#0B0B1A] hover:shadow-[0_4px_12px_-4px_rgba(11,11,26,0.08)]">
                   <span
@@ -294,63 +276,50 @@ export default function HomePage() {
         <section>
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-              What Kaptrix is
+              What Kaptrix does
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              A system for evaluating AI companies{" "}
-              <span className="text-slate-600">
-                before capital moves.
-              </span>
+              A decision system.{" "}
+              <span className="text-slate-600">Not a report generator.</span>
             </h2>
-            <p className="kx-sub mt-6 max-w-3xl">
-              Kaptrix ingests the room — CIMs, contracts, code artifacts,
-              customer calls, model specs — and runs a structured,
-              evidence-backed evaluation of what&apos;s real, what&apos;s
-              fragile, and what contradicts. It produces decision-grade
-              outputs: an IC memo, a risk register, a value-creation plan.
-              Every score is traceable. Every claim has a source. Every
-              contradiction is flagged, not absorbed.
-            </p>
           </Reveal>
 
-          <div className="mt-12 grid gap-6 lg:grid-cols-3">
+          <div className="mt-12 grid gap-6 lg:grid-cols-2">
             {[
               {
                 id: "01",
-                title: "Score what's real",
-                body: "A fixed rubric, applied the same way every time, to the dimensions that matter for AI: architecture, data, evals, team, moat, vendor risk.",
+                title: "Ingests the evidence",
+                body: "CIMs, contracts, code, customer calls, model specs — pulled in, parsed, and indexed as the source of truth for the engagement.",
               },
               {
                 id: "02",
-                title: "Expose contradictions",
-                body: "Decks say one thing. Contracts say another. Code says a third. Kaptrix surfaces the gap and puts it in front of the decision-maker.",
+                title: "Scores what's real",
+                body: "A fixed rubric applied to the dimensions that actually break AI companies. Every score tied back to a specific passage.",
               },
               {
                 id: "03",
-                title: "Ship defensible outputs",
-                body: "Every deliverable carries a full audit trail from artifact to score to recommendation. Defensible at IC. Defensible 18 months later.",
+                title: "Exposes contradictions",
+                body: "Decks claim one thing; contracts and code say another. The gap is surfaced, not absorbed.",
+              },
+              {
+                id: "04",
+                title: "Ships decision-grade outputs",
+                body: "IC memo, risk register, execution plan — each one defensible on the way in and on the way out.",
               },
             ].map((layer, idx) => (
-              <Reveal key={layer.id} delay={idx * 100}>
+              <Reveal key={layer.id} delay={idx * 90}>
                 <article className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_2px_rgba(11,11,26,0.04)] transition hover:border-[#0B0B1A] hover:shadow-[0_8px_24px_-12px_rgba(11,11,26,0.12)]">
                   <span
                     aria-hidden
                     className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-[#6B5BFF] via-indigo-400 to-transparent"
                   />
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50 text-sm font-semibold text-[#6B5BFF]">
-                      {layer.id}
-                    </span>
-                    <span className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-600">
-                      Core
-                    </span>
-                  </div>
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50 text-sm font-semibold text-[#6B5BFF]">
+                    {layer.id}
+                  </span>
                   <h3 className="mt-5 text-xl font-medium tracking-tight text-[#0B0B1A]">
                     {layer.title}
                   </h3>
-                  <p className="kx-sub mt-3">
-                    {layer.body}
-                  </p>
+                  <p className="kx-sub mt-3">{layer.body}</p>
                 </article>
               </Reveal>
             ))}
@@ -358,28 +327,60 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            4. WHAT YOU GET — DELIVERABLES
+            4. HOW IT WORKS — 3 steps
         ================================================================ */}
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-              What you get
+              How it works
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              Concrete outputs.{" "}
-              <span className="text-slate-600">Not observations.</span>
+              Intake.{" "}
+              <span className="text-slate-600">Scoring. Outputs.</span>
             </h2>
-            <p className="kx-sub mt-6 max-w-2xl">
-              Every engagement produces a defined package of deliverables —
-              each one sourced, auditable, and usable by the operating team
-              on day one.
+          </Reveal>
+
+          <ol className="mt-12 grid gap-6 lg:grid-cols-3">
+            {HOW_IT_WORKS.map((s, idx) => (
+              <Reveal key={s.id} delay={idx * 90}>
+                <li className="flex h-full flex-col rounded-lg border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_2px_rgba(11,11,26,0.04)]">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-[#0B0B1A] text-sm font-semibold text-white">
+                      {s.id}
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-500">
+                      {s.step}
+                    </span>
+                  </div>
+                  <p className="kx-sub mt-5">{s.line}</p>
+                </li>
+              </Reveal>
+            ))}
+          </ol>
+
+          <div className="mt-14">
+            <PlatformShowcase steps={SNAPSHOTS} />
+          </div>
+        </section>
+
+        {/* ================================================================
+            5. OUTPUTS
+        ================================================================ */}
+        <section className="border-t border-[#E5E7EB] pt-24">
+          <Reveal>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
+              Outputs
             </p>
+            <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
+              What lands on your desk.{" "}
+              <span className="text-slate-600">Sourced. Auditable. Usable.</span>
+            </h2>
           </Reveal>
 
           <div className="mt-12 grid gap-4 lg:grid-cols-2">
             {DELIVERABLES.map((d, i) => (
               <Reveal key={d.name} delay={i * 80}>
-                <article className="group flex h-full flex-col rounded-lg border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_2px_rgba(11,11,26,0.04)] transition hover:border-[#0B0B1A] hover:shadow-[0_8px_24px_-12px_rgba(11,11,26,0.10)]">
+                <article className="flex h-full flex-col rounded-lg border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_2px_rgba(11,11,26,0.04)] transition hover:border-[#0B0B1A] hover:shadow-[0_8px_24px_-12px_rgba(11,11,26,0.10)]">
                   <div className="mb-4 flex items-center gap-3">
                     <span
                       aria-hidden
@@ -395,16 +396,12 @@ export default function HomePage() {
                     {d.name}
                   </h3>
                   <p className="kx-sub-sm mt-3">
-                    <span className="font-semibold text-[#0B0B1A]">
-                      Includes:{" "}
-                    </span>
-                    {d.includes}
+                    <span className="font-semibold text-[#0B0B1A]">What:{" "}</span>
+                    {d.what}
                   </p>
                   <p className="kx-sub-sm mt-3 border-t border-[#E5E7EB] pt-4">
-                    <span className="font-semibold text-[#0B0B1A]">
-                      Why it matters:{" "}
-                    </span>
-                    {d.matters}
+                    <span className="font-semibold text-[#0B0B1A]">Why it matters:{" "}</span>
+                    {d.why}
                   </p>
                 </article>
               </Reveal>
@@ -421,146 +418,40 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            5. CAPABILITIES
+            6. DIFFERENTIATION
         ================================================================ */}
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-              Capabilities
-            </p>
-            <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              What Kaptrix forces.{" "}
-              <span className="text-slate-600">
-                What it makes possible.
-              </span>
-            </h2>
-          </Reveal>
-
-          <div className="mt-12 grid gap-6 lg:grid-cols-3">
-            {CAPABILITIES.map((c, idx) => (
-              <Reveal key={c.id} delay={idx * 80}>
-                <article className="group relative flex h-full flex-col overflow-hidden rounded-lg border border-[#E5E7EB] bg-white p-7 shadow-[0_1px_2px_rgba(11,11,26,0.04)] transition hover:border-[#0B0B1A] hover:shadow-[0_8px_24px_-12px_rgba(11,11,26,0.12)]">
-                  <span
-                    aria-hidden
-                    className="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-[#6B5BFF] via-indigo-300 to-transparent opacity-60 transition group-hover:opacity-100"
-                  />
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-indigo-100 bg-indigo-50 text-xs font-semibold text-[#6B5BFF]">
-                    {c.id}
-                  </span>
-                  <h3 className="mt-4 text-lg font-medium tracking-tight text-[#0B0B1A]">
-                    {c.title}
-                  </h3>
-                  <p className="kx-sub-sm mt-3">
-                    {c.body}
-                  </p>
-                  <p className="kx-sub-sm mt-5 border-t border-[#E5E7EB] pt-4 !font-medium !text-[#0B0B1A]">
-                    {c.soWhat}
-                  </p>
-                </article>
-              </Reveal>
-            ))}
-          </div>
-        </section>
-
-        {/* ================================================================
-            6. PLATFORM SNAPSHOTS
-        ================================================================ */}
-        <section className="border-t border-[#E5E7EB] pt-24">
-          <Reveal>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-              The platform
-            </p>
-            <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              See the system{" "}
-              <span className="text-slate-600">in motion.</span>
-            </h2>
-            <p className="kx-sub mt-6 max-w-2xl">
-              Three layers, one workflow: intake, scoring, and committee-ready
-              report. Step through each, or let the preview advance on its
-              own.
-            </p>
-          </Reveal>
-
-          <div className="mt-10">
-            <PlatformShowcase steps={SNAPSHOTS} />
-          </div>
-        </section>
-
-        {/* ================================================================
-            7. AI KNOWLEDGE BASE
-        ================================================================ */}
-        <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(ellipse_at_top_left,#1B1F4A_0%,#0D1033_40%,#0A0B1F_75%,#070815_100%)] p-8 text-white sm:p-14">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -right-20 -top-20 h-[22rem] w-[22rem] rounded-full bg-indigo-500/15 blur-[100px]"
-          />
-          <Reveal>
-            <div className="relative max-w-3xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
-                The AI knowledge base
-              </p>
-              <h2 className="mt-4 text-3xl font-normal leading-[1.1] tracking-tight sm:text-5xl">
-                The system gets sharper{" "}
-                <span className="bg-gradient-to-r from-white to-indigo-200 bg-clip-text text-transparent">
-                  every time you use it.
-                </span>
-              </h2>
-              <p className="mt-6 text-base leading-7 text-slate-100 sm:text-lg">
-                Every document you submit, every adjustment an investor makes,
-                every contradiction Kaptrix surfaces — it all folds into a
-                private knowledge base that belongs to you. Not a generic
-                model. Not a shared index. Your institutional memory,
-                compounding.
-              </p>
-            </div>
-          </Reveal>
-
-          <Reveal delay={120}>
-            <ul className="relative mt-10 grid gap-3 sm:grid-cols-2">
-              {[
-                "Stores evidence from every artifact and prior report — nothing gets thrown away.",
-                "Tracks patterns across companies, architectures, and failure modes you've already seen.",
-                "Improves future scoring accuracy by grounding the next deal in everything the last deal taught you.",
-                "Builds institutional memory that survives team turnover and deal cycles.",
-                "Compounds intelligence — the tenth engagement is materially sharper than the first.",
-              ].map((b, i) => (
-                <li
-                  key={i}
-                  className="flex gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-slate-100"
-                >
-                  <span
-                    aria-hidden
-                    className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-300"
-                  />
-                  <span>{b}</span>
-                </li>
-              ))}
-            </ul>
-          </Reveal>
-
-          <Reveal delay={180}>
-            <p className="relative mt-10 max-w-3xl border-t border-white/10 pt-6 text-sm leading-6 text-indigo-100 sm:text-base">
-              This is the moat. Generic tools reset with every query. Kaptrix
-              accumulates — and the longer you run it, the harder it is for
-              anyone else to match what your team sees.
-            </p>
-          </Reveal>
-
-          <Reveal delay={220}>
-            <div className="relative mt-8 rounded-md border border-indigo-300/20 bg-white/[0.04] p-5 text-sm leading-6 text-slate-100">
-              <p className="font-semibold text-white">Note on privacy.</p>
-              <p className="mt-1">
-                Your submissions train <em>your</em> knowledge base only.
-                Client data is fully isolated, never shared across workspaces,
-                and never used to train models for anyone else. Full audit
-                trail available on request.
-              </p>
+            <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-start">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
+                  Why Kaptrix
+                </p>
+                <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
+                  Not another tool.{" "}
+                  <span className="text-slate-600">Not another consultant.</span>
+                </h2>
+              </div>
+              <ul className="space-y-3">
+                {DIFFERENTIATION.map((b, i) => (
+                  <li
+                    key={i}
+                    className="flex gap-3 border-b border-[#E5E7EB] pb-3 text-lg font-medium leading-8 text-slate-900 last:border-b-0"
+                  >
+                    <span
+                      aria-hidden
+                      className="mt-3 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B5BFF]"
+                    />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </Reveal>
         </section>
 
         {/* ================================================================
-            8. EXECUTION LAYER
+            7. EXECUTION LAYER
         ================================================================ */}
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
@@ -568,15 +459,9 @@ export default function HomePage() {
               Execution layer
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              Diligence that survives{" "}
-              <span className="text-slate-600">signing.</span>
+              This doesn&apos;t die{" "}
+              <span className="text-slate-600">in a PDF.</span>
             </h2>
-            <p className="kx-sub mt-6 max-w-3xl">
-              Analysis without execution is expensive paperwork. Kaptrix
-              converts findings into a build-ready plan the operating team
-              can run on day one — sequenced, owner-tagged, and tied to the
-              thesis levers that actually move returns.
-            </p>
           </Reveal>
 
           <ul className="mt-10 grid gap-4 sm:grid-cols-2">
@@ -597,71 +482,66 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            9. WHY KAPTRIX
+            8. KNOWLEDGE BASE / MOAT
         ================================================================ */}
-        <section className="border-t border-[#E5E7EB] pt-24">
+        <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(ellipse_at_top_left,#1B1F4A_0%,#0D1033_40%,#0A0B1F_75%,#070815_100%)] p-8 text-white sm:p-14">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-20 -top-20 h-[22rem] w-[22rem] rounded-full bg-indigo-500/15 blur-[100px]"
+          />
           <Reveal>
-            <div className="grid gap-12 lg:grid-cols-[1fr_1.2fr] lg:items-start">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-                  Why Kaptrix
-                </p>
-                <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-                  Why this, instead of an internal team or a generic tool?
-                </h2>
-              </div>
-              <div>
-                <ul className="space-y-3">
-                  {WHY_KAPTRIX.map((b, i) => (
-                    <li
-                      key={i}
-                      className="flex gap-3 border-b border-[#E5E7EB] pb-3 text-lg font-medium leading-8 text-slate-900 last:border-b-0"
-                    >
-                      <span
-                        aria-hidden
-                        className="mt-3 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-[#6B5BFF]"
-                      />
-                      <span>{b}</span>
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-10 max-w-2xl text-lg font-medium leading-8 text-slate-900">
-                  Internal teams are stretched. Generic tools produce generic
-                  output.
-                  <br />
-                  Kaptrix is built for one question: can this decision stand
-                  up under real scrutiny — on the way in and on the way out?
-                </p>
-                <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-                  Kaptrix is not another AI tool and not another consulting
-                  layer. It is a decision system — grounded in evidence,
-                  economics, and reproducibility.
-                </p>
-              </div>
+            <div className="relative max-w-3xl">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
+                The moat
+              </p>
+              <h2 className="mt-4 text-3xl font-normal leading-[1.1] tracking-tight sm:text-5xl">
+                Intelligence that{" "}
+                <span className="bg-gradient-to-r from-white to-indigo-200 bg-clip-text text-transparent">
+                  compounds.
+                </span>
+              </h2>
+              <p className="mt-6 text-base leading-7 text-slate-100 sm:text-lg">
+                Your submissions train <em>your</em> private knowledge base —
+                fully isolated, never shared, never used to train models for
+                anyone else.
+              </p>
             </div>
+          </Reveal>
+
+          <Reveal delay={120}>
+            <ul className="relative mt-10 grid gap-3 sm:grid-cols-2">
+              {MOAT_BULLETS.map((b, i) => (
+                <li
+                  key={i}
+                  className="flex gap-3 rounded-md border border-white/10 bg-white/[0.03] p-4 text-sm leading-6 text-slate-100"
+                >
+                  <span
+                    aria-hidden
+                    className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-300"
+                  />
+                  <span>{b}</span>
+                </li>
+              ))}
+            </ul>
           </Reveal>
         </section>
 
         {/* ================================================================
-            10. CLOSE / CTA
+            9. FINAL CLOSE
         ================================================================ */}
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
             <div className="max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-                Before the next check
+                Before the wire goes out
               </p>
               <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-                You&apos;ll defend this decision for years.{" "}
-                <span className="text-slate-600">
-                  Make sure the evidence is there.
-                </span>
+                Don&apos;t write a check on{" "}
+                <span className="text-slate-600">AI you can&apos;t defend.</span>
               </h2>
               <p className="kx-sub mt-6">
-                Kaptrix is built for the moments where being roughly right on
-                narrative isn&apos;t good enough — where the wire goes out,
-                the thesis is committed, and someone, eventually, asks how
-                the call got made. Bring the evidence.
+                You&apos;ll answer for this decision — at the next IC, at the
+                board, at the exit. Bring the evidence.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/contact" className={BTN_PRIMARY}>
@@ -685,22 +565,13 @@ export default function HomePage() {
             <Logo wordClassName="text-sm text-[#0B0B1A]" markClassName="h-5 w-5" />
             <p>© {new Date().getFullYear()} Kaptrix</p>
             <div className="flex items-center gap-6">
-              <Link
-                href="/how-it-works"
-                className="transition hover:text-[#0B0B1A]"
-              >
+              <Link href="/how-it-works" className="transition hover:text-[#0B0B1A]">
                 How it works
               </Link>
-              <Link
-                href="/preview"
-                className="transition hover:text-[#0B0B1A]"
-              >
+              <Link href="/preview" className="transition hover:text-[#0B0B1A]">
                 Platform
               </Link>
-              <Link
-                href="/contact"
-                className="transition hover:text-[#0B0B1A]"
-              >
+              <Link href="/contact" className="transition hover:text-[#0B0B1A]">
                 Contact
               </Link>
             </div>
