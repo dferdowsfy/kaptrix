@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import type { PreviewClientSummary } from "@/lib/preview-clients";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
 import type { Engagement } from "@/lib/types";
 import { INDUSTRY_OPTIONS, type Industry } from "@/lib/industry-requirements";
 import { setClientIndustry } from "@/lib/preview-intake";
@@ -246,16 +246,6 @@ function NewClientForm({ onCreated }: { onCreated: () => void }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700">Fee ($)</label>
-          <input
-            type="number"
-            value={form.engagement_fee}
-            onChange={(e) => update("engagement_fee", e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            placeholder="12500"
-          />
-        </div>
-        <div>
           <label className="block text-sm font-medium text-slate-700">Delivery Deadline</label>
           <input
             type="date"
@@ -405,7 +395,7 @@ function ClientCard({
         {client.summary}
       </p>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <Stat
           label="Composite"
           value={
@@ -416,7 +406,6 @@ function ClientCard({
         />
         <Stat label="Stage" value={client.deal_stage.replace("_", " ")} />
         <Stat label="Tier" value={client.tier} />
-        <Stat label="Fee" value={formatCurrency(client.fee_usd)} />
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-xs text-slate-500 sm:pt-4 sm:text-sm">
