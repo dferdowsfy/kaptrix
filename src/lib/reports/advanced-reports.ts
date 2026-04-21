@@ -64,20 +64,55 @@ const FORMAT_RULES = `Output format: clean GitHub-flavored markdown.
 // model out of descriptive summarization and into prove / stress-test
 // / decide posture. This is the single biggest lever against reports
 // that merely restate what the evidence says.
-const OPERATING_MODE = `OPERATING MODE — PROVE, STRESS-TEST, DECIDE.
+const OPERATING_MODE = `OPERATING MODE — PROVE, STRESS-TEST, DECIDE. (14 RULES, ENFORCED.)
 
-You are not a summarizer. You are an adversarial operator auditing a live deal.
+You are not a summarizer. You are an adversarial operator auditing a live deal. Lead with the finding, not the process. Assume weakness unless disproven.
 
 For every claim, do three things in order:
 1. PROVE. Cite the exact artifact + section/page, the exact score + value, or the exact absent-artifact that would settle the claim. No evidence, no claim.
 2. STRESS-TEST. Name the edge case, adversarial input, scale multiple, vendor event, or audit trigger that would break the claim. If nothing breaks it, say so and why.
-3. DECIDE. State the consequence for the investment — in dollars, basis points, % ARR, logos, days-to-close, multiple turns, or IRR delta. End every sub-section on a decision, not a description.
+3. DECIDE. State the consequence for the investment — in dollars, basis points, % ARR, logos, days-to-close, multiple turns, or IRR delta.
 
-Banned verbs when they replace analysis: "describes", "discusses", "covers", "touches on", "outlines", "presents", "highlights". Banned hedges: "may", "could", "potential" without a quantified magnitude. Banned meta-statements: "this section will", "in this report", "overall".
+THE 14 ENFORCED RULES:
 
-If the evidence is thin, say "LOW CONFIDENCE — requires <named artifact>" and still render your best-supported decision. Never pad around a gap; name it.
+1. QUANTIFICATION. Every claim must carry a quantified estimate, a comparable baseline, or a directional magnitude. If none are possible, write "Not quantifiable due to missing <X>" and tag the claim LOW confidence — never pad around the gap.
 
-Every section must end with a one-line bolded "**Decision:**" or "**Verdict:**" that states the operator action implied by the analysis (e.g. "**Decision:** Require per-tenant Pinecone namespace in SPA §6.4 or walk.").`;
+2. CALIBRATION. Every estimate carries explicit confidence: (High / Medium / Low). Bare assertions without calibration are rejected.
+
+3. EVIDENCE HIERARCHY. Tag every material claim inline with one of: [L1 — direct artifact proof], [L2 — inferred from artifacts], [L3 — unverified claim]. If L3 dominates a section, mark the section "LOW EVIDENCE RELIABILITY" at the top.
+
+4. CONTRADICTION ENGINE. When two sources conflict, emit "[CONTRADICTION DETECTED]" inline, explain the conflict in one sentence, and decide which side is false using the hierarchy: direct measurement > signed contract > audited artifact > management claim > inferred. Never leave contradictions unresolved.
+
+5. ILLUSION TEST. Classify every material capability as REAL / PARTIAL / ILLUSION. No neutral answers. Justify each classification with the specific proof (or absence of proof).
+
+6. UNIT ECONOMICS. Wherever cost or margin is claimed, break it into Cost Drivers, Volume, and Scaling Behavior. State what happens to the unit at 3x and 10x volume.
+
+7. RISK SCORING. Every risk carries Severity (1-5) × Likelihood (1-5) = Risk Score (1-25). Order risks by Risk Score descending. No verbal-only risks.
+
+8. REPLACEMENT TEST. For any claimed moat, estimate % value loss under replacement pressure, driven by (a) data uniqueness, (b) workflow integration depth, (c) foundation-model dependency. Show the three drivers before stating the %.
+
+9. TIME HORIZON. Every risk and every value lever gets a Time-to-Materialization (e.g. 0-6mo / 6-18mo / 18mo+) and a named Trigger event. No open-ended timelines.
+
+10. BRUTAL HONESTY. Assume weakness is present unless the evidence explicitly disproves it. Do not soften. Do not balance a real problem with a rhetorical strength.
+
+11. CONSISTENCY CHECK. Cross-section contradictions must be resolved before output or declared explicitly as "[CONSISTENCY GAP]".
+
+12. TIMING ANALYSIS. Classify the market/technology timing for the thesis as Tailwind / Neutral / Headwind, with the specific driver (regulatory, model cost curve, incumbent posture) that picks the tag.
+
+13. OPERATOR DEPENDENCY. Classify critical workflows as Systemized or Fragile. Fragile = requires a specific named individual or undocumented tribal knowledge. Name the person/role dependency when Fragile.
+
+14. FINAL POSITION. Every report ends with a machine-parseable ':::final-position' block (see FINAL POSITION RULE) stating Classification, Conviction (0-100), Primary Driver, and Failure Trigger.
+
+GLOBAL WRITING ENFORCEMENT:
+- Lead with the finding, not the process.
+- Banned filler verbs/phrases (reject and rewrite): "to determine", "we analyzed", "this suggests", "it is important to note", "describes", "discusses", "covers", "touches on", "outlines", "presents", "highlights".
+- Banned hedges: "may", "could", "potential" when used without a quantified magnitude.
+- Banned meta: "this section will", "in this report", "overall".
+- No generic SaaS language. No methodology prose that does not add insight.
+- If numbers are not grounded, label them "directional" or tag [L2] / [L3]; never launder an inferred number as fact.
+- Every section must end with a bolded "**Decision:**" or "**Verdict:**" line stating (a) what is proven, (b) what is not proven, (c) what breaks, and (d) whether it is fixable — in one tight sentence.
+
+If evidence is thin, write "LOW CONFIDENCE — requires <named artifact>" and still render your best-supported decision. Never pad around a gap; name it.`;
 
 // Every report MUST begin with a standardized "decision snapshot"
 // hero block so the reader sees the bottom-line verdict before
@@ -101,6 +136,24 @@ risks:
 :::
 
 Then continue with the normal report starting at '#'. The snapshot is rendered as a graphic hero card — do not duplicate it as a markdown section.`;
+
+// Every report MUST end with a machine-parseable FINAL POSITION block
+// (Rule 14). This is distinct from the opening decision snapshot: it
+// carries the quantified conviction, the single primary driver of the
+// call, and the single event that would flip the call. Renderers may
+// surface it as a footer card.
+const FINAL_POSITION_RULE = `MANDATORY: The VERY LAST element of the report (after every section, after any change-log block) MUST be a ':::final-position' block in this exact shape:
+
+:::final-position
+classification: <one of REAL | PARTIAL | ILLUSION>   # aligned to the Illusion Test for the headline capability / thesis
+conviction: <integer 0-100>
+primary_driver: <ONE sentence — the single strongest reason the call holds>
+failure_trigger: <ONE sentence — the single event that would invalidate the call>
+timing: <Tailwind | Neutral | Headwind>
+operator_dependency: <Systemized | Fragile>
+:::
+
+Do not substitute labels. Do not wrap this block in a code fence. Do not add prose after it.`;
 
 const MASTER_PROMPT = `${OPERATING_MODE}
 
@@ -185,7 +238,9 @@ Output must be dense, specific, and defensible. ${FORMAT_RULES}
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" should summarize the AI-diligence disposition (e.g. "Credible with Conditions", "High-Risk — Fix Before Close", "Strong Signal, Weak Evidence"). Use "strengths" for the two or three architectural facts that genuinely work, and "risks" for the two or three failure modes that matter most — each tagged with a severity like [CRITICAL] or [HIGH].`;
+For the snapshot: "verdict" should summarize the AI-diligence disposition (e.g. "Credible with Conditions", "High-Risk — Fix Before Close", "Strong Signal, Weak Evidence"). Use "strengths" for the two or three architectural facts that genuinely work, and "risks" for the two or three failure modes that matter most — each tagged with a severity like [CRITICAL] or [HIGH].
+
+${FINAL_POSITION_RULE}`;
 
 const IC_MEMO_PROMPT = `${OPERATING_MODE}
 
@@ -235,7 +290,9 @@ Write this like a partner presenting to IC — direct, sharp, and high convictio
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" must be one of Invest / Proceed with Conditions / High Risk / Do Not Proceed. "posture" reflects the risk level of the recommendation. "confidence" is the 0-100 conviction score. "thesis" is the one-sentence "works / breaks because…". "strengths" are the three critical strengths (ultra-condensed) and "risks" are the three critical risks with severity tags.`;
+For the snapshot: "verdict" must be one of Invest / Proceed with Conditions / High Risk / Do Not Proceed. "posture" reflects the risk level of the recommendation. "confidence" is the 0-100 conviction score. "thesis" is the one-sentence "works / breaks because…". "strengths" are the three critical strengths (ultra-condensed) and "risks" are the three critical risks with severity tags.
+
+${FINAL_POSITION_RULE}`;
 
 const RISK_REGISTER_PROMPT = `${OPERATING_MODE}
 
@@ -268,7 +325,9 @@ Produce 10-15 risks. Depth over volume — every risk must add a distinct root c
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes the overall technical risk posture (e.g. "Elevated — 3 Critical Risks Outstanding"). "posture" is the HIGHEST single-risk severity in the register. "confidence" reflects how well-evidenced the register is (0-100). "thesis" is one sentence on where the system is most likely to fail first. Use "risks" only (leave strengths empty) — list the top 3 residual risks with severity tags.`;
+For the snapshot: "verdict" summarizes the overall technical risk posture (e.g. "Elevated — 3 Critical Risks Outstanding"). "posture" is the HIGHEST single-risk severity in the register. "confidence" reflects how well-evidenced the register is (0-100). "thesis" is one sentence on where the system is most likely to fail first. Use "risks" only (leave strengths empty) — list the top 3 residual risks with severity tags.
+
+${FINAL_POSITION_RULE}`;
 
 const VALUE_CREATION_PROMPT = `${OPERATING_MODE}
 
@@ -320,7 +379,9 @@ This should feel like an operating playbook, not advice. ${FORMAT_RULES}
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes the execution posture (e.g. "Aggressive 100-Day Plan — 7 Ranked Moves"). "posture" reflects execution difficulty (HIGH if multiple hard items). "confidence" is 0-100 on plan achievability. "thesis" is one sentence on the single biggest value-unlock. Use "strengths" to list the top 3 value levers (not risks) — leave risks empty, or put the top 3 execution risks there if material.`;
+For the snapshot: "verdict" summarizes the execution posture (e.g. "Aggressive 100-Day Plan — 7 Ranked Moves"). "posture" reflects execution difficulty (HIGH if multiple hard items). "confidence" is 0-100 on plan achievability. "thesis" is one sentence on the single biggest value-unlock. Use "strengths" to list the top 3 value levers (not risks) — leave risks empty, or put the top 3 execution risks there if material.
+
+${FINAL_POSITION_RULE}`;
 
 const COMPETITIVE_PROMPT = `${OPERATING_MODE}
 
@@ -360,7 +421,9 @@ Make this uncomfortable and honest. ${FORMAT_RULES}
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes durability (e.g. "Durable \u2014 Workflow Moat Holds", "Replaceable \u2014 Wrapper Exposed", "Contested \u2014 12-Month Window"). "posture" reflects competitive risk (HIGH if replaceable, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence take on whether this company wins or loses the category. "strengths" are the genuine capability wins; "risks" are the structural losses and hidden fragilities with severity tags.`;
+For the snapshot: "verdict" summarizes durability (e.g. "Durable \u2014 Workflow Moat Holds", "Replaceable \u2014 Wrapper Exposed", "Contested \u2014 12-Month Window"). "posture" reflects competitive risk (HIGH if replaceable, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence take on whether this company wins or loses the category. "strengths" are the genuine capability wins; "risks" are the structural losses and hidden fragilities with severity tags.
+
+${FINAL_POSITION_RULE}`;
 
 const COVERAGE_PROMPT = `${OPERATING_MODE}
 
@@ -399,7 +462,9 @@ This report should increase trust by exposing weaknesses, not hiding them. ${FOR
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes whether the diligence is decision-ready (e.g. "Decision-Ready", "Directional Only — Material Gaps", "Not Reliable for IC"). "posture" reflects evidence quality (HIGH if many gaps, OK if strong). "confidence" is the overall reliability score 0-100. "thesis" is one sentence on whether this diligence can be trusted. Use "strengths" for well-evidenced dimensions and "risks" for the biggest evidence gaps (tagged [GAP] or [HIGH]).`;
+For the snapshot: "verdict" summarizes whether the diligence is decision-ready (e.g. "Decision-Ready", "Directional Only — Material Gaps", "Not Reliable for IC"). "posture" reflects evidence quality (HIGH if many gaps, OK if strong). "confidence" is the overall reliability score 0-100. "thesis" is one sentence on whether this diligence can be trusted. Use "strengths" for well-evidenced dimensions and "risks" for the biggest evidence gaps (tagged [GAP] or [HIGH]).
+
+${FINAL_POSITION_RULE}`;
 
 // ------------------------------------------------------------------
 // SECTION BREAKDOWNS
@@ -414,6 +479,8 @@ For the snapshot: "verdict" summarizes whether the diligence is decision-ready (
 // ------------------------------------------------------------------
 
 const SECTION_SNAPSHOT_INSTRUCTION = `OUTPUT ONLY the ':::snapshot' hero block (and the '#' report title immediately after it). Nothing else. No preamble. No later sections. Stop after the title line.`;
+
+const SECTION_FINAL_POSITION_INSTRUCTION = `OUTPUT ONLY the ':::final-position' block exactly as specified by the FINAL POSITION RULE. Do not emit a heading, prose, or any other content. The block must appear verbatim with all six fields: classification, conviction, primary_driver, failure_trigger, timing, operator_dependency. classification must be one of REAL / PARTIAL / ILLUSION aligned to the Illusion Test for the headline thesis. Stop immediately after the closing ':::'.`;
 
 function sectionBodyInstruction(headingMarkdown: string, guidance: string, additional?: string): string {
   return [
@@ -439,6 +506,7 @@ const MASTER_SECTIONS: AdvancedReportSection[] = [
   { id: "scores", label: "Score decomposition", maxTokens: 1800, instruction: sectionBodyInstruction("## 8. Score Decomposition", "For each dimension: render as 'Label: X.X / 5' bullet, then a short paragraph explaining WHY it earned that exact score (cite scoring rubric + evidence) and WHAT specific change (named artifact or control) would move it +1.0 point. Cover every dimension scored in the engagement.") },
   { id: "impact", label: "Investment impact", maxTokens: 1600, instruction: sectionBodyInstruction("## 9. So What — Investment Impact", "Translate findings into deal terms: (a) what breaks the business (quantified blast radius), (b) what limits scale (specific bottleneck + cost curve), (c) what reduces exit multiple (which strategic buyer pulls their bid and why). Include a scenario table with columns: Scenario | Key Assumption | Revenue Impact | Multiple Impact | Probability. Cover base / bull / bear.") },
   { id: "gaps", label: "Evidence gaps", maxTokens: 1200, instruction: sectionBodyInstruction("## 10. Evidence Gaps", "Enumerate the specific artifacts missing that would change conviction. For each gap: the artifact name, which section(s) it would uplift, the expected confidence lift (+X points), and whether it is obtainable pre-signing or post-close. Tag affected sections [LOW CONFIDENCE]. Use a multi-line table.") },
+  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
 const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
@@ -450,6 +518,7 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
   { id: "killer", label: "What would kill this deal", maxTokens: 800, instruction: sectionBodyInstruction("## 5. What Would Kill This Deal", "The single biggest failure point — the thing we walk from if it is not fixed pre-close. One dense paragraph with the trigger, the impact, and the pass-criterion we would require in the SPA or side letter.") },
   { id: "double", label: "What would 2x value", maxTokens: 800, instruction: sectionBodyInstruction("## 6. What Would 2x the Value", "The single most leveraged improvement. Quantify the uplift (revenue, margin, multiple-turn expansion), name the owner, name the effort, and state the timeline to materialize in ARR.") },
   { id: "implications", label: "Deal implications", maxTokens: 1400, instruction: sectionBodyInstruction("## 7. Deal Implications", "Valuation call: name the entry multiple (e.g. 12.5x NTM ARR), compare against at least 2 named comps with their multiples, and state whether the ask is accretive / fair / stretched — by how many turns. Scalability constraints: specific bottleneck + revenue ceiling. Exit risk: which buyer universe shrinks and by how much. Include a scenario table: Scenario | Key Assumption | Revenue 2029 | Exit Multiple | MOIC | IRR. Cover base / bull / bear.") },
+  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
 const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
@@ -457,6 +526,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
   { id: "critical", label: "Critical & high risks (R1–R5)", maxTokens: 2800, instruction: sectionBodyInstruction("# Technical Risk Register", "Emit the top 5 risks as '## R1. Title' through '## R5. Title'. For each: System Area, Description (2-4 sentences with concrete failure trace naming files/endpoints/schemas), Trigger Condition, Evidence (named artifact + section OR specific diligence gap with requested artifact), Severity 1-5 (justify with $/ARR impact), Likelihood 1-5 (justify with base rate or SLA history), Risk Score (severity × likelihood), Business Impact (quantified in $/% ARR/logos), Mitigation (named owner + effort in person-weeks + pass criterion), Residual Risk 1-5 (justify). Order by Risk Score descending. Never use the phrase 'No direct evidence, inferred from'.") },
   { id: "medium", label: "Medium residual risks (R6–R10)", maxTokens: 2400, instruction: sectionBodyInstruction("<!-- continuing risk register -->", "Emit 5 more risks as '## R6. Title' through '## R10. Title' with the same full field set. These must be DISTINCT root causes — do not restate R1-R5 from a different angle. Skip the '# Technical Risk Register' header.") },
   { id: "long_tail", label: "Long-tail risks (R11–R15)", maxTokens: 2000, instruction: sectionBodyInstruction("<!-- continuing risk register -->", "Emit up to 5 lower-severity but still real and distinct risks as '## R11. Title' onward with the full field set. If fewer than 5 material additional risks exist, emit only the real ones and briefly explain in one sentence why the register stops there.") },
+  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
 const VALUE_CREATION_SECTIONS: AdvancedReportSection[] = [
@@ -467,6 +537,7 @@ const VALUE_CREATION_SECTIONS: AdvancedReportSection[] = [
   { id: "plan", label: "30 / 60 / 90 execution plan", maxTokens: 2000, instruction: sectionBodyInstruction("## 4. 30 / 60 / 90 Execution Plan", "Use '### 0-30 Days', '### 31-60 Days', '### 61-90 Days' sub-headings. For each phase, use a table: Workstream | Owner | Deliverable | Pass Criterion. Every row must be specific and testable.") },
   { id: "roadmap", label: "Product roadmap & team next steps", maxTokens: 2400, instruction: sectionBodyInstruction("## 5. Product Roadmap & Team Next Steps", "Produce a contextual, per-team roadmap the portfolio company can hand directly to its teams as a guide for what to do next. Use one '### ' sub-heading per team in this exact order (omit a team only if the evidence has zero signal for it): Product, Engineering / Platform, AI / ML, Data & Analytics, Security & Governance, GTM / Commercial, Finance / Ops. Under each team emit ONE multi-line markdown table with columns: Horizon (0-30 / 31-60 / 61-90) | Next Step | Trigger (cite specific finding, score, or artifact) | Owner | Score or Metric Moved (e.g. 'production_readiness/ai_unit_economics 2.4 \\u2192 3.5', 'cost-per-output $0.14 \\u2192 $0.08', 'governance_safety/audit_trail LOW \\u2192 OK') | Pass Criterion. At least 2 rows per team when evidence supports it; never pad with generic items. At least ONE row anywhere in the roadmap MUST target the AI Unit Economics sub-criterion (model tiering, cost-per-output instrumentation, token controls, lower-cost substitution) whenever the inputs indicate Margin Compression, Fragile, or Neutral posture. End the section with one blockquote naming the single roadmap move the CEO should personally own for the first 30 days, and a bold **Decision:** line stating whether the roadmap as-written is sufficient to hit the Day-90 board review or must be rescoped.") },
   { id: "metrics", label: "Measurable outcomes", maxTokens: 1000, instruction: sectionBodyInstruction("## 6. Measurable Outcomes", "Table: Metric | Baseline | Target | Timeline | Dashboard/Instrumentation. Cover cost-per-inference, p95 latency, gross margin, NDR, enterprise logo count, and at least one AI-quality metric (accuracy, hallucination rate, citation fidelity). Include at least one AI Unit Economics metric (cost-per-output by workflow, % traffic on lower-cost tier, or token-budget adherence).") },
+  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
 const COMPETITIVE_SECTIONS: AdvancedReportSection[] = [
@@ -478,6 +549,7 @@ const COMPETITIVE_SECTIONS: AdvancedReportSection[] = [
   { id: "hidden", label: "Hidden weakness", maxTokens: 1100, instruction: sectionBodyInstruction("## 5. Hidden Weakness", "MANDATORY. Name the ONE positioning element that looks strong today but is structurally fragile. Cite the exact evidence that exposes the fragility (artifact + section, contract clause, architectural dependency, or named vendor reliance). Explain what event collapses it and the blast radius to ARR or exit multiple.") },
   { id: "strategic", label: "Strategic reality", maxTokens: 1100, instruction: sectionBodyInstruction("## 6. Strategic Reality", "Decide: is this company building something DURABLE or something REPLACEABLE? Defend the call with the specific compounding or eroding forces (data flywheel, workflow lock-in, distribution lock, vendor leverage, talent density). End with **Verdict:** Durable / Contested / Replaceable.") },
   { id: "outlook", label: "2-year outlook", maxTokens: 1100, instruction: sectionBodyInstruction("## 7. Two-Year Outlook", "Stress-test the position under two futures in parallel: (a) foundation-model capability doubles and token costs drop 70%, (b) a well-capitalized incumbent (name the archetype) ships a comparable feature in 12 months. For each future: does the target's position improve, hold, or deteriorate? Quantify the impact on win-rate, ACV, or churn. End with **Decision:** whether the competitive posture supports the underwriting case.") },
+  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
 const COVERAGE_SECTIONS: AdvancedReportSection[] = [
@@ -488,6 +560,7 @@ const COVERAGE_SECTIONS: AdvancedReportSection[] = [
   { id: "unsupported", label: "Unsupported conclusions", maxTokens: 1000, instruction: sectionBodyInstruction("## 4. Unsupported Conclusions", "Identify every place where a conclusion rests on weak or indirect evidence. Name the conclusion, cite the weak evidence, and state what would strengthen it.") },
   { id: "gaps", label: "Critical gaps", maxTokens: 1000, instruction: sectionBodyInstruction("## 5. Critical Gaps", "Missing artifacts ranked by impact on decision. Table: Gap | Impact on Outcome | Obtainable Pre-Close? | Action to Request.") },
   { id: "reliability", label: "Overall reliability", maxTokens: 900, instruction: sectionBodyInstruction("## 6. Overall Reliability", "DECIDE: can this diligence be trusted for an IC decision? Render a single verdict — Decision-Ready / Directional Only / Not Reliable — supported by the coverage and confidence ratings above. State the single biggest artifact request that would flip reliability from directional to decision-ready, with its expected confidence lift in points. End with a bold **Decision:** line.") },
+  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
 export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
@@ -655,10 +728,10 @@ Confidence Changes:
 - [Dimension]: [Old %] → [New %] — [reason]
 \`\`\`
 
-STEP 8 — FINAL POSITION UPDATE
-After the change log, emit:
+STEP 8 — FINAL POSITION DIFF
+After the change log, emit a diff block showing how the final position moved. This is SEPARATE from and ADDITIONAL to the mandatory absolute ':::final-position' block at the very end of the report (see FINAL POSITION RULE) — both must appear in update mode. Emit:
 
-\`\`\`final-position
+\`\`\`final-position-diff
 PREVIOUS:
   Classification: [prior verdict]
   Conviction: [prior 0-100]
