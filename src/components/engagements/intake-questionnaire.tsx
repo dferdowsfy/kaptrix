@@ -1353,18 +1353,33 @@ export function IntakeQuestionnaire({
             >
               ← Previous section
             </button>
-            <button
-              type="button"
-              disabled={currentIndex === sections.length - 1}
-              onClick={() =>
-                setActiveSection(
-                  sections[Math.min(sections.length - 1, currentIndex + 1)],
-                )
-              }
-              className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Next section →
-            </button>
+            {currentIndex === sections.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window === "undefined") return;
+                  window.scrollTo({
+                    top: document.body.scrollHeight,
+                    behavior: "smooth",
+                  });
+                }}
+                className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
+              >
+                Complete intake ↓
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() =>
+                  setActiveSection(
+                    sections[Math.min(sections.length - 1, currentIndex + 1)],
+                  )
+                }
+                className="rounded-full bg-slate-900 px-5 py-2 text-sm font-semibold text-white transition hover:bg-slate-700"
+              >
+                Next section →
+              </button>
+            )}
           </div>
         </section>
       </div>

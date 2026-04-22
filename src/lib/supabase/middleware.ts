@@ -57,9 +57,17 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Admin-enforced page hiding for signed-in users on /app/* routes.
-  // /preview/* remains the anonymous demo surface and is intentionally public.
-  if (user && request.nextUrl.pathname.startsWith("/app")) {
+  // Admin-enforced page hiding for SIGNED-IN users.
+  //
+  // `/app/*` is a rewrite to `/preview/*` (see next.config.ts). Without
+  // guarding BOTH prefixes, a signed-in user could bypass the hide by
+  // typing the underlying `/preview/...` URL directly. `/preview/*` also
+  // remains the anonymous demo surface, so we only enforce when a user
+  // session is present — anonymous visitors see the full demo.
+  const path = request.nextUrl.pathname;
+  const isProtectedSurface =
+    path.startsWith("/app") || path.startsWith("/preview");
+  if (user && isProtectedSurface) {
     const { data: profile } = await supabase
       .from("users")
       .select("hidden_menu_keys")
@@ -68,11 +76,11 @@ export async function updateSession(request: NextRequest) {
 
     const hiddenKeys =
       (profile?.hidden_menu_keys as string[] | null | undefined) ?? [];
-    const tabId = resolvePreviewTabFromPath(request.nextUrl.pathname);
+    const tabId = resolvePreviewTabFromPath(path);
 
     if (isPreviewTabHidden(tabId, hiddenKeys)) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/app";
+      redirectUrl.pathname = path.startsWith("/preview") ? "/preview" : "/app";
       redirectUrl.search = "";
       const redirectResponse = NextResponse.redirect(redirectUrl);
       supabaseResponse.cookies.getAll().forEach(({ name, value }) => {

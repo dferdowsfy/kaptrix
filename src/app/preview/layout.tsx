@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { ChatPanelProvider } from "@/components/preview/chat-panel-context";
 import { KnowledgeChatPanel } from "@/components/preview/floating-knowledge-chatbot";
 import { PreviewShell } from "@/components/preview/preview-shell";
-import { type PreviewTabId } from "@/lib/preview-access";
+import {
+  isPreviewTabHidden,
+  resolvePreviewTabFromPath,
+  type PreviewTabId,
+} from "@/lib/preview-access";
 import { SystemSignalPill } from "@/components/preview/system-signal-pill";
 import { createClient } from "@/lib/supabase/server";
 
@@ -43,6 +49,26 @@ export default async function PreviewLayout({
   children: ReactNode;
 }) {
   const serverHidden = await loadServerHidden();
+
+  // Server-side enforcement: if the current route maps to a hidden tab,
+  // refuse to render the page tree at all. Middleware already redirects,
+  // but this is a defense-in-depth stop that also covers any future code
+  // path (RSC, direct internal navigation) that might skip middleware.
+  if (serverHidden.length > 0) {
+    const h = await headers();
+    // next/headers exposes the original request pathname via x-invoke-path
+    // or the `x-url`/`x-pathname` variants depending on runtime. Fall back
+    // through the common ones.
+    const rawPath =
+      h.get("x-invoke-path") ??
+      h.get("next-url") ??
+      h.get("x-pathname") ??
+      "";
+    const tabId = resolvePreviewTabFromPath(rawPath);
+    if (isPreviewTabHidden(tabId, serverHidden)) {
+      redirect(rawPath.startsWith("/preview") ? "/preview" : "/app");
+    }
+  }
 
   return (
     <ChatPanelProvider>

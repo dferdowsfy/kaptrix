@@ -102,14 +102,29 @@ export async function PATCH(
       patch.tier_overrides = sanitized; // may be null if nothing valid
     }
   }
+  // Page visibility is written via the authoritative user_page_permissions
+  // table below. Callers may pass either `hidden_menu_keys` (legacy denylist
+  // shape used by the admin UI) or `page_permissions` (explicit map).
+  let hiddenMenuKeys: string[] | null = null;
+  let pagePermissions: Record<string, boolean> | null = null;
   if (Array.isArray(body.hidden_menu_keys)) {
-    patch.hidden_menu_keys = body.hidden_menu_keys
+    hiddenMenuKeys = body.hidden_menu_keys
       .filter((k: unknown): k is string => typeof k === "string")
       .map((k: string) => k.trim())
       .filter(Boolean);
   }
+  if (body.page_permissions && typeof body.page_permissions === "object") {
+    const raw = body.page_permissions as Record<string, unknown>;
+    const cleaned: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (typeof v === "boolean") cleaned[k] = v;
+    }
+    pagePermissions = cleaned;
+  }
+  const hasPagePermissionChange =
+    hiddenMenuKeys !== null || pagePermissions !== null;
 
-  if (Object.keys(patch).length === 0) {
+  if (Object.keys(patch).length === 0 && !hasPagePermissionChange) {
     return NextResponse.json(
       { error: "No valid fields to update" },
       { status: 400 },
@@ -124,11 +139,83 @@ export async function PATCH(
     );
   }
 
+  // -----------------------------------------------------------------------
+  // Write page permissions.
+  //
+  // Strategy: write the legacy `users.hidden_menu_keys` column directly
+  // (it's what middleware + layout read), AND mirror into the new
+  // `user_page_permissions` table if the 00029 migration has run. Writing
+  // the legacy column directly guarantees hides take effect even if the
+  // new table / trigger doesn't exist yet in this environment.
+  // -----------------------------------------------------------------------
+  if (hasPagePermissionChange) {
+    // Compute the effective hidden-set the caller wants applied.
+    const nextHidden = new Set<string>();
+    if (hiddenMenuKeys !== null) {
+      for (const k of hiddenMenuKeys) nextHidden.add(k);
+    }
+    if (pagePermissions !== null) {
+      for (const [k, v] of Object.entries(pagePermissions)) {
+        if (v === false) nextHidden.add(k);
+        else nextHidden.delete(k);
+      }
+    }
+    const hiddenArr = Array.from(nextHidden);
+
+    // 1. Legacy column — authoritative for middleware today.
+    const { error: legacyErr } = await svc
+      .from("users")
+      .update({ hidden_menu_keys: hiddenArr })
+      .eq("id", id);
+    if (legacyErr) {
+      return NextResponse.json({ error: legacyErr.message }, { status: 500 });
+    }
+
+    // 2. New permissions table (best-effort; skip silently if migration
+    //    hasn't been applied to this environment).
+    const { data: validKeysRows } = await svc
+      .from("page_keys")
+      .select("key");
+    if (validKeysRows) {
+      const validKeys = new Set(
+        (validKeysRows as { key: string }[]).map((r) => r.key),
+      );
+
+      // Clear all prior hide rows for this user, then insert fresh ones.
+      await svc
+        .from("user_page_permissions")
+        .delete()
+        .eq("user_id", id)
+        .eq("can_view", false);
+
+      const upserts = hiddenArr
+        .filter((k) => validKeys.has(k))
+        .map((k) => ({ user_id: id, page_key: k, can_view: false }));
+      if (upserts.length > 0) {
+        await svc
+          .from("user_page_permissions")
+          .upsert(upserts, { onConflict: "user_id,page_key" });
+      }
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Then apply the remaining scalar patch (role, approved, tier, overrides).
+  // -----------------------------------------------------------------------
+  if (Object.keys(patch).length > 0) {
+    const { error: updErr } = await svc
+      .from("users")
+      .update(patch)
+      .eq("id", id);
+    if (updErr) {
+      return NextResponse.json({ error: updErr.message }, { status: 500 });
+    }
+  }
+
   const { data, error } = await svc
     .from("users")
-    .update(patch)
-    .eq("id", id)
     .select("id, email, role, approved, tier, tier_overrides, hidden_menu_keys")
+    .eq("id", id)
     .maybeSingle();
 
   if (error) {
