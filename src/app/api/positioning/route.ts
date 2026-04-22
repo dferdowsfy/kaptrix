@@ -22,18 +22,58 @@ interface Body {
 // All inference now runs on the self-hosted Ollama instance.
 // Qwen does NOT have built-in web search, so benchmarks are drawn
 // from the model's training knowledge + operator-provided KB only.
-const SYSTEM_PROMPT = `You are an AI diligence analyst performing CONTEXTUAL BENCHMARKING.
-You assess companies RELATIVE to contextually relevant peers drawn from your training knowledge
-and any operator-provided context. You do NOT have web access; be explicit about this limitation
-in your confidence rating.
+const SYSTEM_PROMPT = `You select comparable companies for AI-product diligence, then benchmark the target against them. Peer sets must reflect the target's COMMERCIAL REALITY — who buys it and in what vertical — not its technical keywords. You do NOT have web access; draw peers from your training knowledge plus the engagement evidence provided. Be explicit about that limitation in your confidence rating.
 
-Procedure:
-1. TARGET CONTEXT — classify the target (organization or product), industry, AI use case, business model, customer segment, data sensitivity, deployment maturity, vendor stack, regulatory exposure, architecture pattern.
-2. COMPARABLE SELECTION — pick 3-7 REAL, NAMED competitors / analog products you are confident existed as of your training cutoff. Match on AI use case, business model, data sensitivity, deployment maturity, technical approach, regulatory constraints. If you cannot verify a peer, OMIT it — never invent companies. Source URLs may be approximate homepage URLs.
-3. RELATIVE COMPARISON — for each dimension, classify target as "ahead" / "in_line" / "behind" peers, with concrete evidence.
-4. POSITIONING SUMMARY — specific, non-generic relative position.
+INPUTS you must synthesize across:
+- Intake responses — what the target does, who buys it, what industry/vertical it serves, regulatory frameworks, named competitors, architecture pattern, revenue stage, geography.
+- Uploaded evidence (findings, red flags, scores, executive summary excerpts) — these often CONTRADICT or REFINE the intake framing. Trust evidence over claims.
+- Industry category — assigned to the engagement. This defines the vertical peer universe.
+
+CORE RULE
+Industry vertical and buyer segment are HARD FILTERS. Architecture and technical pattern are SOFT SIGNALS. A peer that sells to the same buyer with a DIFFERENT architecture is a BETTER comp than a peer with the SAME architecture selling to a DIFFERENT buyer.
+
+SELECTION CONSTRAINTS
+
+1) Inclusion (ALL required for every peer returned):
+   • Serves the same industry vertical as the target.
+   • Sells to the same buyer persona, OR is a named incumbent displacing the same budget line.
+   • Has at least one named customer in the target's persona, OR a public product SKU explicitly addressing that persona.
+   • Operates at a roughly comparable revenue stage, OR is a strategic acquirer / incumbent with material presence.
+
+2) Exclusion (REJECT if ANY apply):
+   • Horizontal AI/ML infrastructure (data warehouses, MLOps, foundation-model providers, vector DBs, observability).
+   • Horizontal enterprise search / knowledge management without a vertical-specific SKU for the target's industry.
+   • Generic "AI platform" companies without a vertical wedge.
+   • Companies whose only link to the vertical is a case study, not a product SKU.
+
+3) Required Breadth — span these categories; skip a category only if no credible vertical candidate exists:
+   A. Direct vertical-native competitors.
+   B. Incumbent platforms with AI extensions.
+   C. Adjacent vertical workflow players.
+   D. Horizontal AI threats with credible vertical expansion signals — label as THREAT CONTEXT, not as revenue peers.
+
+SCORING DIMENSIONS (use these when comparing):
+Customer footprint in the target's persona; depth of workflow specialization for the vertical; data-handling posture vs the target's data sensitivity; regulatory alignment with frameworks identified in intake; unit-economics signals where disclosed; distribution strength and switching cost in the vertical.
+
+RETRIEVAL GUIDANCE
+- Do NOT rank purely on semantic similarity to the target's description — that pulls horizontal AI clusters on any AI-native target.
+- Anchor your mental search on the VERTICAL and the BUYER, not on the target's technical stack.
+- Use named competitors from intake as SEEDS and expand from each one's own named competitors.
+- Cross-check every candidate against the inclusion and exclusion rules before including it.
+
+SELF-CHECK — before returning:
+ ✔ Every peer has a named customer OR a product SKU in the target's vertical.
+ ✔ No peer is a horizontal AI/ML infrastructure company.
+ ✔ The peer set spans at least TWO of the four breadth categories (A/B/C/D).
+ ✔ If fewer than three peers pass ALL checks, return what you have and set "insufficient_vertical_comps": true with a short reason. Do NOT pad with horizontal matches.
+
+PROCEDURE
+1. TARGET CONTEXT — classify the target: organization vs product, industry, business model, AI use case, customer segment, data sensitivity, deployment maturity, vendor stack, regulatory exposure, architecture pattern.
+2. COMPARABLE SELECTION — apply the constraints above. 3–7 peers. Never invent a company; if unsure, omit. Source URL may be the company's homepage.
+3. RELATIVE COMPARISON — for each scoring dimension, classify target as "ahead" / "in_line" / "behind" vs the peer set, with concrete evidence drawn from the provided internal evidence.
+4. POSITIONING SUMMARY — one specific, non-generic sentence about where the target sits relative to the peer set.
 5. INVESTMENT INTERPRETATION — differentiation real? durability? risk concentration? validation priorities?
-6. CONFIDENCE — low/medium/high. Mark low or medium if recent data would materially change the picture.
+6. CONFIDENCE — low/medium/high, and why (flag if recent data would materially change the picture, or if vertical-native comps are thin).
 
 Return ONLY valid JSON matching this exact schema (no prose, no markdown, no code fences):
 {
@@ -50,8 +90,18 @@ Return ONLY valid JSON matching this exact schema (no prose, no markdown, no cod
     "architecture_pattern": string
   },
   "comparables": [
-    { "name": string, "type": "company" | "product" | "analog", "rationale": string, "source_url": string }
+    {
+      "name": string,
+      "type": "company" | "product" | "analog",
+      "category": "A" | "B" | "C" | "D",
+      "revenue_stage": string,
+      "vertical_fit_evidence": string,
+      "rationale": string,
+      "source_url": string
+    }
   ],
+  "insufficient_vertical_comps": boolean,
+  "insufficient_reason": string,
   "comparison": [
     { "dimension": string, "position": "ahead" | "in_line" | "behind", "evidence": string }
   ],
@@ -216,15 +266,20 @@ export async function POST(req: Request) {
   const safeEvidence = evDecision.safeContent;
   const safeOperatorKb = kbDecision.safeContent;
 
-  const userPrompt = `TARGET COMPANY: ${targetName}${industry ? ` (${industry})` : ""}
+  const userPrompt = `TARGET COMPANY: ${targetName}
+INDUSTRY VERTICAL (hard filter): ${industry || "UNSPECIFIED — infer from evidence below"}
 
-INTERNAL EVIDENCE (sanitized):
+INTERNAL EVIDENCE (sanitized — contains intake answers, findings, red flags, scores, exec summary excerpts):
 """
 ${safeEvidence}
 """
 
 ${safeOperatorKb ? `OPERATOR KNOWLEDGE BASE (sanitized):\n"""\n${safeOperatorKb}\n"""\n\n` : ""}TASK:
-Identify REAL competitors / analog products of "${targetName}" from your training knowledge. For each peer provide a best-effort source URL (company homepage is fine). Then produce the contextual benchmarking JSON exactly per the schema. Return ONLY the JSON object — no commentary.`;
+1) Infer the buyer persona and named competitors from the evidence above. Trust evidence over any intake framing that contradicts it.
+2) Select 3–7 peers that pass EVERY inclusion rule and NO exclusion rule. Industry vertical + buyer are HARD filters. Architecture is a soft signal only.
+3) Seed from any named competitors in the evidence and expand from each one's own named competitors. Do not rank by technical similarity to "${targetName}".
+4) Run the self-check. If fewer than three peers pass all checks, return what you have and set "insufficient_vertical_comps": true with a short reason — do NOT pad with horizontal AI/ML infrastructure or generic "AI platform" companies.
+5) Produce the contextual benchmarking JSON exactly per the schema. Return ONLY the JSON object — no commentary.`;
 
   try {
     let text: string;

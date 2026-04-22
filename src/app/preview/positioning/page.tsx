@@ -33,9 +33,14 @@ interface Positioning {
   comparables: {
     name: string;
     type: "company" | "product" | "analog";
+    category?: "A" | "B" | "C" | "D";
+    revenue_stage?: string;
+    vertical_fit_evidence?: string;
     rationale: string;
     source_url?: string;
   }[];
+  insufficient_vertical_comps?: boolean;
+  insufficient_reason?: string;
   comparison: {
     dimension: string;
     position: Position;
@@ -264,22 +269,62 @@ export default function PositioningPage() {
           {/* Comparables */}
           <Card
             title="Selected comparables"
-            subtitle={`${data.comparables.length} peers identified via live web research`}
+            subtitle={`${data.comparables.length} peers · vertical + buyer are hard filters`}
           >
+            {data.insufficient_vertical_comps && (
+              <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <span className="font-semibold">Insufficient vertical-native comps found.</span>
+                {data.insufficient_reason ? ` ${data.insufficient_reason}` : ""}
+              </div>
+            )}
             <div className="space-y-3">
               {data.comparables.map((c) => (
                 <div
                   key={c.name}
                   className="rounded-lg border border-slate-200 bg-white p-3"
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-slate-900">
                       {c.name}
                     </p>
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
-                      {c.type}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {c.category && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${
+                            c.category === "D"
+                              ? "bg-amber-50 text-amber-800 ring-amber-200"
+                              : "bg-indigo-50 text-indigo-700 ring-indigo-200"
+                          }`}
+                          title={
+                            c.category === "A"
+                              ? "Direct vertical-native competitor"
+                              : c.category === "B"
+                                ? "Incumbent platform with AI extension"
+                                : c.category === "C"
+                                  ? "Adjacent vertical workflow player"
+                                  : "Horizontal AI threat — context only, not a revenue peer"
+                          }
+                        >
+                          {c.category}
+                          {c.category === "D" ? " · threat" : ""}
+                        </span>
+                      )}
+                      {c.revenue_stage && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                          {c.revenue_stage}
+                        </span>
+                      )}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                        {c.type}
+                      </span>
+                    </div>
                   </div>
+                  {c.vertical_fit_evidence && (
+                    <p className="mt-1.5 text-[11px] text-slate-700">
+                      <span className="font-semibold text-slate-900">Vertical fit:</span>{" "}
+                      {c.vertical_fit_evidence}
+                    </p>
+                  )}
                   <p className="mt-1.5 text-xs text-slate-600">{c.rationale}</p>
                   {c.source_url && (
                     <a
