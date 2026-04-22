@@ -189,6 +189,68 @@ function deriveIntakeRisks(
     });
   }
 
+  // Kill criteria — surfaces when the operator defines walk-away conditions
+  const prevKill = prevIntake?.kill_criteria;
+  const nextKill = nextIntake.kill_criteria;
+  if (nextKill && nextKill !== prevKill) {
+    out.push({
+      id: "risk:intake:kill_criteria",
+      category: "score_impact",
+      severity: "important",
+      lifecycle: "new",
+      priority: 5,
+      headline: "Kill criteria defined — assessment will flag breach conditions",
+      reason: "Operator defined explicit walk-away conditions for this engagement",
+      implication: "Kaptrix will elevate any evidence that intersects these kill conditions in the final report",
+      evidence_source: "From intake: kill criteria",
+    });
+  }
+
+  // Training data sources — signals data-risk posture
+  const prevTraining = new Set(prevIntake?.training_data_sources ?? []);
+  const newTraining = (nextIntake.training_data_sources ?? []).filter((s) => !prevTraining.has(s));
+  if (newTraining.length > 0) {
+    const hasRisky = newTraining.some((s) =>
+      s.toLowerCase().includes("scraping") || s.toLowerCase().includes("unknown"),
+    );
+    if (hasRisky) {
+      out.push({
+        id: "risk:intake:training_data",
+        category: "risk",
+        severity: "important",
+        lifecycle: "new",
+        priority: 4,
+        dimension: "data_sensitivity",
+        direction: "down",
+        headline: "Training data provenance flagged for review",
+        reason: `Data sources include: ${newTraining.join(", ")}`,
+        implication: IMPLICATION.data_sensitivity.down,
+        evidence_source: "From intake: training data sources",
+        supporting_items: newTraining,
+      });
+    }
+  }
+
+  // Lock-in tolerance — affects vendor-risk lens
+  if (nextIntake.lock_in_tolerance && nextIntake.lock_in_tolerance !== prevIntake?.lock_in_tolerance) {
+    const isStrict = nextIntake.lock_in_tolerance.toLowerCase().includes("avoid");
+    if (isStrict) {
+      out.push({
+        id: "risk:intake:lock_in",
+        category: "score_impact",
+        severity: "important",
+        lifecycle: "new",
+        priority: 5,
+        dimension: "tooling_exposure",
+        direction: "down",
+        headline: "Strict vendor lock-in constraints applied",
+        reason: `Client posture: ${nextIntake.lock_in_tolerance}`,
+        implication: IMPLICATION.tooling_exposure.down,
+        evidence_source: "From intake: lock-in tolerance",
+      });
+    }
+  }
+
   return out;
 }
 
@@ -342,6 +404,62 @@ function deriveScoreImpacts(
       implication: "Unresolved questions in these areas carry the most weight on the final assessment",
       evidence_source: "From intake: diligence priorities",
       supporting_items: newPri,
+    });
+  }
+
+  // Deal thesis — surfaces when the operator identifies the investment thesis
+  const prevThesis = new Set(prevIntake?.deal_thesis ?? []);
+  const newThesis = (nextIntake.deal_thesis ?? []).filter((t) => !prevThesis.has(t));
+  if (newThesis.length > 0) {
+    out.push({
+      id: "impact:deal_thesis",
+      category: "score_impact",
+      severity: "important",
+      lifecycle: "new",
+      priority: 4,
+      headline:
+        newThesis.length === 1
+          ? `Investment thesis identified — ${newThesis[0]}`
+          : `Investment thesis spans ${newThesis.length} value drivers`,
+      reason: `Thesis: ${newThesis.slice(0, 3).join(", ")}${newThesis.length > 3 ? `, +${newThesis.length - 3} more` : ""}`,
+      implication: "Assessment will weight evidence against these specific value drivers",
+      evidence_source: "From intake: deal thesis",
+      supporting_items: newThesis,
+    });
+  }
+
+  // Buyer archetype — shapes how findings are framed
+  if (nextIntake.buyer_archetype && nextIntake.buyer_archetype !== prevIntake?.buyer_archetype) {
+    out.push({
+      id: "impact:buyer_archetype",
+      category: "score_impact",
+      severity: "important",
+      lifecycle: "new",
+      priority: 5,
+      headline: `Buyer profile set — ${nextIntake.buyer_archetype}`,
+      reason: "Buyer archetype determines how findings and recommendations are framed for the decision-maker",
+      implication: "Report tone and risk framing will be calibrated to this buyer profile",
+      evidence_source: "From intake: buyer archetype",
+    });
+  }
+
+  // Existing AI systems — signals internal readiness context
+  const prevSystems = new Set(prevIntake?.existing_ai_systems ?? []);
+  const newSystems = (nextIntake.existing_ai_systems ?? []).filter((s) => !prevSystems.has(s));
+  if (newSystems.length > 0 && !newSystems.every((s) => s === "None yet" || s === "Not applicable")) {
+    out.push({
+      id: "impact:existing_ai_systems",
+      category: "score_impact",
+      severity: "important",
+      lifecycle: "new",
+      priority: 6,
+      dimension: "production_readiness",
+      direction: "up",
+      headline: `Buyer has existing AI footprint — ${newSystems.length} system${newSystems.length > 1 ? "s" : ""} deployed`,
+      reason: `Deployed: ${newSystems.join(", ")}`,
+      implication: IMPLICATION.production_readiness.up,
+      evidence_source: "From intake: existing AI systems",
+      supporting_items: newSystems,
     });
   }
 

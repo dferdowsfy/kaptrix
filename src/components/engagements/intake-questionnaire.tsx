@@ -16,6 +16,8 @@ export interface IntakeQuestion {
   scale_min?: number;
   scale_max?: number;
   scale_labels?: [string, string];
+  /** When set, renders an optional free-form textarea below the answer. */
+  notePrompt?: string;
 }
 
 const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
@@ -510,7 +512,8 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     id: "primary_architecture",
     section: "Target Profile",
     prompt: "What does the target's primary AI architecture appear to be?",
-    type: "single",
+    help: "Select all that apply — many targets blend approaches.",
+    type: "multi",
     options: [
       "RAG-heavy",
       "Fine-tuned models",
@@ -588,7 +591,8 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     id: "customer_data_usage_rights",
     section: "Data Rights & IP",
     prompt: "How are customer data usage rights structured?",
-    type: "single",
+    help: "Select all that apply.",
+    type: "multi",
     options: [
       "Explicit opt-in, documented in MSA",
       "Contractual default-in with opt-out",
@@ -639,6 +643,7 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     scale_min: 1,
     scale_max: 5,
     scale_labels: ["None", "Fully documented + tested"],
+    notePrompt: "Optional: more information",
   },
   {
     id: "multi_region_requirement",
@@ -686,6 +691,7 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     scale_min: 1,
     scale_max: 5,
     scale_labels: ["Very conservative", "Aggressive / contrarian"],
+    notePrompt: "Optional: more information",
   },
 
   // ────────────────── Prior Evidence / Artifacts ──────────────────
@@ -852,6 +858,7 @@ const INDUSTRY_INTAKE_QUESTIONS: Record<Industry, IntakeQuestion[]> = {
       scale_min: 1,
       scale_max: 5,
       scale_labels: ["No reliable controls", "Verified citation pipeline"],
+      notePrompt: "Optional: more information",
     },
     {
       id: "lt_bar_ethics_exposure",
@@ -1617,6 +1624,18 @@ function QuestionCard({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {question.notePrompt && (
+          <div className="mt-3">
+            <textarea
+              value={note}
+              onChange={(e) => onNoteChange(e.target.value)}
+              rows={2}
+              placeholder={question.notePrompt}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-slate-400 focus:bg-white focus:outline-none"
+            />
           </div>
         )}
       </div>
