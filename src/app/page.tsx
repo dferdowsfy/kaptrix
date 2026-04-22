@@ -53,21 +53,21 @@ const SNAPSHOTS = [
     kicker: "Layer 01",
     title: "Intake & context",
     description: "Scope the deal. Lock the thesis. Set the questions that matter.",
-    href: "/app/intake",
+    href: "/demo/intake",
     accent: "from-slate-700/40 via-slate-700/20 to-transparent",
   },
   {
     kicker: "Layer 02",
     title: "Scoring layer",
     description: "Structured dimensions. Every claim traced to evidence.",
-    href: "/app/scoring",
+    href: "/demo/scoring",
     accent: "from-slate-700/40 via-slate-700/20 to-transparent",
   },
   {
     kicker: "Layer 03",
     title: "Report layer",
     description: "Committee-ready outputs. Full audit trail from artifact to decision.",
-    href: "/app/report",
+    href: "/demo/report",
     accent: "from-slate-700/40 via-slate-700/20 to-transparent",
   },
 ];
@@ -201,7 +201,7 @@ export default function HomePage() {
                 See a sample report
               </Link>
               <Link
-                href="/app"
+                href="/demo"
                 className="ml-1 inline-flex items-center gap-2 rounded-full border-2 border-indigo-400/60 bg-white/10 px-5 py-2.5 text-base font-semibold text-white backdrop-blur transition hover:border-white hover:bg-white/20"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden className="-ml-0.5"><polygon points="6 4 20 12 6 20 6 4" /></svg>

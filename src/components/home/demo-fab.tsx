@@ -13,6 +13,8 @@ export function DemoFab() {
 
   const hideOn =
     pathname.startsWith("/preview") ||
+    pathname.startsWith("/demo") ||
+    pathname.startsWith("/app") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
@@ -25,7 +27,7 @@ export function DemoFab() {
 
   return (
     <Link
-      href="/app"
+      href="/demo"
       aria-label="Open the live demo"
       className="fixed bottom-6 right-6 z-50 inline-flex items-center gap-2 rounded-full bg-gradient-to-br from-indigo-600 via-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/30 ring-1 ring-white/20 transition hover:shadow-xl hover:shadow-indigo-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 sm:bottom-8 sm:right-8 sm:px-6 sm:py-3.5 sm:text-base"
     >

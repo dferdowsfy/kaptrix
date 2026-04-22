@@ -23,7 +23,7 @@ export function PublicHeader() {
   }, []);
 
   const linkClass = (href: string) => {
-    const active = pathname === href;
+    const active = pathname === href || (href !== "/" && pathname.startsWith(href));
     return `relative text-sm font-medium transition sm:text-base ${
       scrolled
         ? active
@@ -58,7 +58,7 @@ export function PublicHeader() {
           <Link href="/how-it-works" className={linkClass("/how-it-works")}>
             How it works
           </Link>
-          <Link href="/preview" className={linkClass("/preview")}>
+          <Link href="/demo" className={linkClass("/demo")}>
             Platform
           </Link>
           <Link href="/contact" className={linkClass("/contact")}>
