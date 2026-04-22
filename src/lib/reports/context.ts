@@ -1,5 +1,11 @@
 import "server-only";
 import type { getPreviewSnapshot } from "@/lib/preview/data";
+import { createClient } from "@/lib/supabase/server";
+import {
+  formatKnowledgeBaseEvidence,
+  type KnowledgeStep,
+  type KnowledgeEntry,
+} from "@/lib/preview/kb-format";
 
 type Snapshot = Awaited<ReturnType<typeof getPreviewSnapshot>>;
 
@@ -135,4 +141,47 @@ export function buildReportEvidenceContext(
 
   const joined = parts.join("\n");
   return joined.length > maxChars ? joined.slice(0, maxChars) : joined;
+}
+
+/**
+ * Read the operator knowledge base from `user_workspace_state` for a
+ * given user + engagement and format it as a plain-text evidence block.
+ *
+ * Returns an empty string when unauthenticated, offline, or if no KB
+ * exists yet. Falls back gracefully so reports still generate from
+ * the snapshot evidence alone.
+ */
+export async function readKnowledgeBaseText(
+  userId: string,
+  engagementId: string,
+  opts: { maxChars?: number } = {},
+): Promise<string> {
+  const maxChars = opts.maxChars ?? 24_000;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("user_workspace_state")
+      .select("state")
+      .eq("user_id", userId)
+      .eq("engagement_id", engagementId)
+      .eq("kind", "knowledge_base")
+      .maybeSingle();
+
+    if (!data?.state) return "";
+
+    const entries = data.state as Partial<Record<KnowledgeStep, KnowledgeEntry>>;
+
+    // For reports: exclude stale entries so the LLM doesn't produce a
+    // deliverable based on superseded upstream data.
+    const fresh = Object.fromEntries(
+      (Object.entries(entries) as [KnowledgeStep, KnowledgeEntry | undefined][]).filter(
+        ([, e]) => e && !e.stale,
+      ),
+    ) as Partial<Record<KnowledgeStep, KnowledgeEntry>>;
+
+    const text = formatKnowledgeBaseEvidence(fresh).join("\n");
+    return text.length > maxChars ? text.slice(0, maxChars) : text;
+  } catch {
+    return "";
+  }
 }

@@ -15,6 +15,7 @@ import { ProfileMenu } from "@/components/preview/profile-menu";
 import { TierPill } from "@/components/preview/tier-pill";
 import { NavSettingsMenu } from "@/components/preview/nav-settings-menu";
 import { useReportStore } from "@/lib/reports/report-store";
+import { useScoreRunStore } from "@/lib/scoring/score-run-store";
 import { useChatPanel } from "@/components/preview/chat-panel-context";
 
 export function PreviewShell({
@@ -95,6 +96,7 @@ export function PreviewShell({
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+              <HeaderScoringStatus />
               <HeaderReportStatus />
               {hasClient && (
                 <HeaderChip label="Tier" value={client.tier} tone="neutral" />
@@ -398,6 +400,23 @@ function ClientSwitcher({
         </div>
       )}
     </div>
+  );
+}
+
+function HeaderScoringStatus() {
+  const { status } = useScoreRunStore();
+  if (status !== "running") return null;
+  return (
+    <Link
+      href="/preview/scoring"
+      className="inline-flex max-w-[220px] items-center gap-2 rounded-full border border-violet-400/30 bg-violet-400/10 px-3 py-1 text-[11px] font-medium text-violet-100 transition hover:border-violet-300/60 hover:bg-violet-400/15 sm:max-w-[260px]"
+    >
+      <span
+        aria-hidden
+        className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-violet-300/30 border-t-violet-200"
+      />
+      <span className="truncate">Generating scores…</span>
+    </Link>
   );
 }
 

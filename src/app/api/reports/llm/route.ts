@@ -3,7 +3,7 @@ import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isOpenRouterCo
 import { llmChat } from "@/lib/llm/client";
 import { openRouterChat, OPENROUTER_REPORT_MODEL } from "@/lib/llm/openrouter";
 import { getPreviewSnapshot } from "@/lib/preview/data";
-import { buildReportEvidenceContext } from "@/lib/reports/context";
+import { buildReportEvidenceContext, readKnowledgeBaseText } from "@/lib/reports/context";
 import {
   getAdvancedReportConfig,
   buildUpdateSystemPrompt,
@@ -122,7 +122,13 @@ export async function POST(req: Request) {
     );
   }
 
-  const kbText = (body.knowledge_base ?? "").slice(0, 20_000);
+  // Server-side KB read is authoritative (survives page navigations and
+  // cross-device sessions). Fall back to the client-passed text if the user
+  // is anonymous or no server KB exists yet.
+  const serverKbText = userId
+    ? await readKnowledgeBaseText(userId, clientId, { maxChars: 24_000 })
+    : "";
+  const kbText = serverKbText || (body.knowledge_base ?? "").slice(0, 20_000);
   const combinedEvidence = kbText
     ? `${evidence}\n\n--- OPERATOR-SUBMITTED KNOWLEDGE BASE ---\n${kbText}`.slice(
         0,

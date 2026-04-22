@@ -20,6 +20,7 @@ import {
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
 import { deriveContextSignals } from "@/lib/scoring/context";
+import { startScoreRun, useScoreRunStore } from "@/lib/scoring/score-run-store";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 import type { Score } from "@/lib/types";
@@ -73,17 +74,16 @@ const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
 export default function PreviewScoringPage() {
   const { selectedId, ready } = useSelectedPreviewClient();
   const { snapshot } = usePreviewSnapshot(selectedId);
+  const scoreRun = useScoreRunStore();
 
   const engagement = snapshot?.engagement ?? demoEngagement;
   const patternMatches = snapshot?.patternMatches ?? demoPatternMatches;
   const benchmarks = snapshot?.benchmarks ?? demoBenchmarkCases;
   const analyses = snapshot?.analyses ?? [];
 
-  // LLM-suggested scores (replaces demo scores as the starting point)
+  // Local view state — populated from cache on mount or from store on completion.
   const [suggestedScores, setSuggestedScores] = useState<Score[] | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const kb = useSyncExternalStore(
     subscribeKnowledgeBase,
@@ -101,60 +101,51 @@ export default function PreviewScoringPage() {
     ["intake", "coverage", "insights", "pre_analysis"] as KnowledgeStep[]
   ).filter((s) => kb[s]?.stale);
 
-  const run = useCallback(async () => {
+  // Derive loading/error from the global store (visible across navigation).
+  const isMyRun = scoreRun.clientId === selectedId;
+  const loading = isMyRun && scoreRun.status === "running";
+  const storeError = isMyRun && scoreRun.status === "error" ? (scoreRun.error ?? "Score generation failed.") : null;
+
+  const run = useCallback(() => {
     if (!selectedId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const slice = currentContextSlice(kb, "scoring");
-      const knowledge_base = formatKnowledgeBaseEvidence(slice).join("\n");
+    const slice = currentContextSlice(kb, "scoring");
+    const knowledge_base = formatKnowledgeBaseEvidence(slice).join("\n");
+    if (!knowledge_base.trim()) {
+      // Not enough context — handled via storeError display below.
+      startScoreRun(selectedId, "");
+      return;
+    }
+    startScoreRun(selectedId, knowledge_base);
+  }, [selectedId, kb]);
 
-      if (!knowledge_base.trim()) {
-        setError("Complete the Intake questionnaire first so the scoring engine has context to work with.");
-        return;
-      }
-
-      const res = await fetch("/api/scores/suggest", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ knowledge_base }),
-      });
-      const json = (await res.json()) as {
-        scores?: SuggestedScore[];
-        error?: string;
-      };
-      if (!res.ok || !json.scores) {
-        setError(json.error ?? "Unable to generate scores.");
-        return;
-      }
-
-      const scores = json.scores.map((s) => suggestedToScore(s, engagement.id));
-      const ts = new Date().toISOString();
+  // React when the global store completes for our client.
+  useEffect(() => {
+    if (
+      scoreRun.status === "done" &&
+      scoreRun.clientId === selectedId &&
+      scoreRun.scores &&
+      selectedId
+    ) {
+      const scores = scoreRun.scores.map((s) => suggestedToScore(s, engagement.id));
+      const ts = scoreRun.generated_at ?? new Date().toISOString();
       setSuggestedScores(scores);
       setGeneratedAt(ts);
-
       writeScoreCache(selectedId, { scores, generated_at: ts });
-
-      // Write to KB with stale cleared (explicit operator-triggered re-run)
+      // Write to KB with stale cleared (explicit operator re-run).
       submitScoringToKnowledgeBase({
         clientId: selectedId,
-        scores: json.scores,
+        scores: scoreRun.scores,
         composite_score: null,
         context_aware_composite: null,
         decision_band: null,
         autoSync: false,
       });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
-    } finally {
-      setLoading(false);
     }
-  }, [selectedId, kb, engagement.id]);
+  }, [scoreRun.status, scoreRun.clientId, scoreRun.scores, scoreRun.generated_at, selectedId, engagement.id]);
 
   // On client change: restore from cache or clear.
   useEffect(() => {
     if (!ready || !selectedId) return;
-    setError(null);
     const cached = readScoreCache(selectedId);
     if (cached) {
       setSuggestedScores(cached.scores);
@@ -165,9 +156,8 @@ export default function PreviewScoringPage() {
     setGeneratedAt(null);
   }, [selectedId, ready]);
 
-  // The scores passed to the panel: LLM suggestions if available, otherwise empty
+  // The scores passed to the panel: LLM suggestions if available, otherwise snapshot.
   const panelScores = suggestedScores ?? (snapshot?.scores ?? []);
-
   const upstreamChanged = scoringDirty.dirty && suggestedScores !== null;
 
   return (
@@ -249,12 +239,15 @@ export default function PreviewScoringPage() {
         <div className="rounded-2xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500">
           <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
           Analysing knowledge base and generating scores…
+          <p className="mt-2 text-xs text-slate-400">
+            You can navigate to other pages — scoring continues in the background.
+          </p>
         </div>
       )}
 
-      {error && (
+      {storeError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
+          {storeError}
         </div>
       )}
 

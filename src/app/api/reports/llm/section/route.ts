@@ -9,12 +9,13 @@ import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isOpenRouterCo
 import { llmChat } from "@/lib/llm/client";
 import { openRouterChat, OPENROUTER_REPORT_MODEL } from "@/lib/llm/openrouter";
 import { getPreviewSnapshot } from "@/lib/preview/data";
-import { buildReportEvidenceContext } from "@/lib/reports/context";
+import { buildReportEvidenceContext, readKnowledgeBaseText } from "@/lib/reports/context";
 import {
   getAdvancedReportConfig,
   buildUpdateSystemPrompt,
   type AdvancedReportId,
 } from "@/lib/reports/advanced-reports";
+import { requireAuth, assertPreviewTabVisible } from "@/lib/security/authz";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -84,6 +85,16 @@ export async function POST(req: Request) {
     );
   }
 
+  // Auth — required for server-side KB read and section generation.
+  let userId: string | null = null;
+  try {
+    const authCtx = await requireAuth();
+    assertPreviewTabVisible(authCtx, "report");
+    userId = authCtx.userId;
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   let evidence = "";
   let targetName = "";
   let clientName = "";
@@ -101,7 +112,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const kbText = (body.knowledge_base ?? "").slice(0, 24_000);
+  // Server-side KB read is authoritative.
+  const serverKbText = userId
+    ? await readKnowledgeBaseText(userId, clientId, { maxChars: 24_000 })
+    : "";
+  const kbText = serverKbText || (body.knowledge_base ?? "").slice(0, 24_000);
   const combinedEvidence = kbText
     ? `${evidence}\n\n--- OPERATOR-SUBMITTED KNOWLEDGE BASE ---\n${kbText}`.slice(
         0,
