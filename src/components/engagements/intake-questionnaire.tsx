@@ -86,9 +86,18 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "decision_horizon_days",
     section: "Engagement Type",
-    prompt: "Days until the decision is made (IC vote, go-live, or walk-away)",
+    prompt: "Time until the decision is made (IC vote, go-live, or walk-away)",
     help: "Be honest — it compresses or relaxes the depth of the diligence.",
-    type: "short_text",
+    type: "single",
+    options: [
+      "≤ 7 days (urgent)",
+      "8–14 days",
+      "15–30 days",
+      "31–60 days",
+      "61–90 days",
+      "> 90 days",
+      "Open-ended / no firm date",
+    ],
   },
 
   // ────────────────── Deal / Initiative Thesis ──────────────────
@@ -186,24 +195,54 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     id: "approval_path",
     section: "Stakeholders & Sponsor",
     prompt: "Who signs and what veto rights exist?",
-    help: "Free-form. Name the chain. Called out in the IC memo so recommendations land with the right owners.",
-    type: "long_text",
+    help: "Select all that apply. Surfaces in the IC memo so recommendations land with the right owners.",
+    type: "multi",
+    options: [
+      "Single decision-maker (CEO / Managing Partner)",
+      "Unanimous IC vote required",
+      "Majority IC vote",
+      "Board approval required",
+      "CFO has veto on financial terms",
+      "General Counsel has veto on legal/regulatory terms",
+      "CIO / CTO has veto on technical fit",
+      "Security / CISO has veto on data or compliance terms",
+      "Regulator sign-off required",
+      "LP advisory committee consent required",
+    ],
   },
 
   // ────────────────── Budget & Unit Economics ──────────────────
   {
     id: "investment_size_usd",
     section: "Budget & Unit Economics",
-    prompt: "Total investment / capital at risk (USD)",
+    prompt: "Total investment / capital at risk",
     help: "Equity check size, initiative budget, or multi-year contract TCV.",
-    type: "short_text",
+    type: "single",
+    options: [
+      "< $1M",
+      "$1M – $5M",
+      "$5M – $25M",
+      "$25M – $100M",
+      "$100M – $500M",
+      "$500M+",
+      "Unknown / TBD",
+    ],
   },
   {
     id: "annual_run_rate_usd",
     section: "Budget & Unit Economics",
-    prompt: "Expected year-1 AI operating cost (USD)",
+    prompt: "Expected year-1 AI operating cost",
     help: "Inference, vendor fees, infra, data ops, people loaded.",
-    type: "short_text",
+    type: "single",
+    options: [
+      "< $100K",
+      "$100K – $500K",
+      "$500K – $2M",
+      "$2M – $10M",
+      "$10M – $50M",
+      "$50M+",
+      "Unknown / TBD",
+    ],
   },
   {
     id: "cost_sensitivity",
@@ -217,15 +256,32 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
   {
     id: "payback_expectation_months",
     section: "Budget & Unit Economics",
-    prompt: "Expected payback period (months)",
-    type: "short_text",
+    prompt: "Expected payback period",
+    type: "single",
+    options: [
+      "≤ 6 months",
+      "7–12 months",
+      "13–24 months",
+      "25–36 months",
+      "> 36 months",
+      "Strategic — no set payback",
+    ],
   },
   {
     id: "gross_margin_hurdle",
     section: "Budget & Unit Economics",
     prompt: "Minimum acceptable gross margin for the AI-driven line of business",
     help: "Used to stress-test cost-per-inference against margin compression.",
-    type: "short_text",
+    type: "single",
+    options: [
+      "< 40%",
+      "40–50%",
+      "50–60%",
+      "60–70%",
+      "70–80%",
+      "> 80%",
+      "Margin not yet benchmarked",
+    ],
   },
 
   // ────────────────── AI Unit Economics ──────────────────
@@ -332,8 +388,20 @@ const CORE_INTAKE_QUESTIONS: IntakeQuestion[] = [
     id: "kill_criteria",
     section: "Success Criteria",
     prompt: "What would cause you to reverse this decision?",
-    help: "Explicit kill conditions. Surfaced in the IC memo under 'what would kill this deal'.",
-    type: "long_text",
+    help: "Select explicit kill conditions. Surfaced in the IC memo under 'what would kill this deal'.",
+    type: "multi",
+    options: [
+      "Failure to hit primary KPI within 12 months",
+      "Cost-per-output rises above margin threshold",
+      "Material security or privacy incident",
+      "Regulatory finding or enforcement action",
+      "Loss of a critical model/vendor dependency",
+      "Key-person departure (founder / lead technologist)",
+      "Customer churn above set threshold",
+      "Competitor releases materially better alternative",
+      "Evidence of hallucinated / fabricated outputs in production",
+      "Audit fails or reveals undisclosed risks",
+    ],
   },
 
   // ────────────────── Alternatives & Incumbents ──────────────────
@@ -1501,7 +1569,7 @@ function QuestionCard({
             value={typeof value === "string" ? value : ""}
             onChange={(e) => onChange(e.target.value)}
             rows={4}
-            placeholder="Free-form response…"
+            placeholder="Optional notes — context, specific names, or a number where a range won't do"
             className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-900 shadow-sm focus:border-slate-900 focus:outline-none"
           />
         )}

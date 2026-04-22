@@ -99,7 +99,7 @@ function writePositioningCache(clientId: string, cache: PositioningCache): void 
 }
 
 export default function PositioningPage() {
-  const { client, selectedId } = useSelectedPreviewClient();
+  const { client, selectedId, ready } = useSelectedPreviewClient();
   const [data, setData] = useState<Positioning | null>(null);
   const [sources, setSources] = useState<{ url: string; title?: string }[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
@@ -158,7 +158,10 @@ export default function PositioningPage() {
 
   // On client change: restore prior results from cache immediately so the
   // page never looks empty. Only auto-run the API when we have nothing cached.
+  // Gate on `ready` so we don't run against a placeholder selectedId before
+  // the real one is hydrated from localStorage.
   useEffect(() => {
+    if (!ready || !selectedId) return;
     setError(null);
     const cached = readPositioningCache(selectedId);
     if (cached) {
@@ -172,7 +175,7 @@ export default function PositioningPage() {
     setGeneratedAt(null);
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  }, [selectedId, ready]);
 
   return (
     <div className="space-y-4">
