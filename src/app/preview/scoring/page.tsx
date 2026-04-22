@@ -14,6 +14,7 @@ import {
   subscribeKnowledgeBase,
   KNOWLEDGE_STEP_LABELS,
   submitScoringToKnowledgeBase,
+  isStageDirty,
   type KnowledgeEntry,
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
@@ -45,6 +46,10 @@ export default function PreviewScoringPage() {
   const missingSteps = (
     ["intake", "coverage", "insights", "pre_analysis"] as KnowledgeStep[]
   ).filter((s) => !submittedSteps.includes(s));
+  const scoringDirty = isStageDirty(kb, "scoring");
+  const staleUpstream = (
+    ["intake", "coverage", "insights", "pre_analysis"] as KnowledgeStep[]
+  ).filter((s) => kb[s]?.stale);
 
   return (
     <div className="space-y-4">
@@ -55,6 +60,18 @@ export default function PreviewScoringPage() {
       />
       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm">
         <p className="font-semibold text-slate-800">Knowledge base inputs</p>
+        {(scoringDirty.dirty || staleUpstream.length > 0) && (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+            <span className="font-semibold">Upstream context changed.</span>{" "}
+            {scoringDirty.dirty
+              ? `Scoring was computed against an earlier version of ${scoringDirty.reasons
+                  .map((r) => KNOWLEDGE_STEP_LABELS[r])
+                  .join(", ")}. Re-save the scores to refresh the composite against the current intake/evidence.`
+              : `Re-submit ${staleUpstream
+                  .map((r) => KNOWLEDGE_STEP_LABELS[r])
+                  .join(", ")} to clear the stale flag before scoring downstream stages.`}
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap gap-2">
           {submittedSteps.length === 0 && (
             <span className="text-slate-500">
@@ -62,15 +79,27 @@ export default function PreviewScoringPage() {
               scores alone.
             </span>
           )}
-          {submittedSteps.map((s) => (
-            <span
-              key={s}
-              className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-medium text-emerald-800"
-              title={kb[s]?.summary}
-            >
-              ✓ {KNOWLEDGE_STEP_LABELS[s]}
-            </span>
-          ))}
+          {submittedSteps.map((s) => {
+            const stale = kb[s]?.stale === true;
+            return (
+              <span
+                key={s}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                  stale
+                    ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200"
+                    : "bg-emerald-100 text-emerald-800"
+                }`}
+                title={
+                  stale
+                    ? `Stale — invalidated by ${(kb[s]?.stale_because ?? []).map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ") || "upstream change"}`
+                    : kb[s]?.summary
+                }
+              >
+                {stale ? "⚠" : "✓"} {KNOWLEDGE_STEP_LABELS[s]}
+                {stale ? " (stale)" : ""}
+              </span>
+            );
+          })}
           {missingSteps.map((s) => (
             <span
               key={s}

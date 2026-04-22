@@ -48,6 +48,76 @@ export interface KnowledgeEntry {
   summary: string;
   /** Step-specific structured payload (kept open for forward compat). */
   payload: KnowledgePayload;
+  /**
+   * Monotonic per-client version stamped by the context engine when this
+   * entry was written. Used to detect whether downstream derivations
+   * were produced against a superseded upstream snapshot.
+   */
+  version?: number;
+  /**
+   * Set by the context engine when an upstream stage was mutated after
+   * this derived stage was written. A stale entry must not be trusted
+   * by downstream stages — it is surfaced in the UI as "recompute
+   * required" and must be regenerated from fresh upstream before use.
+   */
+  stale?: boolean;
+  /**
+   * Names the upstream stages that invalidated this entry (diagnostic
+   * only — used in the UI banner).
+   */
+  stale_because?: KnowledgeStep[];
+}
+
+// ------------------------------------------------------------------
+// Dependency graph — the context-engine contract.
+//
+//   intake ────┬──▶ coverage ──┐
+//              │               ├──▶ scoring ──▶ positioning
+//   evidence ──┴──▶ insights ──┘
+//
+// Mapping to our existing steps:
+//   • `intake` is the upstream operator input.
+//   • `pre_analysis` + uploaded docs play the "evidence" role; we use
+//     `pre_analysis` as the evidence-side upstream signal inside the KB.
+//   • `coverage` and `insights` are derived from intake + evidence.
+//   • `scoring` is derived from intake + coverage + insights + pre-analysis.
+//   • `positioning` is derived from intake + insights + scoring + pre-analysis.
+//   • `chat` is a read-only side-channel — never a dependency.
+//
+// When an upstream stage is rewritten, every transitively downstream
+// stage with an existing KB entry is marked `stale: true` so the UI
+// refuses to treat it as authoritative.
+// ------------------------------------------------------------------
+export const STAGE_UPSTREAM: Record<KnowledgeStep, KnowledgeStep[]> = {
+  intake: [],
+  pre_analysis: ["intake"],
+  coverage: ["intake", "pre_analysis"],
+  insights: ["intake", "pre_analysis"],
+  scoring: ["intake", "coverage", "insights", "pre_analysis"],
+  positioning: ["intake", "insights", "scoring", "pre_analysis"],
+  chat: [],
+};
+
+/** Transitive downstream of a given stage (everything it invalidates). */
+export function downstreamStages(step: KnowledgeStep): KnowledgeStep[] {
+  const out: KnowledgeStep[] = [];
+  (Object.keys(STAGE_UPSTREAM) as KnowledgeStep[]).forEach((s) => {
+    if (s === step) return;
+    // Walk upstream chain; if `step` appears anywhere upstream, `s` is downstream.
+    const seen = new Set<KnowledgeStep>();
+    const stack = [...STAGE_UPSTREAM[s]];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      if (cur === step) {
+        out.push(s);
+        break;
+      }
+      stack.push(...STAGE_UPSTREAM[cur]);
+    }
+  });
+  return out;
 }
 
 export type KnowledgePayload =
@@ -221,8 +291,90 @@ export function submitToKnowledgeBase(
 ): void {
   const kb = readRaw();
   const prior = kb[clientId] ?? {};
-  kb[clientId] = { ...prior, [entry.step]: entry };
+
+  // Context-engine contract:
+  //   1) Stamp the new entry with a monotonic version for this client.
+  //   2) If this stage has downstream derivations in the KB, mark them
+  //      `stale: true` so the UI refuses to treat them as authoritative
+  //      and recomputes from fresh upstream before use.
+  //   3) Chat is a side-channel and never invalidates anything.
+  const maxPriorVersion = Object.values(prior).reduce(
+    (max, e) => Math.max(max, e?.version ?? 0),
+    0,
+  );
+  const nextVersion = maxPriorVersion + 1;
+  const stamped: KnowledgeEntry = {
+    ...entry,
+    version: nextVersion,
+    // Writing a fresh entry for this stage clears its own staleness.
+    stale: false,
+    stale_because: undefined,
+  };
+
+  const next: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {
+    ...prior,
+    [entry.step]: stamped,
+  };
+
+  if (entry.step !== "chat") {
+    for (const downstream of downstreamStages(entry.step)) {
+      const existing = next[downstream];
+      if (!existing) continue;
+      const already = existing.stale_because ?? [];
+      next[downstream] = {
+        ...existing,
+        stale: true,
+        stale_because: already.includes(entry.step)
+          ? already
+          : [...already, entry.step],
+      };
+    }
+  }
+
+  kb[clientId] = next;
   writeRaw(kb);
+}
+
+/**
+ * Context-engine slice accessor.
+ *
+ * Returns ONLY the upstream dependencies of `stage` per the dependency
+ * graph, so derivation code cannot accidentally consume sibling or
+ * downstream state. Stale upstream entries are included but their
+ * `stale` flag is preserved so callers can refuse to derive on top of
+ * unsettled upstream if they choose.
+ */
+export function currentContextSlice(
+  kb: Partial<Record<KnowledgeStep, KnowledgeEntry>>,
+  stage: KnowledgeStep,
+): Partial<Record<KnowledgeStep, KnowledgeEntry>> {
+  const deps = STAGE_UPSTREAM[stage];
+  const out: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
+  for (const d of deps) {
+    const e = kb[d];
+    if (e) out[d] = e;
+  }
+  return out;
+}
+
+/** Are any of a stage's upstream dependencies currently stale or newer than it? */
+export function isStageDirty(
+  kb: Partial<Record<KnowledgeStep, KnowledgeEntry>>,
+  stage: KnowledgeStep,
+): { dirty: boolean; reasons: KnowledgeStep[] } {
+  const self = kb[stage];
+  const reasons: KnowledgeStep[] = [];
+  if (!self) return { dirty: false, reasons };
+  if (self.stale) {
+    return { dirty: true, reasons: self.stale_because ?? [] };
+  }
+  const selfVersion = self.version ?? 0;
+  for (const d of STAGE_UPSTREAM[stage]) {
+    const up = kb[d];
+    if (!up) continue;
+    if ((up.version ?? 0) > selfVersion) reasons.push(d);
+  }
+  return { dirty: reasons.length > 0, reasons };
 }
 
 function compactText(value: string, max = 220): string {

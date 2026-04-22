@@ -67,13 +67,17 @@ function intakeSignals(entry: KnowledgeEntry): ContextSignal[] {
   const p = entry.payload as IntakePayload;
   const out: ContextSignal[] = [];
 
-  if (p.regulatory_exposure.length > 0) {
+  // ── Regulatory / legacy signals ────────────────────────────────
+  const materialRegulatory = p.regulatory_exposure.filter(
+    (r) => !/^none/i.test(r),
+  );
+  if (materialRegulatory.length > 0) {
     out.push({
       dimension: "data_sensitivity",
-      delta: -0.1 * Math.min(3, p.regulatory_exposure.length),
-      reason: `Client flagged regulatory exposure: ${p.regulatory_exposure
+      delta: -0.1 * Math.min(3, materialRegulatory.length),
+      reason: `Client flagged regulatory exposure: ${materialRegulatory
         .slice(0, 2)
-        .join(", ")}${p.regulatory_exposure.length > 2 ? "…" : ""}`,
+        .join(", ")}${materialRegulatory.length > 2 ? "…" : ""}`,
       source: "intake",
     });
   }
@@ -93,6 +97,175 @@ function intakeSignals(entry: KnowledgeEntry): ContextSignal[] {
       source: "intake",
     });
   }
+
+  // ── Data rights & IP posture ───────────────────────────────────
+  const dataRights = p.customer_data_usage_rights ?? "";
+  if (/ambiguous|not documented/i.test(dataRights)) {
+    out.push({
+      dimension: "data_sensitivity",
+      delta: -0.15,
+      reason: "Customer data usage rights are ambiguous / undocumented",
+      source: "intake",
+    });
+    out.push({
+      dimension: "governance_safety",
+      delta: -0.1,
+      reason: "Ambiguous data rights elevate governance burden",
+      source: "intake",
+    });
+  }
+  if (/per-tenant isolation|excluded from training|explicit opt-in/i.test(dataRights)) {
+    out.push({
+      dimension: "data_sensitivity",
+      delta: 0.05,
+      reason: "Disciplined customer data handling (isolation / opt-in / exclusion)",
+      source: "intake",
+    });
+  }
+
+  const trainingSources = p.training_data_sources ?? [];
+  if (trainingSources.some((s) => /public web scraping|unknown/i.test(s))) {
+    out.push({
+      dimension: "data_sensitivity",
+      delta: -0.1,
+      reason: "Training data sources include public scrape or undocumented origin",
+      source: "intake",
+    });
+    out.push({
+      dimension: "open_validation",
+      delta: -0.05,
+      reason: "Training-data provenance requires validation",
+      source: "intake",
+    });
+  }
+
+  if (p.ip_indemnification_needed && /^required/i.test(p.ip_indemnification_needed)) {
+    out.push({
+      dimension: "governance_safety",
+      delta: -0.05,
+      reason: "Client requires IP indemnification — heightened governance bar",
+      source: "intake",
+    });
+  }
+
+  // ── Operational resilience ─────────────────────────────────────
+  const bcr = p.business_continuity_requirement ?? "";
+  if (/seconds|minutes/i.test(bcr)) {
+    out.push({
+      dimension: "production_readiness",
+      delta: -0.1,
+      reason: `Tight uptime requirement (${bcr}) raises the production bar`,
+      source: "intake",
+    });
+  }
+  const mrr = p.multi_region_requirement ?? "";
+  if (mrr && !/us-only|not applicable/i.test(mrr)) {
+    out.push({
+      dimension: "production_readiness",
+      delta: -0.05,
+      reason: `Multi-region / residency requirement: ${mrr}`,
+      source: "intake",
+    });
+  }
+
+  // ── Buyer-side readiness ───────────────────────────────────────
+  const dataReadiness = p.data_readiness ?? "";
+  if (/no central data platform|siloed/i.test(dataReadiness)) {
+    out.push({
+      dimension: "production_readiness",
+      delta: -0.15,
+      reason: "Buyer-side data platform is siloed — integration risk",
+      source: "intake",
+    });
+  } else if (/partial data lake/i.test(dataReadiness)) {
+    out.push({
+      dimension: "production_readiness",
+      delta: -0.05,
+      reason: "Buyer-side data platform is partial — integration friction",
+      source: "intake",
+    });
+  }
+
+  // ── Vendor exposure ────────────────────────────────────────────
+  const lockIn = p.lock_in_tolerance ?? "";
+  if (/must avoid all lock-in/i.test(lockIn)) {
+    out.push({
+      dimension: "tooling_exposure",
+      delta: -0.15,
+      reason: "Client has zero tolerance for vendor / model lock-in",
+      source: "intake",
+    });
+  }
+
+  // ── Decision discipline ────────────────────────────────────────
+  if (!p.kill_criteria || p.kill_criteria.trim().length === 0) {
+    out.push({
+      dimension: "open_validation",
+      delta: -0.05,
+      reason: "No explicit kill criteria defined",
+      source: "intake",
+    });
+  }
+  if (
+    (p.alternatives_considered ?? []).length === 0 &&
+    !p.alternatives_detail
+  ) {
+    out.push({
+      dimension: "open_validation",
+      delta: -0.05,
+      reason: "No alternatives or incumbents weighed against this choice",
+      source: "intake",
+    });
+  }
+
+  // ── Artifact posture — what's already in hand ──────────────────
+  const artifacts = (p.artifacts_received ?? []).map((a) => a.toLowerCase());
+  const hasSoc2 = artifacts.some((a) => /soc 2|iso 27001/.test(a));
+  const hasModelDoc = artifacts.some((a) => /model \/ ai system documentation/.test(a));
+  const hasBenchmarks = artifacts.some((a) => /benchmark|evaluation/.test(a));
+  const hasArch = artifacts.some((a) => /architecture documentation/.test(a));
+
+  if (hasSoc2) {
+    out.push({
+      dimension: "governance_safety",
+      delta: 0.05,
+      reason: "SOC 2 / ISO 27001 artifact already in hand",
+      source: "intake",
+    });
+  }
+  if (hasModelDoc) {
+    out.push({
+      dimension: "product_credibility",
+      delta: 0.05,
+      reason: "Model / AI system documentation provided up front",
+      source: "intake",
+    });
+  }
+  if (hasBenchmarks) {
+    out.push({
+      dimension: "product_credibility",
+      delta: 0.05,
+      reason: "Benchmark / evaluation results provided",
+      source: "intake",
+    });
+  }
+  if (!hasArch && !hasModelDoc) {
+    out.push({
+      dimension: "open_validation",
+      delta: -0.1,
+      reason: "No architecture or model documentation received yet",
+      source: "intake",
+    });
+  }
+  if (!hasSoc2 && materialRegulatory.length > 0) {
+    out.push({
+      dimension: "governance_safety",
+      delta: -0.1,
+      reason: "Regulated deal with no SOC 2 / ISO artifact yet",
+      source: "intake",
+    });
+  }
+
   return out;
 }
 

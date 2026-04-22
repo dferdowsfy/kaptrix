@@ -8,6 +8,9 @@ import {
   readClientKb,
   submitPositioningToKnowledgeBase,
   subscribeKnowledgeBase,
+  currentContextSlice,
+  isStageDirty,
+  KNOWLEDGE_STEP_LABELS,
   type KnowledgeEntry,
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
@@ -121,7 +124,13 @@ export default function PositioningPage() {
     setLoading(true);
     setError(null);
     try {
-      const knowledge_base = formatKnowledgeBaseEvidence(kb).join("\n");
+      // Context-engine contract: send ONLY the upstream slice the
+      // positioning stage is entitled to see (intake + insights +
+      // scoring + pre-analysis). This prevents the model from
+      // feedback-looping on the prior positioning entry and guarantees
+      // the prompt is grounded in the current upstream context.
+      const slice = currentContextSlice(kb, "positioning");
+      const knowledge_base = formatKnowledgeBaseEvidence(slice).join("\n");
       const res = await fetch("/api/positioning", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -181,6 +190,14 @@ export default function PositioningPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, ready]);
 
+  // Context-engine: is the cached positioning now stale because an
+  // upstream stage (intake / insights / scoring / pre-analysis) was
+  // updated after positioning was computed? This is the "dirty" bit in
+  // the contract — the UI refuses to present a superseded derivation
+  // as authoritative.
+  const positioningDirty = isStageDirty(kb, "positioning");
+  const upstreamChanged = positioningDirty.dirty && data !== null;
+
   return (
     <div className="space-y-4">
       <SectionHeader
@@ -215,6 +232,18 @@ export default function PositioningPage() {
           {loading ? "Analyzing peers…" : data ? "Re-run analysis" : "Run analysis"}
         </button>
       </div>
+
+      {upstreamChanged && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+          <span className="font-semibold">Upstream context changed.</span>{" "}
+          The displayed positioning was generated against an earlier version of{" "}
+          {positioningDirty.reasons
+            .map((r) => KNOWLEDGE_STEP_LABELS[r])
+            .join(", ")}
+          . Re-run the analysis to rebuild peers from the current intake and
+          evidence.
+        </div>
+      )}
 
       {error && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
