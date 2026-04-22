@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { useNavVisibility } from "@/hooks/use-nav-visibility";
 import { PREVIEW_TABS } from "@/lib/preview-tabs";
+
+type NavTabIdList = Parameters<typeof useNavVisibility>[0];
 import { formatDate } from "@/lib/utils";
 import { ConnectionStatus } from "@/components/preview/connection-status";
 import { ProfileMenu } from "@/components/preview/profile-menu";
@@ -17,15 +19,19 @@ import { useChatPanel } from "@/components/preview/chat-panel-context";
 export function PreviewShell({
   children,
   chatPanel,
+  initialServerHidden,
 }: {
   children: React.ReactNode;
   chatPanel?: React.ReactNode;
+  initialServerHidden?: string[];
 }) {
   const pathname = usePathname();
   const router = useRouter();
   const { client, ready, allClients, selectedId, setSelectedId } =
     useSelectedPreviewClient();
-  const { visibleTabs, hidden } = useNavVisibility();
+  const { visibleTabs, hidden } = useNavVisibility(
+    (initialServerHidden ?? []) as NavTabIdList,
+  );
 
   // Enforce admin-hidden pages at the route level — a user can't reach a
   // hidden page by typing the URL directly. Redirect to the Home tab.

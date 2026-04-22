@@ -66,9 +66,10 @@ function subscribe(callback: () => void): () => void {
 
 const EMPTY: NavTabId[] = [];
 
-export function useNavVisibility() {
+export function useNavVisibility(initialServerHidden: NavTabId[] = EMPTY) {
   const hidden = useSyncExternalStore(subscribe, readHidden, () => EMPTY);
-  const [serverHidden, setServerHidden] = useState<NavTabId[]>([]);
+  const [serverHidden, setServerHidden] =
+    useState<NavTabId[]>(initialServerHidden);
   const pathname = usePathname();
 
   // Fetch server-side hidden tabs (admin-enforced). Re-runs on every
