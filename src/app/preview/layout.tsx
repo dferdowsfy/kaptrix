@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ChatPanelProvider } from "@/components/preview/chat-panel-context";
 import { KnowledgeChatPanel } from "@/components/preview/floating-knowledge-chatbot";
+import { KbHydrator } from "@/components/preview/kb-hydrator";
 import { PreviewShell } from "@/components/preview/preview-shell";
 import {
   isPreviewTabHidden,
@@ -78,6 +79,7 @@ export default async function PreviewLayout({
 
   return (
     <ChatPanelProvider>
+      <KbHydrator />
       <PreviewShell
         chatPanel={<KnowledgeChatPanel />}
         initialServerHidden={serverHidden}

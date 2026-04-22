@@ -67,7 +67,7 @@ export default function PreviewScoringPage() {
             {scoringDirty.dirty
               ? `${scoringDirty.reasons
                   .map((r) => KNOWLEDGE_STEP_LABELS[r])
-                  .join(", ")} updated — the context-aware composite is recomputing automatically. Manual score overrides are preserved.`
+                  .join(", ")} updated — click Re-run scoring to recompute. Manual score overrides are preserved.`
               : `Re-submit ${staleUpstream
                   .map((r) => KNOWLEDGE_STEP_LABELS[r])
                   .join(", ")} to clear the stale flag before scoring downstream stages.`}
@@ -123,13 +123,8 @@ export default function PreviewScoringPage() {
         previewMode
         scoringStale={scoringDirty.dirty}
         onForceResync={() => {
-          // Force-resync: the ScoringPanel's onScoresChange effect will
-          // fire on the next render and write a fresh scoring KB entry.
-          // We just need to trigger a re-render by bumping the KB's
-          // scoring entry (clear its stale flag). The simplest path is
-          // to call submitScoringToKnowledgeBase with the current state.
-          // The panel's effect will immediately overwrite with accurate
-          // composite values on the next tick.
+          // Explicit re-run: clear stale flags and rewrite the scoring
+          // KB entry. autoSync=false so stale is cleared.
           if (!selectedId) return;
           submitScoringToKnowledgeBase({
             clientId: selectedId,
@@ -137,16 +132,20 @@ export default function PreviewScoringPage() {
             composite_score: 0,
             context_aware_composite: 0,
             decision_band: null,
+            autoSync: false,
           });
         }}
         onScoresChange={(snap) => {
           if (!selectedId) return;
+          // Auto-sync: preserve stale flags so the "upstream changed"
+          // banner stays visible until the operator clicks Re-run.
           submitScoringToKnowledgeBase({
             clientId: selectedId,
             scores: snap.scores,
             composite_score: snap.composite_score,
             context_aware_composite: snap.context_aware_composite,
             decision_band: snap.decision_band,
+            autoSync: true,
           });
         }}
       />

@@ -253,22 +253,17 @@ export function ScoringPanel({
           {!previewMode && saving && (
             <span className="text-xs text-gray-400">Saving…</span>
           )}
-          {previewMode && (
-            <div className="flex items-center gap-3">
-              {scoringStale && onForceResync && (
-                <button
-                  type="button"
-                  onClick={onForceResync}
-                  className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:from-indigo-500 hover:to-violet-500"
-                >
-                  Re-run scoring
-                </button>
-              )}
-              <span className="text-xs text-gray-400">
-                Preview mode — edits are local only
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-3">
+            {scoringStale && onForceResync && (
+              <button
+                type="button"
+                onClick={onForceResync}
+                className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:from-indigo-500 hover:to-violet-500"
+              >
+                Re-run scoring
+              </button>
+            )}
+          </div>
         </div>
 
         <DecisionBadge decision={decision} />

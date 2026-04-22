@@ -3,7 +3,7 @@
 import type { ScoreDimension } from "@/lib/types";
 
 // ------------------------------------------------------------------
-// Client-side per-client "knowledge base" for the preview experience.
+// Client-side per-client knowledge base.
 //
 // Workflow steps and runtime artifacts are captured into this KB.
 // This includes structured submissions (intake/coverage/insights/
@@ -12,9 +12,11 @@ import type { ScoreDimension } from "@/lib/types";
 // gathered data without requiring manual "add to knowledge base"
 // actions.
 //
-// Storage is localStorage only (preview mode). A production build
-// would persist this to Supabase under a per-engagement knowledge
-// base table.
+// Persistence: localStorage is the immediate cache for synchronous
+// `useSyncExternalStore` reads. Every mutation is also written
+// through to Supabase (`user_workspace_state` with kind
+// "knowledge_base") via a debounced PUT. On page load the KB is
+// hydrated from Supabase so data survives across devices / sessions.
 // ------------------------------------------------------------------
 
 export const PREVIEW_KB_STORAGE_KEY = "kaptrix.preview.kb.v1";
@@ -272,6 +274,79 @@ function writeRaw(kb: KnowledgeBase): void {
   window.dispatchEvent(new Event(STORAGE_EVENT));
 }
 
+// ------------------------------------------------------------------
+// Supabase write-through & hydration
+// ------------------------------------------------------------------
+const syncTimers = new Map<string, ReturnType<typeof setTimeout>>();
+const SYNC_DEBOUNCE_MS = 800;
+
+/** Debounced fire-and-forget PUT to Supabase for a single client KB. */
+function scheduleSupabaseSync(clientId: string): void {
+  if (typeof window === "undefined") return;
+  const existing = syncTimers.get(clientId);
+  if (existing) clearTimeout(existing);
+  syncTimers.set(
+    clientId,
+    setTimeout(() => {
+      syncTimers.delete(clientId);
+      const entries = readClientKb(clientId);
+      if (!entries || Object.keys(entries).length === 0) return;
+      fetch("/api/preview/knowledge-base", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engagement_id: clientId, entries }),
+      }).catch(() => {
+        // Silently ignore — localStorage still has the data.
+      });
+    }, SYNC_DEBOUNCE_MS),
+  );
+}
+
+/**
+ * Hydrate the localStorage KB from Supabase for one client.
+ * Supabase wins when its entry has a higher version (it came from
+ * another device/session). Returns true when the local KB was updated.
+ */
+export async function hydrateKnowledgeBaseFromSupabase(
+  clientId: string,
+): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const res = await fetch(
+      `/api/preview/knowledge-base?engagement_id=${encodeURIComponent(clientId)}`,
+    );
+    if (!res.ok) return false;
+    const json = await res.json();
+    if (!json.authenticated || !json.entries) return false;
+    const remote = json.entries as Partial<Record<KnowledgeStep, KnowledgeEntry>>;
+    if (Object.keys(remote).length === 0) return false;
+
+    const kb = readRaw();
+    const local = kb[clientId] ?? {};
+    let changed = false;
+    const merged = { ...local };
+
+    for (const step of Object.keys(remote) as KnowledgeStep[]) {
+      const r = remote[step];
+      if (!r) continue;
+      const l = local[step];
+      // Remote wins if local doesn't exist or remote version is newer.
+      if (!l || (r.version ?? 0) > (l.version ?? 0)) {
+        merged[step] = r;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      kb[clientId] = merged;
+      writeRaw(kb);
+    }
+    return changed;
+  } catch {
+    return false;
+  }
+}
+
 export function readClientKb(
   clientId: string | null | undefined,
 ): Partial<Record<KnowledgeStep, KnowledgeEntry>> {
@@ -285,12 +360,23 @@ export function readClientKb(
   return entry;
 }
 
+/**
+ * Write or update a KB entry for a client.
+ *
+ * `options.preserveStale` — when true the entry keeps whatever stale
+ * flags were already set and does NOT propagate downstream staleness.
+ * Use this for auto-sync writes (e.g. the scoring panel effect) so
+ * that an automatic payload refresh doesn't accidentally clear the
+ * "upstream changed" signal that the operator hasn't reviewed yet.
+ */
 export function submitToKnowledgeBase(
   clientId: string,
   entry: KnowledgeEntry,
+  options?: { preserveStale?: boolean },
 ): void {
   const kb = readRaw();
   const prior = kb[clientId] ?? {};
+  const preserveStale = options?.preserveStale === true;
 
   // Context-engine contract:
   //   1) Stamp the new entry with a monotonic version for this client.
@@ -303,12 +389,15 @@ export function submitToKnowledgeBase(
     0,
   );
   const nextVersion = maxPriorVersion + 1;
+
+  const priorEntry = prior[entry.step];
   const stamped: KnowledgeEntry = {
     ...entry,
     version: nextVersion,
-    // Writing a fresh entry for this stage clears its own staleness.
-    stale: false,
-    stale_because: undefined,
+    // When preserveStale is set, keep the existing stale flags intact
+    // so the operator still sees the "upstream changed" banner.
+    stale: preserveStale ? (priorEntry?.stale ?? false) : false,
+    stale_because: preserveStale ? (priorEntry?.stale_because ?? undefined) : undefined,
   };
 
   const next: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {
@@ -316,7 +405,8 @@ export function submitToKnowledgeBase(
     [entry.step]: stamped,
   };
 
-  if (entry.step !== "chat") {
+  // Only propagate downstream staleness on real (non-auto-sync) writes.
+  if (!preserveStale && entry.step !== "chat") {
     for (const downstream of downstreamStages(entry.step)) {
       const existing = next[downstream];
       if (!existing) continue;
@@ -333,6 +423,9 @@ export function submitToKnowledgeBase(
 
   kb[clientId] = next;
   writeRaw(kb);
+
+  // Persist to Supabase (fire-and-forget, debounced per client).
+  scheduleSupabaseSync(clientId);
 }
 
 /**
@@ -471,6 +564,10 @@ export function submitScoringToKnowledgeBase(args: {
   composite_score?: number | null;
   context_aware_composite?: number | null;
   decision_band?: string | null;
+  /** When true the write preserves any existing stale flags on the
+   *  scoring entry so the "upstream changed" banner stays visible
+   *  until the operator explicitly clicks "Re-run scoring". */
+  autoSync?: boolean;
 }): void {
   const compactScores = args.scores
     .map((s) => ({
@@ -491,12 +588,16 @@ export function submitScoringToKnowledgeBase(args: {
 
   const summary = `Composite ${args.composite_score?.toFixed(1) ?? "—"} (context ${args.context_aware_composite?.toFixed(1) ?? "—"}); ${compactScores.length} sub-criteria scored.`;
 
-  submitToKnowledgeBase(args.clientId, {
-    step: "scoring",
-    submitted_at: new Date().toISOString(),
-    summary,
-    payload,
-  });
+  submitToKnowledgeBase(
+    args.clientId,
+    {
+      step: "scoring",
+      submitted_at: new Date().toISOString(),
+      summary,
+      payload,
+    },
+    { preserveStale: args.autoSync },
+  );
 }
 
 export function clearClientKb(clientId: string): void {
@@ -504,6 +605,7 @@ export function clearClientKb(clientId: string): void {
   if (!kb[clientId]) return;
   delete kb[clientId];
   writeRaw(kb);
+  scheduleSupabaseSync(clientId);
 }
 
 export function subscribeKnowledgeBase(cb: () => void): () => void {
