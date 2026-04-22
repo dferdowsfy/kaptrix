@@ -36,6 +36,13 @@ export interface OpenRouterOptions {
   maxTokens?: number;
   jsonMode?: boolean;
   timeoutMs?: number;
+  /**
+   * OpenRouter reasoning controls. Reasoning models (GPT-5 family, o1/o3/o4,
+   * DeepSeek-R1) consume hidden chain-of-thought tokens against max_tokens.
+   * When omitted we auto-apply `effort: "minimal"` for those models so tight
+   * JSON workloads don't truncate. Pass `effort: "none"` to opt out.
+   */
+  reasoning?: { effort?: "minimal" | "low" | "medium" | "high" | "none"; max_tokens?: number };
 }
 
 export interface OpenRouterResult {
@@ -55,6 +62,21 @@ export function getOpenRouterModel(task: OpenRouterTask): string {
   return getOpenRouterModelForTask(task);
 }
 
+/**
+ * Models whose completions include hidden chain-of-thought tokens that
+ * count against max_tokens. For these we default reasoning.effort="minimal"
+ * unless the caller sets it explicitly.
+ */
+function isReasoningModel(model: string): boolean {
+  const m = model.toLowerCase();
+  return (
+    m.includes("gpt-5") ||
+    /\bo[134]\b/.test(m) ||
+    m.includes("deepseek-r1") ||
+    m.includes("deepseek-reasoner")
+  );
+}
+
 export async function openRouterChat(
   opts: OpenRouterOptions,
 ): Promise<OpenRouterResult> {
@@ -70,6 +92,20 @@ export async function openRouterChat(
   };
   if (opts.jsonMode) {
     body.response_format = { type: "json_object" };
+  }
+
+  // Reasoning-model handling. Without a hint, models like gpt-5-nano burn
+  // 200–600+ hidden reasoning tokens before visible output — which starves
+  // tight max_tokens budgets used for structured JSON (scoring, positioning,
+  // report sections) and produces empty completions with finish_reason="length".
+  const callerEffort = opts.reasoning?.effort;
+  if (callerEffort && callerEffort !== "none") {
+    body.reasoning = {
+      effort: callerEffort,
+      ...(opts.reasoning?.max_tokens ? { max_tokens: opts.reasoning.max_tokens } : {}),
+    };
+  } else if (!callerEffort && isReasoningModel(opts.model)) {
+    body.reasoning = { effort: "minimal" };
   }
 
   // Zero-data-retention enforcement. When enabled (default), OpenRouter
