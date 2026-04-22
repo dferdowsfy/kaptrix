@@ -18,7 +18,36 @@ export interface UserPlanContext {
   usage: UsageSnapshot;
 }
 
-/** Load the tier + current-month usage for a user. Falls back to starter. */
+function daysInMonthUtc(year: number, monthIndex: number): number {
+  return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+}
+
+/**
+ * Returns the billing-cycle start date (UTC) anchored to signup day.
+ * Example: signed up on the 24th => each cycle is 24th -> 23rd.
+ * For short months, day is clamped (e.g. signup 31st => Feb 28/29).
+ */
+function getSignupAnchoredPeriodStart(signupAt: string | null | undefined): string {
+  const now = new Date();
+  const signup = signupAt ? new Date(signupAt) : now;
+  const anchorDay = signup.getUTCDate();
+
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth();
+
+  const thisMonthAnchorDay = Math.min(anchorDay, daysInMonthUtc(year, month));
+  const useThisMonth = now.getUTCDate() >= thisMonthAnchorDay;
+
+  const targetYear = useThisMonth ? year : month === 0 ? year - 1 : year;
+  const targetMonth = useThisMonth ? month : month === 0 ? 11 : month - 1;
+  const targetDay = Math.min(anchorDay, daysInMonthUtc(targetYear, targetMonth));
+
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Load the tier + current billing-cycle usage for a user. Falls back to starter. */
 export async function getUserPlanContext(
   userId: string,
 ): Promise<UserPlanContext | null> {
@@ -27,7 +56,7 @@ export async function getUserPlanContext(
 
   const { data: userRow } = await svc
     .from("users")
-    .select("tier, tier_overrides")
+    .select("tier, tier_overrides, created_at")
     .eq("id", userId)
     .maybeSingle();
 
@@ -36,10 +65,7 @@ export async function getUserPlanContext(
     (userRow?.tier_overrides as Partial<TierLimits> | null | undefined) ?? null;
   const limits = resolveLimits(tier, overrides);
 
-  const periodStart = new Date();
-  periodStart.setUTCDate(1);
-  periodStart.setUTCHours(0, 0, 0, 0);
-  const periodStartIso = periodStart.toISOString().slice(0, 10);
+  const periodStartIso = getSignupAnchoredPeriodStart(userRow?.created_at ?? null);
 
   const [{ data: counters }, { count: activeEngagements }] = await Promise.all([
     svc
@@ -85,7 +111,7 @@ export function checkReportLimit(ctx: UserPlanContext): LimitCheck {
     current: ctx.usage.reports_generated,
     reason: ok
       ? undefined
-      : `You have reached your monthly report limit (${ctx.limits.max_reports_per_month}) on the ${TIERS[ctx.tier].label} plan. Upgrade to generate more.`,
+      : `You have reached your report limit (${ctx.limits.max_reports_per_month}) for your current billing cycle on the ${TIERS[ctx.tier].label} plan. Upgrade to generate more.`,
   };
 }
 
@@ -104,7 +130,7 @@ export function checkAiQueryLimit(ctx: UserPlanContext): LimitCheck {
     current: ctx.usage.ai_queries,
     reason: ok
       ? undefined
-      : `You have used all ${ctx.limits.max_ai_queries_per_month} AI queries included in the ${TIERS[ctx.tier].label} plan this month. Upgrade for more headroom.`,
+      : `You have used all ${ctx.limits.max_ai_queries_per_month} AI queries included in the ${TIERS[ctx.tier].label} plan for your current billing cycle. Upgrade for more headroom.`,
   };
 }
 
@@ -124,7 +150,7 @@ export function checkEngagementLimit(ctx: UserPlanContext): LimitCheck {
   };
 }
 
-/** Atomically increment the monthly counter (best-effort). */
+/** Atomically increment the billing-cycle counter (best-effort). */
 export async function recordUsage(
   userId: string,
   kind: "reports" | "ai_queries",

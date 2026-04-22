@@ -30,7 +30,7 @@ It adds:
 
   `-1` means **unlimited** on any numeric field.
 
-- `public.usage_counters` — per-user monthly rollup
+- `public.usage_counters` — per-user signup-anchored billing-cycle rollup
   `(user_id, period_start)` with `reports_generated` and `ai_queries`.
 - `public.increment_usage(p_user_id uuid, p_kind text, p_delta int)`
   — SECURITY DEFINER function the server calls to tick the counters.
@@ -101,7 +101,7 @@ payload) and prompts the user to upgrade.
 ## 5. Usage endpoint
 
 `GET /api/usage` returns the signed-in user's tier, effective
-limits, current-month usage, and remaining headroom. The dashboard
+limits, current billing-cycle usage (anchored to signup day), and remaining headroom. The dashboard
 tier pill in the header renders a meter from this payload.
 
 ## 6. Things to verify post-deploy

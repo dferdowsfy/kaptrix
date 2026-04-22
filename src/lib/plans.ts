@@ -42,13 +42,13 @@ export const REPORT_KIND_LABEL: Record<ReportKind, string> = {
 export interface TierLimits {
   /** Max concurrently-active engagements. -1 = unlimited. */
   max_engagements: number;
-  /** Max reports (any kind) generated per calendar month (UTC). -1 = unlimited. */
+  /** Max reports (any kind) generated per signup-anchored billing cycle. -1 = unlimited. */
   max_reports_per_month: number;
-  /** Max AI/chat queries per calendar month (UTC). -1 = unlimited. */
+  /** Max AI/chat queries per signup-anchored billing cycle. -1 = unlimited. */
   max_ai_queries_per_month: number;
   /** Which report kinds this tier is allowed to generate. */
   reports_enabled: ReportKind[];
-  /** Per-report monthly caps. Missing key inherits max_reports_per_month. -1 = unlimited. */
+  /** Per-report cycle caps. Missing key inherits max_reports_per_month. -1 = unlimited. */
   per_report_caps: Partial<Record<ReportKind, number>>;
   /** Whether benchmarking / positioning module is unlocked. */
   benchmarking_enabled: boolean;
