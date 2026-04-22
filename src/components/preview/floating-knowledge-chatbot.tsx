@@ -25,6 +25,7 @@ import {
   type UploadedDoc,
 } from "@/lib/preview/uploaded-docs";
 import { useChatPanel } from "@/components/preview/chat-panel-context";
+import { ChatMarkdown } from "@/components/preview/chat-markdown";
 
 const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
 
@@ -401,8 +402,8 @@ export function KnowledgeChatPanel() {
                           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400 [animation-delay:-0.15s]" />
                           <span className="h-1.5 w-1.5 animate-bounce rounded-full bg-slate-400" />
                         </span>
-                      ) : (
-                        cleanText(m.text)
+                      ) : isUser ? (
+                        m.text
                           .split("\n")
                           .map((line, i, arr) => (
                             <span key={i}>
@@ -410,6 +411,8 @@ export function KnowledgeChatPanel() {
                               {i < arr.length - 1 && <br />}
                             </span>
                           ))
+                      ) : (
+                        <ChatMarkdown text={m.text} />
                       )}
                       {!isUser && !isThinking && (
                         <button
