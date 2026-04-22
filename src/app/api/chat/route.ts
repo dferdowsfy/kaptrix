@@ -282,7 +282,11 @@ Answer:`;
           { role: "user", content: `EVIDENCE CONTEXT:\n"""\n${context}\n"""\n\n${history ? `RECENT CONVERSATION:\n${history}\n\n` : ""}USER QUESTION:\n${question}` },
         ],
         temperature: 0.4,
-        maxTokens: 800,
+        // Generous ceiling so multi-section answers, tables, and
+        // enumerations never get cut off mid-list. The SYSTEM_INSTRUCTION
+        // still pushes the model toward ~120–220 word answers for most
+        // questions; this cap only matters for deep-dive responses.
+        maxTokens: 2400,
       });
       answer = (completion.content ?? "").trim();
       usedModel = chatModel;
@@ -293,8 +297,8 @@ Answer:`;
         model: chatModel,
         messages: [{ role: "user", content: prompt }],
         temperature: 0.3,
-        maxTokens: 300,
-        timeoutMs: 90_000,
+        maxTokens: 1600,
+        timeoutMs: 120_000,
       });
       answer = (answerResp.content ?? "").trim();
       usedModel = chatModel;
