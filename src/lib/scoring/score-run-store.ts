@@ -82,7 +82,10 @@ async function runScoreGeneration(
     const res = await fetch("/api/scores/suggest", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ knowledge_base }),
+      // Pass client_id so the server can pull uploaded-doc text from
+      // preview_uploaded_docs in Supabase and merge it into the
+      // scoring prompt, not just the client-assembled knowledge_base.
+      body: JSON.stringify({ knowledge_base, client_id: clientId }),
     });
     const json = (await res.json()) as {
       scores?: SuggestedScore[];

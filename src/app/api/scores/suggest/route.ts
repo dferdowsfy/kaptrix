@@ -26,6 +26,7 @@ import {
   authErrorResponse,
   requireAuth,
 } from "@/lib/security/authz";
+import { getServiceClient } from "@/lib/supabase/service";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -39,6 +40,10 @@ export interface SuggestedScore {
 
 interface SuggestBody {
   knowledge_base?: string;
+  /** When supplied, the route pulls every persisted artifact for this
+   *  client from preview_uploaded_docs + preview_snapshots and merges
+   *  their text into the scoring prompt server-side. */
+  client_id?: string;
 }
 
 // ── Terse prompt builder for one dimension ────────────────────────────────────
@@ -118,8 +123,10 @@ async function scoreDimension(
     { role: "user", content: userPrompt },
   ];
 
-  // Output per dimension: ~4 scores × ~80 tokens each ≈ 320 tokens max.
-  const maxTokens = 600;
+  // Output per dimension: 4-5 scores with longer, evidence-citing
+  // rationales. 1200 gives headroom for dense rationales without
+  // triggering JSON truncation.
+  const maxTokens = 1200;
 
   let raw: string;
   if (useSelfHosted) {
@@ -170,8 +177,64 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Cap KB text to avoid inflating each prompt unnecessarily.
-  const knowledge_base = (body.knowledge_base ?? "").trim().slice(0, 6_000);
+  // Merge client-supplied knowledge_base with server-side retrieval
+  // from Supabase so scoring always sees every uploaded artifact,
+  // every stored snapshot field, and the structured intake/insights
+  // blob the client assembles. Uploaded-doc text is the biggest
+  // signal — we give it a generous 24k budget so a multi-slide deck
+  // actually influences the scores instead of being truncated.
+  const clientKb = (body.knowledge_base ?? "").trim();
+  const clientId = (body.client_id ?? "").trim();
+  const parts: string[] = [];
+
+  if (clientKb) parts.push(clientKb);
+
+  if (clientId) {
+    const supabase = getServiceClient();
+    if (supabase) {
+      try {
+        const { data: uploaded } = await supabase
+          .from("preview_uploaded_docs")
+          .select("filename, category, parsed_text, parse_status")
+          .eq("client_id", clientId)
+          .order("uploaded_at", { ascending: false });
+
+        if (uploaded && uploaded.length > 0) {
+          const docLines: string[] = [];
+          let used = 0;
+          const MAX_TOTAL = 40_000;
+          const MAX_PER_DOC = 12_000;
+          for (const d of uploaded) {
+            if (!d.parsed_text) continue;
+            const header = `[uploaded · ${d.filename} · ${d.category}]`;
+            const remaining = MAX_TOTAL - used;
+            if (remaining <= header.length + 64) break;
+            const budget = Math.min(MAX_PER_DOC, remaining - header.length - 1);
+            const body = (d.parsed_text as string).slice(0, budget).trim();
+            const line = `${header}\n${body}`;
+            docLines.push(line);
+            used += line.length + 1;
+          }
+          if (docLines.length > 0) {
+            parts.push(
+              "## Uploaded documents (full parsed text from Supabase)",
+              ...docLines,
+            );
+          }
+        }
+      } catch (err) {
+        console.warn(
+          "[scores/suggest] uploaded-docs fetch failed",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+  }
+
+  // Cap the composite KB at 64k chars. The scoring model (gpt-5-nano by
+  // default) has ample context headroom, and each per-dimension prompt
+  // appends ~400 tokens of criteria text on top of this.
+  const knowledge_base = parts.join("\n\n").slice(0, 64_000);
   if (!knowledge_base) {
     return NextResponse.json(
       { error: "knowledge_base is required" },

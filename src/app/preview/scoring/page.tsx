@@ -177,7 +177,10 @@ export default function PreviewScoringPage() {
     // flows into the scoring prompt.
     const slice = currentContextSlice(kb, "scoring");
     const kbLines = formatKnowledgeBaseEvidence(slice);
-    const docLines = formatUploadedDocsEvidence(selectedId, 8_000);
+    // Generous budget — server-side merge with preview_uploaded_docs
+    // will cap again, but we want the client-built KB to already carry
+    // every parsed doc in case the server fetch fails.
+    const docLines = formatUploadedDocsEvidence(selectedId, 40_000, 12_000);
     const insightLines = extractedInsights.map(
       (i) =>
         `[extracted-insight · ${i.category} · ${i.confidence}] ${i.insight} (source: ${i.source_document})`,
@@ -193,10 +196,10 @@ export default function PreviewScoringPage() {
       parts.push("", "## Extracted insights", ...insightLines);
     }
     const knowledge_base = parts.join("\n");
-    if (!knowledge_base.trim()) {
-      startScoreRun(selectedId, "");
-      return;
-    }
+    // Even when the client has no KB assembled, the server will pull
+    // uploaded-doc text from preview_uploaded_docs based on selectedId.
+    // Kick off the run regardless; the route will 400 only if BOTH
+    // client KB and server-side uploads are empty.
     startScoreRun(selectedId, knowledge_base);
   }, [selectedId, kb, extractedInsights]);
 
