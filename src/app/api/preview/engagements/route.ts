@@ -95,7 +95,12 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const { data, error } = await ctx.supabase
+  const service = getServiceClient();
+  if (!service) {
+    return NextResponse.json({ error: "Service client unavailable" }, { status: 500 });
+  }
+
+  const { data, error } = await service
     .from("engagements")
     .insert({
       client_firm_name,
