@@ -12,7 +12,7 @@ import {
 } from "@/lib/preview/system-signals";
 
 // ─── Display caps ─────────────────────────────────────────────────────────────
-const CRITICAL_CAP  = 3;
+const CRITICAL_CAP = 3;
 const IMPORTANT_CAP = 3;
 
 // ─── Root component ───────────────────────────────────────────────────────────
@@ -24,10 +24,11 @@ export function SystemSignalPill() {
   const [panelOpen, setPanelOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Dismiss panel on Escape or outside click
   useEffect(() => {
     if (!panelOpen) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setPanelOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPanelOpen(false);
+    };
     const onDown = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setPanelOpen(false);
@@ -41,33 +42,36 @@ export function SystemSignalPill() {
     };
   }, [panelOpen]);
 
-  const headline   = current ? formatPillHeadline(current) : null;
+  const headline = current ? formatPillHeadline(current) : null;
   const hasContent = !!(current || history.length > 0);
 
   return (
     <div
       ref={containerRef}
       aria-live="polite"
-      className="print-hide pointer-events-none fixed inset-x-0 bottom-4 z-40 flex flex-col items-center gap-2 sm:bottom-6"
+      className="print-hide pointer-events-none fixed bottom-4 right-4 z-40 flex flex-col items-end gap-2 sm:bottom-6 sm:right-6"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      {/* Floating panel — anchored above pill, no overlay */}
       {panelOpen && (
-        <div className="pointer-events-auto w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-2xl border border-white/10 bg-slate-950 shadow-[0_16px_48px_-16px_rgba(0,0,0,0.85)] ring-1 ring-white/5 sm:max-w-md">
+        <div className="pointer-events-auto w-[calc(100vw-2rem)] max-w-sm overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_10px_40px_-12px_rgba(15,23,42,0.18)] sm:max-w-[380px]">
           <KeyChangesPanel
             latest={current}
             history={history}
-            onClose={() => { setPanelOpen(false); dismiss(); }}
+            onClose={() => {
+              setPanelOpen(false);
+              dismiss();
+            }}
             onClear={clearHistory}
           />
         </div>
       )}
 
-      {/* Compact pill */}
       <button
         type="button"
-        onClick={() => { if (hasContent) setPanelOpen((o) => !o); }}
-        className={`pointer-events-auto inline-flex max-w-[92vw] items-center gap-2 rounded-full border border-emerald-400/30 bg-slate-950/90 px-3.5 py-1.5 text-[11px] font-semibold text-emerald-100 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.6)] ring-1 ring-white/5 backdrop-blur transition-all duration-300 ${
+        onClick={() => {
+          if (hasContent) setPanelOpen((o) => !o);
+        }}
+        className={`pointer-events-auto inline-flex max-w-[92vw] items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-[12px] font-medium text-slate-700 shadow-[0_4px_16px_-4px_rgba(15,23,42,0.12)] transition-all duration-300 hover:border-slate-300 hover:shadow-[0_6px_20px_-4px_rgba(15,23,42,0.16)] ${
           current
             ? "translate-y-0 opacity-100"
             : "pointer-events-none translate-y-2 opacity-0"
@@ -75,15 +79,17 @@ export function SystemSignalPill() {
         aria-label={panelOpen ? "Close key changes" : "Open key changes"}
         aria-expanded={panelOpen}
       >
-        <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
-          <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+        <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-indigo-400 opacity-60" />
+          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
         </span>
-        <span className="truncate font-mono tracking-tight">{headline ?? ""}</span>
+        <span className="truncate">{headline ?? ""}</span>
         <span
           aria-hidden
-          className={`text-emerald-300/70 transition-transform duration-200 ${panelOpen ? "rotate-90" : ""}`}
-        >›</span>
+          className={`text-slate-400 transition-transform duration-200 ${panelOpen ? "rotate-90" : ""}`}
+        >
+          ›
+        </span>
       </button>
     </div>
   );
@@ -108,15 +114,13 @@ function KeyChangesPanel({
 
   return (
     <>
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-white/5 px-4 py-2.5">
+      <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="relative flex h-2 w-2 shrink-0" aria-hidden>
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+          <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+            <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-indigo-500" />
           </span>
-          <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.28em] text-emerald-300">
-            Key Changes
+          <span className="text-[12px] font-semibold text-slate-900">
+            Key changes
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -124,7 +128,7 @@ function KeyChangesPanel({
             <button
               type="button"
               onClick={onClear}
-              className="font-mono text-[9px] font-semibold uppercase tracking-widest text-slate-500 transition-colors hover:text-slate-300"
+              className="text-[11px] font-medium text-slate-500 transition-colors hover:text-slate-800"
             >
               Clear
             </button>
@@ -133,33 +137,34 @@ function KeyChangesPanel({
             type="button"
             onClick={onClose}
             aria-label="Close key changes"
-            className="text-slate-500 transition-colors hover:text-slate-200"
+            className="text-slate-400 transition-colors hover:text-slate-700"
           >
             ✕
           </button>
         </div>
       </div>
 
-      {/* Body */}
       <div className="max-h-[60vh] overflow-y-auto px-4 py-3 sm:max-h-[70vh]">
         {primary ? (
           <BatchBody batch={primary} />
         ) : (
-          <p className="font-mono text-[11px] text-slate-500">No changes yet.</p>
+          <p className="text-[12px] text-slate-500">No changes yet.</p>
         )}
 
         {olderHistory.length > 0 && (
-          <div className="mt-4 space-y-3 border-t border-white/5 pt-3">
-            <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-600">
+          <div className="mt-4 space-y-3 border-t border-slate-100 pt-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
               Prior
             </p>
             {olderHistory.slice(0, 3).map((b) => (
-              <div key={b.id} className="rounded-lg border border-white/5 bg-slate-900/50 p-3">
-                <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.18em] text-slate-600">
+              <div
+                key={b.id}
+                className="rounded-lg border border-slate-100 bg-slate-50/60 p-3"
+              >
+                <p className="mb-2 text-[10px] font-medium text-slate-400">
                   {new Date(b.created_at).toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
-                    second: "2-digit",
                   })}
                 </p>
                 <BatchBody batch={b} compact />
@@ -173,50 +178,55 @@ function KeyChangesPanel({
 }
 
 // ─── Batch body ───────────────────────────────────────────────────────────────
-function BatchBody({ batch, compact = false }: { batch: KeyChangesBatch; compact?: boolean }) {
-  const critical  = batch.changes.filter((c) => c.severity === "critical").slice(0, CRITICAL_CAP);
-  const important = batch.changes.filter((c) => c.severity === "important").slice(0, IMPORTANT_CAP);
+function BatchBody({
+  batch,
+  compact = false,
+}: {
+  batch: KeyChangesBatch;
+  compact?: boolean;
+}) {
+  const critical = batch.changes
+    .filter((c) => c.severity === "critical")
+    .slice(0, CRITICAL_CAP);
+  const important = batch.changes
+    .filter((c) => c.severity === "important")
+    .slice(0, IMPORTANT_CAP);
 
   return (
     <div className="space-y-3">
-      {/* Primary Insight */}
       {!compact && batch.primaryInsight && (
-        <div className="rounded-lg border border-emerald-500/20 bg-emerald-950/30 px-3 py-2">
-          <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-400 mb-1">
-            Primary Insight
+        <div className="rounded-lg border border-indigo-100 bg-indigo-50/60 px-3 py-2.5">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-600">
+            Primary insight
           </p>
-          <p className="text-[12px] font-semibold leading-snug text-slate-100">
+          <p className="text-[13px] font-semibold leading-snug text-slate-900">
             {batch.primaryInsight}
           </p>
         </div>
       )}
 
-      {/* Critical section */}
       {critical.length > 0 && (
-        <Section label="Critical" labelClass="text-rose-400">
+        <Section label="Critical" dotClass="bg-rose-500">
           {critical.map((c, i) => (
             <ChangeCard key={c.id} change={c} rank={i + 1} />
           ))}
         </Section>
       )}
 
-      {/* Important section */}
       {important.length > 0 && (
-        <Section label="Important" labelClass="text-amber-400">
+        <Section label="Important" dotClass="bg-amber-500">
           {important.map((c, i) => (
             <ChangeCard key={c.id} change={c} rank={critical.length + i + 1} />
           ))}
         </Section>
       )}
 
-      {/* View all overflow */}
       {batch.hasMore && !compact && (
-        <p className="font-mono text-[10px] text-slate-500">
+        <p className="text-[11px] text-slate-500">
           + additional changes — expand this section to view all
         </p>
       )}
 
-      {/* Confidence Shift */}
       {batch.confidenceShift && !compact && (
         <ConfidenceBlock shift={batch.confidenceShift} />
       )}
@@ -227,19 +237,22 @@ function BatchBody({ batch, compact = false }: { batch: KeyChangesBatch; compact
 // ─── Section wrapper ──────────────────────────────────────────────────────────
 function Section({
   label,
-  labelClass,
+  dotClass,
   children,
 }: {
   label: string;
-  labelClass: string;
+  dotClass: string;
   children: React.ReactNode;
 }) {
   return (
     <div className="space-y-2">
-      <p className={`font-mono text-[9px] font-semibold uppercase tracking-[0.24em] ${labelClass}`}>
-        {label}
-      </p>
-      {children}
+      <div className="flex items-center gap-1.5">
+        <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`} />
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+          {label}
+        </p>
+      </div>
+      <div className="space-y-2">{children}</div>
     </div>
   );
 }
@@ -251,25 +264,25 @@ function ChangeCard({ change, rank }: { change: KeyChange; rank: number }) {
     (change.supporting_items?.length ?? 0) > 0 || !!change.reason;
 
   return (
-    <div className="rounded-lg border border-white/5 bg-slate-900/50 p-2.5">
-      {/* Top row: lifecycle tag + priority badge */}
+    <div className="rounded-lg border border-slate-200 bg-white p-3">
       <div className="mb-1.5 flex items-center gap-1.5">
         <LifecycleBadge lifecycle={change.lifecycle} />
-        <span className="font-mono text-[9px] font-semibold text-slate-600">
+        <span className="text-[10px] font-semibold text-slate-400">
           #{rank}
         </span>
         {change.dimension && (
-          <span className="truncate font-mono text-[9px] uppercase tracking-wider text-slate-600">
+          <span className="truncate text-[10px] font-medium uppercase tracking-wider text-slate-400">
             {DIMENSION_SHORT_LABEL[change.dimension]}
           </span>
         )}
       </div>
 
-      {/* Headline */}
-      <p className="text-[12px] font-semibold leading-snug text-slate-100">
+      <p className="text-[13px] font-semibold leading-snug text-slate-900">
         {change.direction && (
           <span
-            className={`mr-1 ${change.direction === "up" ? "text-emerald-400" : "text-amber-400"}`}
+            className={`mr-1 ${
+              change.direction === "up" ? "text-emerald-600" : "text-amber-600"
+            }`}
             aria-hidden
           >
             {change.direction === "up" ? "↑" : "↓"}
@@ -278,32 +291,39 @@ function ChangeCard({ change, rank }: { change: KeyChange; rank: number }) {
         {change.headline}
       </p>
 
-      {/* Investment implication */}
-      <p className="mt-1 text-[11px] leading-snug text-slate-400">
-        <span className="text-slate-600">→ </span>{change.implication}
+      <p className="mt-1 text-[12px] leading-snug text-slate-600">
+        <span className="text-slate-400">→ </span>
+        {change.implication}
       </p>
 
-      {/* Drill-down */}
       {hasDetails && (
         <>
           <button
             type="button"
             onClick={() => setExpanded((o) => !o)}
-            className="mt-1.5 font-mono text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+            aria-expanded={expanded}
+            className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-100"
           >
-            {expanded ? "− Less" : "+ Evidence"}
+            <span
+              aria-hidden
+              className={`transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+            >
+              ›
+            </span>
+            {expanded ? "Hide evidence" : "View evidence"}
           </button>
           {expanded && (
-            <div className="mt-2 space-y-1 border-t border-white/5 pt-2">
+            <div className="mt-2 space-y-1 border-t border-slate-100 pt-2">
               {change.reason && (
-                <p className="font-mono text-[10px] text-slate-400">
-                  <span className="text-slate-600">Source: </span>
+                <p className="text-[11px] leading-snug text-slate-600">
+                  <span className="font-medium text-slate-500">Source:</span>{" "}
                   {change.evidence_source} — {change.reason}
                 </p>
               )}
               {(change.supporting_items ?? []).map((item, i) => (
-                <p key={i} className="font-mono text-[10px] text-slate-300">
-                  <span className="text-slate-600">· </span>{item}
+                <p key={i} className="text-[11px] leading-snug text-slate-700">
+                  <span className="text-slate-400">· </span>
+                  {item}
                 </p>
               ))}
             </div>
@@ -317,13 +337,13 @@ function ChangeCard({ change, rank }: { change: KeyChange; rank: number }) {
 // ─── Lifecycle badge ──────────────────────────────────────────────────────────
 function LifecycleBadge({ lifecycle }: { lifecycle: KeyChange["lifecycle"] }) {
   const styles: Record<typeof lifecycle, string> = {
-    new:      "bg-emerald-500/15 text-emerald-300 ring-emerald-500/20",
-    updated:  "bg-amber-500/15 text-amber-300 ring-amber-500/20",
-    resolved: "bg-slate-500/15 text-slate-400 ring-slate-500/20",
+    new: "bg-indigo-50 text-indigo-700 ring-indigo-200",
+    updated: "bg-amber-50 text-amber-700 ring-amber-200",
+    resolved: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   };
   return (
     <span
-      className={`rounded px-1.5 py-[1px] font-mono text-[9px] font-semibold uppercase tracking-wider ring-1 ${styles[lifecycle]}`}
+      className={`rounded px-1.5 py-[1px] text-[9px] font-semibold uppercase tracking-wider ring-1 ring-inset ${styles[lifecycle]}`}
     >
       {lifecycle}
     </span>
@@ -333,24 +353,23 @@ function LifecycleBadge({ lifecycle }: { lifecycle: KeyChange["lifecycle"] }) {
 // ─── Confidence shift block ───────────────────────────────────────────────────
 function ConfidenceBlock({ shift }: { shift: ConfidenceShift }) {
   return (
-    <div className="rounded-lg border border-white/5 bg-slate-900/40 p-2.5">
-      <p className="font-mono text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500 mb-1">
+    <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
         Confidence
       </p>
-      <p className="text-[12px] font-semibold text-slate-100">
+      <p className="text-[13px] font-semibold text-slate-900">
         <span
-          className={`mr-1 ${shift.direction === "up" ? "text-emerald-400" : "text-amber-400"}`}
+          className={`mr-1 ${
+            shift.direction === "up" ? "text-emerald-600" : "text-amber-600"
+          }`}
         >
           {shift.direction === "up" ? "↑" : "↓"}
         </span>
         {shift.headline}
       </p>
-      <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{shift.reason}</p>
+      <p className="mt-0.5 text-[12px] leading-snug text-slate-600">
+        {shift.reason}
+      </p>
     </div>
   );
 }
-
-
-// System-terminal notification: fires whenever the knowledge base
-// recalibrates the scoring model. Details appear in a floating panel
-// anchored above the pill — no overlay, page stays fully interactive.
