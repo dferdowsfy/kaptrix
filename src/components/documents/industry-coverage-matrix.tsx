@@ -7,6 +7,7 @@ import {
   UPLOAD_ACCEPT_ATTR,
   uploadFilesForCategory,
 } from "@/lib/preview/upload-file";
+import { removeUploadedDoc } from "@/lib/preview/uploaded-docs";
 import {
   INDUSTRY_PROFILES,
   type Industry,
@@ -249,7 +250,7 @@ export function IndustryCoverageMatrix({
                   <p className="text-[11px] text-slate-400">
                     {docs.length} file{docs.length > 1 ? "s" : ""}
                   </p>
-                  <RowUploads uploads={docs} compact />
+                  <RowUploads uploads={docs} compact clientId={clientId} />
                 </div>
               );
             })}
@@ -385,7 +386,7 @@ export function IndustryCoverageMatrix({
                       {inFlight ? "Uploading…" : "Upload"}
                     </button>
                   </div>
-                  <RowUploads uploads={uploads} compact />
+                  <RowUploads uploads={uploads} compact clientId={clientId} />
                 </li>
               );
             })}
@@ -443,6 +444,7 @@ export function IndustryCoverageMatrix({
                       <StatusPill status={row.status} />
                       <RowUploads
                         uploads={uploadsByCategory[row.artifact.category] ?? []}
+                        clientId={clientId}
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -540,19 +542,23 @@ function StatusPill({ status }: { status: Status }) {
 function RowUploads({
   uploads,
   compact = false,
+  clientId,
 }: {
   uploads: UploadedDoc[];
   compact?: boolean;
+  clientId?: string | null;
 }) {
   if (uploads.length === 0) return null;
-  // Compact variant (used inside the amber CTA) shows only in-flight
-  // files so the card doesn't grow after a successful upload.
+  // Compact variant shows in-flight + parsed files so users see both
+  // the progress state and the green ✓ confirmation after a successful
+  // upload. Previously-failed files are also shown so they can be removed.
   const visible = compact
     ? uploads.filter(
         (d) =>
           d.parse_status === "uploading" ||
           d.parse_status === "parsing" ||
           d.parse_status === "queued" ||
+          d.parse_status === "parsed" ||
           d.parse_status === "failed",
       )
     : uploads;
@@ -563,35 +569,51 @@ function RowUploads({
         <li key={d.id} className="max-w-xs">
           <div className="flex items-center justify-between gap-2">
             <span
-              className="truncate text-[11px] font-medium text-slate-700"
+              className="min-w-0 truncate text-[11px] font-medium text-slate-700"
               title={d.filename}
             >
               {d.filename}
             </span>
-            {d.parse_status === "uploading" ? (
-              <span className="tabular-nums text-[10px] font-semibold text-sky-700">
-                {Math.max(0, Math.min(100, d.upload_percent ?? 0))}%
-              </span>
-            ) : d.parse_status === "parsing" ? (
-              <span className="text-[10px] font-semibold text-amber-700">
-                Parsing…
-              </span>
-            ) : d.parse_status === "parsed" ? (
-              <span className="text-[10px] font-semibold text-emerald-700">
-                ✓
-              </span>
-            ) : d.parse_status === "failed" ? (
-              <span
-                className="text-[10px] font-semibold text-rose-700"
-                title={d.error ?? "Failed"}
-              >
-                Failed
-              </span>
-            ) : (
-              <span className="text-[10px] font-semibold text-slate-500">
-                Queued
-              </span>
-            )}
+            <div className="flex shrink-0 items-center gap-1">
+              {d.parse_status === "uploading" ? (
+                <span className="tabular-nums text-[10px] font-semibold text-sky-700">
+                  {Math.max(0, Math.min(100, d.upload_percent ?? 0))}%
+                </span>
+              ) : d.parse_status === "parsing" ? (
+                <span className="text-[10px] font-semibold text-amber-700">
+                  Parsing…
+                </span>
+              ) : d.parse_status === "parsed" ? (
+                <span className="text-[10px] font-semibold text-emerald-700">
+                  ✓
+                </span>
+              ) : d.parse_status === "failed" ? (
+                <span
+                  className="text-[10px] font-semibold text-rose-700"
+                  title={d.error ?? "Failed"}
+                >
+                  Failed
+                </span>
+              ) : (
+                <span className="text-[10px] font-semibold text-slate-500">
+                  Queued
+                </span>
+              )}
+              {clientId && (
+                <button
+                  type="button"
+                  aria-label={`Remove ${d.filename}`}
+                  title="Remove file"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    removeUploadedDoc(clientId, d.id);
+                  }}
+                  className="rounded px-0.5 text-[11px] leading-none text-slate-300 transition hover:text-rose-500"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
           </div>
           {(d.parse_status === "uploading" ||
             d.parse_status === "parsing" ||

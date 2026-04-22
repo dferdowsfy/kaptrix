@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { ScoringPanel } from "@/components/scoring/scoring-panel";
 import {
@@ -72,7 +72,7 @@ function suggestedToScore(s: SuggestedScore, engagementId: string): Score {
 const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
 
 export default function PreviewScoringPage() {
-  const { selectedId, ready } = useSelectedPreviewClient();
+  const { selectedId } = useSelectedPreviewClient();
   const { snapshot } = usePreviewSnapshot(selectedId);
   const scoreRun = useScoreRunStore();
 
@@ -81,9 +81,19 @@ export default function PreviewScoringPage() {
   const benchmarks = snapshot?.benchmarks ?? demoBenchmarkCases;
   const analyses = snapshot?.analyses ?? [];
 
-  // Local view state — populated from cache on mount or from store on completion.
-  const [suggestedScores, setSuggestedScores] = useState<Score[] | null>(null);
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
+  // Read cache synchronously on every client change — no flash on navigation.
+  const scoreCache = useMemo(() => readScoreCache(selectedId), [selectedId]);
+  // Live scores come only from the current LLM run; null until a run completes.
+  const [liveScores, setLiveScores] = useState<Score[] | null>(null);
+  const [liveGeneratedAt, setLiveGeneratedAt] = useState<string | null>(null);
+  // Clear live state whenever the selected client changes.
+  useEffect(() => {
+    setLiveScores(null);
+    setLiveGeneratedAt(null);
+  }, [selectedId]);
+  // Effective values: live run > localStorage cache.
+  const suggestedScores = liveScores ?? scoreCache?.scores ?? null;
+  const generatedAt = liveGeneratedAt ?? scoreCache?.generated_at ?? null;
 
   const kb = useSyncExternalStore(
     subscribeKnowledgeBase,
@@ -128,8 +138,8 @@ export default function PreviewScoringPage() {
     ) {
       const scores = scoreRun.scores.map((s) => suggestedToScore(s, engagement.id));
       const ts = scoreRun.generated_at ?? new Date().toISOString();
-      setSuggestedScores(scores);
-      setGeneratedAt(ts);
+      setLiveScores(scores);
+      setLiveGeneratedAt(ts);
       writeScoreCache(selectedId, { scores, generated_at: ts });
       // Write to KB with stale cleared (explicit operator re-run).
       submitScoringToKnowledgeBase({
@@ -143,18 +153,7 @@ export default function PreviewScoringPage() {
     }
   }, [scoreRun.status, scoreRun.clientId, scoreRun.scores, scoreRun.generated_at, selectedId, engagement.id]);
 
-  // On client change: restore from cache or clear.
-  useEffect(() => {
-    if (!ready || !selectedId) return;
-    const cached = readScoreCache(selectedId);
-    if (cached) {
-      setSuggestedScores(cached.scores);
-      setGeneratedAt(cached.generated_at);
-      return;
-    }
-    setSuggestedScores(null);
-    setGeneratedAt(null);
-  }, [selectedId, ready]);
+  // (cache restore is now handled synchronously via useMemo above)
 
   // The scores passed to the panel: LLM suggestions if available, otherwise snapshot.
   const panelScores = suggestedScores ?? (snapshot?.scores ?? []);
@@ -162,11 +161,21 @@ export default function PreviewScoringPage() {
 
   return (
     <div className="space-y-4">
-      <SectionHeader
-        eyebrow="Module 3"
-        title="Scoring engine"
-        description="Interactive six-dimension scoring with benchmark pattern context. Intake, coverage, insights, and pre-analysis submissions feed directly into the composite and recommendation."
-      />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <SectionHeader
+          eyebrow="Module 3"
+          title="Scoring engine"
+          description="Interactive six-dimension scoring with benchmark pattern context. Intake, coverage, insights, and pre-analysis submissions feed directly into the composite and recommendation."
+        />
+        <button
+          type="button"
+          onClick={() => void run()}
+          disabled={loading}
+          className="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
+        >
+          {loading ? "Generating…" : suggestedScores ? "Re-run scoring" : "Generate scores"}
+        </button>
+      </div>
 
       {/* KB inputs + stale banner */}
       <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm">
@@ -215,23 +224,12 @@ export default function PreviewScoringPage() {
         </div>
       </div>
 
-      {/* Generate / Re-run prompt when no scores yet or upstream changed */}
-      {!suggestedScores && !loading && (
-        <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white py-12 text-center">
-          <p className="text-sm font-medium text-slate-700">
-            No scores generated yet.
+      {!suggestedScores && !(snapshot?.scores?.length) && !loading && (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">
+          <p className="text-sm font-medium text-slate-600">No scores generated yet.</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Complete the Intake questionnaire, then click &ldquo;Generate scores&rdquo; above.
           </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Complete the Intake questionnaire, then run the scoring engine to get LLM-suggested scores as a starting point.
-          </p>
-          <button
-            type="button"
-            onClick={() => void run()}
-            disabled={loading}
-            className="mt-4 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
-          >
-            Generate scores from context
-          </button>
         </div>
       )}
 
