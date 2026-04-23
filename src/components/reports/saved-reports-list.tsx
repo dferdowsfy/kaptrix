@@ -54,6 +54,7 @@ export function SavedReportsList() {
 
 function SavedReportRow({ record }: { record: ReportRecord }) {
   const [expanded, setExpanded] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
 
   const exportPdf = useCallback(() => {
     if (!record.content) return;
@@ -150,8 +151,49 @@ function SavedReportRow({ record }: { record: ReportRecord }) {
 
       {/* Expanded preview — always full width, always below the header row */}
       {expanded && record.content ? (
-        <div className="mt-4 max-h-[640px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-inner">
+        <div className="relative mt-4 max-h-[640px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-inner">
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            className="absolute right-3 top-3 rounded-md p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+            title="Fullscreen"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+              <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+            </svg>
+          </button>
           <ReportMarkdown source={record.content} />
+        </div>
+      ) : null}
+
+      {/* Fullscreen overlay */}
+      {fullscreen && record.content ? (
+        <div className="fixed inset-0 z-50 flex flex-col bg-white">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-6 py-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-700">
+                {eyebrow}
+              </p>
+              <h4 className="truncate text-sm font-semibold text-slate-900">
+                {record.title} — {record.target}
+              </h4>
+            </div>
+            <button
+              type="button"
+              onClick={() => setFullscreen(false)}
+              className="ml-4 shrink-0 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+              title="Exit fullscreen"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 3v3a2 2 0 0 1-2 2H3"/><path d="M21 8h-3a2 2 0 0 1-2-2V3"/>
+                <path d="M3 16h3a2 2 0 0 1 2 2v3"/><path d="M16 21v-3a2 2 0 0 1 2-2h3"/>
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-8 py-6">
+            <ReportMarkdown source={record.content} />
+          </div>
         </div>
       ) : null}
     </div>
