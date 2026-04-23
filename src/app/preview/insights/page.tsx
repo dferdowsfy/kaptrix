@@ -20,16 +20,19 @@ import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 import {
   readExtractedInsights,
-  mergeExtractedInsights,
   subscribeExtractedInsights,
 } from "@/lib/preview/extracted-insights";
 import {
   readUploadedDocs,
   subscribeUploadedDocs,
-  upsertUploadedDoc,
   type UploadedDoc,
 } from "@/lib/preview/uploaded-docs";
 import type { Document } from "@/lib/types";
+import { GenerateButton } from "@/components/preview/generate-button";
+import {
+  startInsightsRun,
+  useInsightsRunStore,
+} from "@/lib/preview/insights-run-store";
 
 const REMOVED_STORAGE_PREFIX = "kaptrix.preview.insights.removed:";
 
@@ -57,6 +60,7 @@ export default function PreviewInsightsPage() {
   const { selectedId } = useSelectedPreviewClient();
   const { snapshot } = usePreviewSnapshot(selectedId);
   const documents = snapshot?.documents ?? demoDocuments;
+  const insightsRun = useInsightsRunStore();
 
   // Pre-seeded snapshot insights (demo or real engagement).
   const snapshotInsights = snapshot?.knowledgeInsights ?? demoKnowledgeInsights;
@@ -197,21 +201,6 @@ export default function PreviewInsightsPage() {
     [selectedId],
   );
 
-  // ------------------------------------------------------------------
-  // Manual extraction trigger. Runs /api/preview/extract-insights for
-  // every uploaded doc whose insights haven’t been surfaced yet (or
-  // every parsed doc when the operator forces a re-run). Recovers from
-  // the upload-time auto-trigger failing, and works for docs uploaded
-  // before the extraction pipeline existed.
-  // ------------------------------------------------------------------
-  const [extractState, setExtractState] = useState<{
-    running: boolean;
-    processed: number;
-    total: number;
-    error: string | null;
-    lastRunAt: string | null;
-  }>({ running: false, processed: 0, total: 0, error: null, lastRunAt: null });
-
   // A doc is “missing insights” if it has parsed text but either its
   // insights_count is 0 / undefined OR nothing with the ext-<slug>-
   // prefix exists in the extracted-insights store.
@@ -232,75 +221,28 @@ export default function PreviewInsightsPage() {
     });
   }, [extractionDocs, extractedInsights]);
 
+  const isMyRun = insightsRun.clientId === selectedId;
+  const extractBusy = insightsRun.status === "running";
+  const extractState = {
+    running: isMyRun && insightsRun.status === "running",
+    processed: isMyRun ? insightsRun.processed : 0,
+    total: isMyRun ? insightsRun.total : 0,
+    error:
+      isMyRun && insightsRun.status === "error"
+        ? (insightsRun.error ?? null)
+        : null,
+    lastRunAt: isMyRun ? (insightsRun.lastRunAt ?? null) : null,
+  };
+
   const runExtraction = useCallback(
-    async (force: boolean) => {
+    (force: boolean) => {
       if (!selectedId) return;
       const targets = force
         ? extractionDocs.filter((d) => d.parsed_text && d.parsed_text.trim())
         : docsMissingInsights;
-      if (targets.length === 0) {
-        setExtractState((s) => ({ ...s, error: "No documents need extraction." }));
-        return;
-      }
-      setExtractState({
-        running: true,
-        processed: 0,
-        total: targets.length,
-        error: null,
-        lastRunAt: null,
-      });
-      let processed = 0;
-      let firstError: string | null = null;
-      for (const doc of targets) {
-        try {
-          upsertUploadedDoc({ ...doc, parse_status: "extracting" });
-          const res = await fetch("/api/preview/extract-insights", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              client_id: selectedId,
-              doc_id: doc.id,
-              filename: doc.filename,
-              category: doc.category,
-              text: doc.parsed_text,
-            }),
-          });
-          let insightsCount = 0;
-          if (res.ok) {
-            const data = (await res.json()) as {
-              insights?: KnowledgeInsight[];
-            };
-            if (Array.isArray(data.insights) && data.insights.length > 0) {
-              mergeExtractedInsights(selectedId, data.insights);
-              insightsCount = data.insights.length;
-            }
-          } else if (!firstError) {
-            const err = (await res.json().catch(() => ({}))) as {
-              error?: string;
-            };
-            firstError = err.error ?? `HTTP ${res.status}`;
-          }
-          upsertUploadedDoc({
-            ...doc,
-            parse_status: "parsed",
-            insights_count: (doc.insights_count ?? 0) + insightsCount,
-          });
-        } catch (err) {
-          if (!firstError) {
-            firstError =
-              err instanceof Error ? err.message : "Network error";
-          }
-          upsertUploadedDoc({ ...doc, parse_status: "parsed" });
-        }
-        processed += 1;
-        setExtractState((s) => ({ ...s, processed }));
-      }
-      setExtractState({
-        running: false,
-        processed,
-        total: targets.length,
-        error: firstError,
-        lastRunAt: new Date().toISOString(),
+      startInsightsRun({
+        clientId: selectedId,
+        documents: targets,
       });
     },
     [selectedId, extractionDocs, docsMissingInsights],
@@ -333,29 +275,25 @@ export default function PreviewInsightsPage() {
             ) : null}
           </div>
         </div>
-        <button
+        <GenerateButton
           type="button"
           onClick={() => runExtraction(false)}
-          disabled={
-            extractState.running ||
-            !selectedId ||
-            docsMissingInsights.length === 0
-          }
-          className="inline-flex items-center rounded-xl bg-gray-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition disabled:cursor-not-allowed disabled:bg-gray-300 hover:bg-gray-800"
+          disabled={extractBusy || !selectedId || docsMissingInsights.length === 0}
         >
           {extractState.running
             ? `Extracting… ${extractState.processed}/${extractState.total}`
             : `Generate insights${docsMissingInsights.length > 0 ? ` (${docsMissingInsights.length})` : ""}`}
-        </button>
-        <button
+        </GenerateButton>
+        <GenerateButton
           type="button"
+          variant="secondary"
+          size="sm"
           onClick={() => runExtraction(true)}
-          disabled={extractState.running || extractionDocs.length === 0}
-          className="inline-flex items-center rounded-xl border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 transition hover:border-gray-400 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={extractBusy || extractionDocs.length === 0}
           title="Re-run extraction on every parsed document"
         >
-          Re-run all
-        </button>
+          Re-generate all
+        </GenerateButton>
       </div>
       <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
         <KnowledgeInsightsPanel

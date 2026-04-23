@@ -12,6 +12,7 @@ import {
   useReportStore,
   type ReportRecord,
 } from "@/lib/reports/report-store";
+import { GenerateButton } from "@/components/preview/generate-button";
 
 interface Props {
   config: AdvancedReportConfig;
@@ -154,18 +155,17 @@ export function AiReportCard({
         <p className="text-sm leading-6 text-slate-600">{config.description}</p>
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <button
+          <GenerateButton
             type="button"
             onClick={generate}
             disabled={!canGenerate}
-            className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {loading
-              ? "Generating…"
+              ? "Generating report…"
               : result
-                ? "Regenerate"
+                ? "Re-generate report"
                 : "Generate report"}
-          </button>
+          </GenerateButton>
           {result && (
             <>
               <button

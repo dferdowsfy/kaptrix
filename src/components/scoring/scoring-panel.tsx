@@ -12,6 +12,7 @@ import {
   type ContextSignal,
 } from "@/lib/scoring/context";
 import { KNOWLEDGE_STEP_LABELS } from "@/lib/preview/knowledge-base";
+import { GenerateButton } from "@/components/preview/generate-button";
 import type {
   BenchmarkCase,
   DealStage,
@@ -255,13 +256,13 @@ export function ScoringPanel({
           )}
           <div className="flex items-center gap-3">
             {scoringStale && onForceResync && (
-              <button
+              <GenerateButton
                 type="button"
                 onClick={onForceResync}
-                className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:from-indigo-500 hover:to-violet-500"
+                size="sm"
               >
-                Re-run scoring
-              </button>
+                Re-generate scores
+              </GenerateButton>
             )}
           </div>
         </div>

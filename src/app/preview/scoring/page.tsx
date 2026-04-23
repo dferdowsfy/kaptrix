@@ -28,12 +28,17 @@ import {
   readExtractedInsights,
   subscribeExtractedInsights,
 } from "@/lib/preview/extracted-insights";
-import { deriveContextSignals } from "@/lib/scoring/context";
+import {
+  aggregateContextAdjustment,
+  deriveContextSignals,
+} from "@/lib/scoring/context";
+import { calculateCompositeScore, deriveDecision } from "@/lib/scoring/calculator";
 import { startScoreRun, useScoreRunStore } from "@/lib/scoring/score-run-store";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { usePreviewSnapshot } from "@/hooks/use-preview-data";
 import type { Score } from "@/lib/types";
 import type { SuggestedScore } from "@/app/api/scores/suggest/route";
+import { GenerateButton } from "@/components/preview/generate-button";
 
 // ─── Local cache so returning users see prior suggestions without a reload ───
 const SCORE_CACHE_PREFIX = "kaptrix.preview.scoring.v1:";
@@ -213,6 +218,23 @@ export default function PreviewScoringPage() {
     ) {
       const scores = scoreRun.scores.map((s) => suggestedToScore(s, engagement.id));
       const ts = scoreRun.generated_at ?? new Date().toISOString();
+      const composite = calculateCompositeScore(scores);
+      const contextAdjustment = aggregateContextAdjustment(contextSignals);
+      const contextAwareComposite =
+        Math.round(
+          Math.max(
+            0,
+            Math.min(5, composite.composite_score + contextAdjustment.composite_delta),
+          ) * 10,
+        ) / 10;
+      const decisionBand = deriveDecision({
+        dealStage: engagement.deal_stage,
+        status: engagement.status,
+        scores,
+        analyses,
+        contextAdjustment,
+      }).label;
+
       setLiveScores(scores);
       setLiveGeneratedAt(ts);
       writeScoreCache(selectedId, {
@@ -224,13 +246,25 @@ export default function PreviewScoringPage() {
       submitScoringToKnowledgeBase({
         clientId: selectedId,
         scores: scoreRun.scores,
-        composite_score: null,
-        context_aware_composite: null,
-        decision_band: null,
+        composite_score: composite.composite_score,
+        context_aware_composite: contextAwareComposite,
+        decision_band: decisionBand,
         autoSync: false,
       });
     }
-  }, [scoreRun.status, scoreRun.clientId, scoreRun.scores, scoreRun.generated_at, selectedId, engagement.id, currentInputsSignature]);
+  }, [
+    scoreRun.status,
+    scoreRun.clientId,
+    scoreRun.scores,
+    scoreRun.generated_at,
+    selectedId,
+    engagement.id,
+    engagement.deal_stage,
+    engagement.status,
+    analyses,
+    contextSignals,
+    currentInputsSignature,
+  ]);
 
   // (cache restore is now handled synchronously via useMemo above)
 
@@ -247,14 +281,19 @@ export default function PreviewScoringPage() {
           title="Scoring engine"
           description="Interactive six-dimension scoring with benchmark pattern context. Intake, coverage, insights, and pre-analysis submissions feed directly into the composite and recommendation."
         />
-        <button
+        <GenerateButton
           type="button"
           onClick={() => void run()}
           disabled={loading}
-          className="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 disabled:opacity-50"
+          size="lg"
+          className="shrink-0"
         >
-          {loading ? "Generating…" : suggestedScores ? "Re-run scoring" : "Generate scores"}
-        </button>
+          {loading
+            ? "Generating scores…"
+            : suggestedScores
+              ? "Re-generate scores"
+              : "Generate scores"}
+        </GenerateButton>
       </div>
 
       {/* KB inputs + stale banner */}
@@ -264,9 +303,9 @@ export default function PreviewScoringPage() {
           <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
             <span className="font-semibold">Upstream context changed.</span>{" "}
             {inputsChanged
-              ? "New evidence (uploaded documents or extracted insights) has been added since scores were generated — click Re-run scoring to incorporate it."
+              ? "New evidence (uploaded documents or extracted insights) has been added since scores were generated — click Re-generate scores to incorporate it."
               : upstreamChanged
-                ? `${scoringDirty.reasons.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} updated — click Re-run scoring to regenerate.`
+                ? `${scoringDirty.reasons.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} updated — click Re-generate scores to rebuild from the latest evidence.`
                 : `Re-submit ${staleUpstream.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} to clear the stale flag.`}
           </div>
         )}

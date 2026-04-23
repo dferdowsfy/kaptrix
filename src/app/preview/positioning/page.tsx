@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { SectionHeader } from "@/components/preview/preview-shell";
+import { GenerateButton } from "@/components/preview/generate-button";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import {
   formatKnowledgeBaseEvidence,
@@ -14,51 +15,15 @@ import {
   type KnowledgeEntry,
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
+import {
+  startPositioningRun,
+  usePositioningRunStore,
+  type Confidence,
+  type Position,
+  type PositioningResult,
+} from "@/lib/preview/positioning-run-store";
 
 const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
-
-type Position = "ahead" | "in_line" | "behind";
-type Confidence = "low" | "medium" | "high";
-
-interface Positioning {
-  target_context: {
-    type: "organization" | "product";
-    industry: string;
-    business_model: string;
-    ai_use_case: string;
-    customer_segment: string;
-    data_sensitivity: string;
-    deployment_maturity: string;
-    vendor_stack: string;
-    regulatory_exposure: string;
-    architecture_pattern: string;
-  };
-  comparables: {
-    name: string;
-    type: "company" | "product" | "analog";
-    category?: "A" | "B" | "C" | "D";
-    revenue_stage?: string;
-    vertical_fit_evidence?: string;
-    rationale: string;
-    source_url?: string;
-  }[];
-  insufficient_vertical_comps?: boolean;
-  insufficient_reason?: string;
-  comparison: {
-    dimension: string;
-    position: Position;
-    evidence: string;
-  }[];
-  positioning_summary: string;
-  investment_interpretation: {
-    differentiation: string;
-    durability: string;
-    risk_concentration: string;
-    validation_priorities: string[];
-  };
-  confidence: Confidence;
-  confidence_rationale: string;
-}
 
 const POSITION_STYLES: Record<Position, { label: string; className: string }> = {
   ahead: {
@@ -84,7 +49,7 @@ const CONFIDENCE_STYLES: Record<Confidence, string> = {
 // ─── Local cache so returning users see prior analysis without a reload ─────
 const POS_CACHE_PREFIX = "kaptrix.preview.positioning.v1:";
 type PositioningCache = {
-  data: Positioning;
+  data: PositioningResult;
   sources: { url: string; title?: string }[];
   generated_at: string;
 };
@@ -108,11 +73,10 @@ function writePositioningCache(clientId: string, cache: PositioningCache): void 
 
 export default function PositioningPage() {
   const { client, selectedId, ready } = useSelectedPreviewClient();
-  const [data, setData] = useState<Positioning | null>(null);
+  const positioningRun = usePositioningRunStore();
+  const [data, setData] = useState<PositioningResult | null>(null);
   const [sources, setSources] = useState<{ url: string; title?: string }[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const kb = useSyncExternalStore(
     subscribeKnowledgeBase,
@@ -120,54 +84,23 @@ export default function PositioningPage() {
     () => EMPTY_KB,
   );
 
-  const run = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Context-engine contract: send ONLY the upstream slice the
-      // positioning stage is entitled to see (intake + insights +
-      // scoring + pre-analysis). This prevents the model from
-      // feedback-looping on the prior positioning entry and guarantees
-      // the prompt is grounded in the current upstream context.
-      const slice = currentContextSlice(kb, "positioning");
-      const knowledge_base = formatKnowledgeBaseEvidence(slice).join("\n");
-      const res = await fetch("/api/positioning", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ client_id: selectedId, knowledge_base }),
-      });
-      const json = (await res.json()) as {
-        positioning?: Positioning;
-        sources?: { url: string; title?: string }[];
-        error?: string;
-      };
-      if (!res.ok || !json.positioning) {
-        setError(json.error ?? "Unable to generate positioning.");
-        setData(null);
-        setSources([]);
-      } else {
-        setData(json.positioning);
-        setSources(json.sources ?? []);
-        const ts = new Date().toISOString();
-        setGeneratedAt(ts);
-        if (selectedId) {
-          writePositioningCache(selectedId, {
-            data: json.positioning,
-            sources: json.sources ?? [],
-            generated_at: ts,
-          });
-          submitPositioningToKnowledgeBase({
-            clientId: selectedId,
-            positioning: json.positioning,
-            sources: json.sources ?? [],
-          });
-        }
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Network error");
-    } finally {
-      setLoading(false);
-    }
+  const isMyRun = positioningRun.clientId === selectedId;
+  const loading = isMyRun && positioningRun.status === "running";
+  const error =
+    isMyRun && positioningRun.status === "error"
+      ? (positioningRun.error ?? "Unable to generate positioning.")
+      : null;
+
+  const run = useCallback(() => {
+    if (!selectedId) return;
+    // Context-engine contract: send ONLY the upstream slice the
+    // positioning stage is entitled to see (intake + insights +
+    // scoring + pre-analysis). This prevents the model from
+    // feedback-looping on the prior positioning entry and guarantees
+    // the prompt is grounded in the current upstream context.
+    const slice = currentContextSlice(kb, "positioning");
+    const knowledge_base = formatKnowledgeBaseEvidence(slice).join("\n");
+    startPositioningRun(selectedId, knowledge_base);
   }, [selectedId, kb]);
 
   // On client change: restore prior results from cache if we have them.
@@ -176,7 +109,6 @@ export default function PositioningPage() {
   // persisted selectedId is hydrated from localStorage.
   useEffect(() => {
     if (!ready || !selectedId) return;
-    setError(null);
     const cached = readPositioningCache(selectedId);
     if (cached) {
       setData(cached.data);
@@ -189,6 +121,37 @@ export default function PositioningPage() {
     setGeneratedAt(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, ready]);
+
+  useEffect(() => {
+    if (
+      positioningRun.status === "done" &&
+      positioningRun.clientId === selectedId &&
+      positioningRun.data &&
+      selectedId
+    ) {
+      const ts = positioningRun.generated_at ?? new Date().toISOString();
+      setData(positioningRun.data);
+      setSources(positioningRun.sources ?? []);
+      setGeneratedAt(ts);
+      writePositioningCache(selectedId, {
+        data: positioningRun.data,
+        sources: positioningRun.sources ?? [],
+        generated_at: ts,
+      });
+      submitPositioningToKnowledgeBase({
+        clientId: selectedId,
+        positioning: positioningRun.data,
+        sources: positioningRun.sources ?? [],
+      });
+    }
+  }, [
+    positioningRun.status,
+    positioningRun.clientId,
+    positioningRun.data,
+    positioningRun.sources,
+    positioningRun.generated_at,
+    selectedId,
+  ]);
 
   // Context-engine: is the cached positioning now stale because an
   // upstream stage (intake / insights / scoring / pre-analysis) was
@@ -223,14 +186,13 @@ export default function PositioningPage() {
             </p>
           )}
         </div>
-        <button
-          type="button"
-          onClick={run}
-          disabled={loading}
-          className="rounded-lg bg-gradient-to-br from-indigo-600 to-violet-600 px-4 py-2 text-sm font-semibold text-white shadow transition hover:from-indigo-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {loading ? "Analyzing peers…" : data ? "Re-run analysis" : "Run analysis"}
-        </button>
+        <GenerateButton type="button" onClick={run} disabled={loading}>
+          {loading
+            ? "Generating positioning…"
+            : data
+              ? "Re-generate positioning"
+              : "Generate positioning"}
+        </GenerateButton>
       </div>
 
       {upstreamChanged && (
@@ -240,7 +202,7 @@ export default function PositioningPage() {
           {positioningDirty.reasons
             .map((r) => KNOWLEDGE_STEP_LABELS[r])
             .join(", ")}
-          . Re-run the analysis to rebuild peers from the current intake and
+          . Re-generate positioning to rebuild peers from the current intake and
           evidence.
         </div>
       )}
@@ -521,7 +483,7 @@ function EmptyPositioning({
         <p className="mt-1 max-w-2xl text-sm text-slate-600">
           Kaptrix pulls comparables from live web research, then maps{" "}
           {client.target} against them on the dimensions that drive IC conviction.
-          Click <span className="font-semibold text-slate-900">Run analysis</span>{" "}
+          Click <span className="font-semibold text-slate-900">Generate positioning</span>{" "}
           above to generate a fresh read.
         </p>
       </div>

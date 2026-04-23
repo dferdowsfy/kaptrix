@@ -1,67 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
+import { usePreviewClients } from "@/hooks/use-preview-data";
 import type { PreviewClientSummary } from "@/lib/preview-clients";
 import { formatDate } from "@/lib/utils";
-import type { Engagement } from "@/lib/types";
 import { INDUSTRY_OPTIONS, type Industry } from "@/lib/industry-requirements";
 import { setClientIndustry } from "@/lib/preview-intake";
 
-/** Map a Supabase Engagement row into the shape the client card expects. */
-function engagementToClient(e: Engagement): PreviewClientSummary {
-  return {
-    id: e.id,
-    target: e.target_company_name,
-    client: e.client_firm_name,
-    industry: "",
-    deal_stage: e.deal_stage,
-    status: e.status,
-    tier: e.tier === "signal_scan" ? "essentials" : e.tier === "deep" ? "premium" : "standard",
-    composite_score: null,
-    recommendation: e.status === "delivered" ? "Delivered" : e.status === "intake" ? "In intake" : "In progress",
-    fee_usd: e.engagement_fee ?? 0,
-    deadline: e.delivery_deadline ?? "",
-    summary: "",
-  };
-}
-
 export default function PreviewHomePage() {
-  const { allClients, selectedId, setSelectedId } = useSelectedPreviewClient();
+  const { selectedId, setSelectedId } = useSelectedPreviewClient();
+  const { clients, isLoading, refresh } = usePreviewClients();
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
-
-  // Supabase engagements
-  const [engagements, setEngagements] = useState<Engagement[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const loadEngagements = useCallback(async () => {
-    try {
-      const res = await fetch("/api/preview/engagements", { cache: "no-store" });
-      if (res.ok) {
-        const data = await res.json();
-        setEngagements(data.engagements ?? []);
-      }
-    } catch {
-      // fall back to preview clients
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadEngagements();
-  }, [loadEngagements]);
-
-  // Merge: real engagements first, then preview mock clients (if any) that aren't in Supabase
-  const engagementIds = new Set(engagements.map((e) => e.id));
-  const supabaseClients = engagements.map(engagementToClient);
-  const mergedClients = [
-    ...supabaseClients,
-    ...allClients.filter((c) => !engagementIds.has(c.id)),
-  ];
 
   const openClient = (id: string) => {
     setSelectedId(id);
@@ -89,20 +42,20 @@ export default function PreviewHomePage() {
         <NewClientForm
           onCreated={() => {
             setShowForm(false);
-            loadEngagements();
+            void refresh();
           }}
         />
       )}
 
-      {loading ? (
+      {isLoading && clients.length === 0 ? (
         <div className="py-12 text-center text-sm text-slate-500">Loading engagements…</div>
-      ) : mergedClients.length === 0 ? (
+      ) : clients.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-slate-300 py-16 text-center">
           <p className="text-sm text-slate-500">No engagements yet. Add your first client above.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-2">
-          {mergedClients.map((c) => (
+          {clients.map((c) => (
             <ClientCard
               key={c.id}
               client={c}
@@ -352,7 +305,7 @@ function ClientCard({
   isSelected: boolean;
   onOpen: () => void;
 }) {
-  const recommendationTone = recommendationToTone(client.recommendation);
+  const statusTone = statusToTone(client.status);
 
   return (
     <button
@@ -365,11 +318,6 @@ function ClientCard({
         focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500
       `}
     >
-      {isSelected && (
-        <span className="absolute right-4 top-4 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200 sm:right-5 sm:top-5">
-          Last opened
-        </span>
-      )}
       <div className="flex items-start justify-between gap-3 sm:gap-4">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-indigo-600 sm:text-xs">
@@ -383,11 +331,18 @@ function ClientCard({
           </p>
         </div>
 
-        <div
-          className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1 sm:px-3 sm:text-xs
-            ${toneClasses(recommendationTone)}`}
-        >
-          {client.recommendation}
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          {isSelected && (
+            <span className="rounded-full bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 ring-1 ring-indigo-200 sm:px-3 sm:text-xs">
+              Last opened
+            </span>
+          )}
+          <div
+            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ring-1 sm:px-3 sm:text-xs
+              ${toneClasses(statusTone)}`}
+          >
+            {client.status_label}
+          </div>
         </div>
       </div>
 
@@ -433,11 +388,17 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 type Tone = "go" | "warn" | "stop" | "neutral";
 
-function recommendationToTone(rec: string): Tone {
-  const r = rec.toLowerCase();
-  if (r.startsWith("proceed with")) return "warn";
-  if (r.startsWith("proceed")) return "go";
-  if (r.startsWith("pause") || r.startsWith("pass")) return "stop";
+function statusToTone(status: string): Tone {
+  const normalized = status.toLowerCase();
+  if (normalized === "delivered") return "go";
+  if (
+    normalized === "analysis" ||
+    normalized === "scoring" ||
+    normalized === "review" ||
+    normalized === "scoping"
+  ) {
+    return "warn";
+  }
   return "neutral";
 }
 

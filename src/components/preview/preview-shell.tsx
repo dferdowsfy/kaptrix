@@ -16,6 +16,8 @@ import { TierPill } from "@/components/preview/tier-pill";
 import { NavSettingsMenu } from "@/components/preview/nav-settings-menu";
 import { useReportStore } from "@/lib/reports/report-store";
 import { useScoreRunStore } from "@/lib/scoring/score-run-store";
+import { useInsightsRunStore } from "@/lib/preview/insights-run-store";
+import { usePositioningRunStore } from "@/lib/preview/positioning-run-store";
 import { useChatPanel } from "@/components/preview/chat-panel-context";
 
 export function PreviewShell({
@@ -96,8 +98,6 @@ export function PreviewShell({
             </div>
 
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <HeaderScoringStatus />
-              <HeaderReportStatus />
               {hasClient && (
                 <HeaderChip label="Tier" value={client.tier} tone="neutral" />
               )}
@@ -179,6 +179,7 @@ export function PreviewShell({
                 <NavSettingsMenu />
               </div>
             </div>
+            <HeaderActivityRow isDemo={isDemo} />
           </div>
         </div>
       </div>
@@ -403,44 +404,163 @@ function ClientSwitcher({
   );
 }
 
-function HeaderScoringStatus() {
-  const { status } = useScoreRunStore();
-  if (status !== "running") return null;
+function HeaderActivityRow({ isDemo }: { isDemo: boolean }) {
+  const scoreRun = useScoreRunStore();
+  const insightsRun = useInsightsRunStore();
+  const positioningRun = usePositioningRunStore();
+  const { activeCount, generating } = useReportStore();
+  const baseHref = isDemo ? "/demo" : "/preview";
+
+  const reportRecord = generating[0];
+  const reportProgress =
+    reportRecord?.sectionsTotal && reportRecord.sectionsTotal > 0
+      ? Math.round(((reportRecord.sectionsDone ?? 0) / reportRecord.sectionsTotal) * 100)
+      : undefined;
+
+  const items = [
+    scoreRun.status === "running"
+      ? {
+          href: `${baseHref}/scoring`,
+          tone: "violet" as const,
+          label: "Generating scores",
+          detail: "Working through the knowledge base in the background",
+          indeterminate: true,
+        }
+      : null,
+    insightsRun.status === "running"
+      ? {
+          href: `${baseHref}/insights`,
+          tone: "slate" as const,
+          label: "Generating insights",
+          detail: `${insightsRun.processed}/${insightsRun.total} documents processed`,
+          progress:
+            insightsRun.total > 0
+              ? Math.round((insightsRun.processed / insightsRun.total) * 100)
+              : 0,
+        }
+      : null,
+    positioningRun.status === "running"
+      ? {
+          href: `${baseHref}/positioning`,
+          tone: "amber" as const,
+          label: "Generating positioning",
+          detail: "Researching comparables and synthesizing the market read",
+          indeterminate: true,
+        }
+      : null,
+    activeCount > 0
+      ? {
+          href: `${baseHref}/report#on-demand-reports`,
+          tone: "emerald" as const,
+          label:
+            activeCount === 1
+              ? `Generating ${reportRecord?.title ?? "report"}`
+              : `${activeCount} reports generating`,
+          detail:
+            activeCount === 1
+              ? reportRecord?.sectionsTotal && reportRecord.sectionsTotal > 0
+                ? `${reportRecord.sectionsDone ?? 0}/${reportRecord.sectionsTotal} sections complete${reportRecord.currentSection ? ` · ${reportRecord.currentSection}` : ""}`
+                : "Running in the background"
+              : "Multiple reports are running in the background",
+          progress: activeCount === 1 ? reportProgress : undefined,
+          indeterminate: activeCount > 1 || reportProgress === undefined,
+        }
+      : null,
+  ].filter((item): item is NonNullable<typeof item> => Boolean(item));
+
+  if (items.length === 0) return null;
+
   return (
-    <Link
-      href="/preview/scoring"
-      className="inline-flex max-w-[220px] items-center gap-2 rounded-full border border-violet-400/30 bg-violet-400/10 px-3 py-1 text-[11px] font-medium text-violet-100 transition hover:border-violet-300/60 hover:bg-violet-400/15 sm:max-w-[260px]"
-    >
-      <span
-        aria-hidden
-        className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-violet-300/30 border-t-violet-200"
-      />
-      <span className="truncate">Generating scores…</span>
-    </Link>
+    <div className="border-t border-slate-200/80 bg-slate-50/70">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 px-4 py-2 sm:px-6">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+          Background activity
+        </span>
+        <span className="text-[11px] text-slate-500">
+          Safe to switch pages while these finish.
+        </span>
+        <div className="flex flex-1 flex-wrap items-center gap-2 sm:justify-end">
+          {items.map((item) => (
+            <ActivityPill key={item.href + item.label} {...item} />
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
-function HeaderReportStatus() {
-  const { activeCount, generating } = useReportStore();
-  if (activeCount === 0) return null;
-  const first = generating[0]?.title;
-  const label =
-    activeCount === 1 && first
-      ? `Updating ${first}…`
-      : activeCount === 1
-        ? "Updating report…"
-        : `${activeCount} reports updating…`;
+function ActivityPill({
+  href,
+  label,
+  detail,
+  progress,
+  indeterminate = false,
+  tone,
+}: {
+  href: string;
+  label: string;
+  detail?: string;
+  progress?: number;
+  indeterminate?: boolean;
+  tone: "violet" | "emerald" | "slate" | "amber";
+}) {
+  const styles = {
+    violet: {
+      outer: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-300 hover:bg-violet-100/80",
+      spinner: "border-violet-300/50 border-t-violet-600",
+      track: "bg-violet-100",
+      fill: "bg-violet-500",
+    },
+    emerald: {
+      outer: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-300 hover:bg-emerald-100/80",
+      spinner: "border-emerald-300/50 border-t-emerald-600",
+      track: "bg-emerald-100",
+      fill: "bg-emerald-500",
+    },
+    slate: {
+      outer: "border-slate-200 bg-white text-slate-900 hover:border-slate-300 hover:bg-slate-50",
+      spinner: "border-slate-300/60 border-t-slate-700",
+      track: "bg-slate-100",
+      fill: "bg-slate-700",
+    },
+    amber: {
+      outer: "border-amber-200 bg-amber-50 text-amber-900 hover:border-amber-300 hover:bg-amber-100/80",
+      spinner: "border-amber-300/60 border-t-amber-600",
+      track: "bg-amber-100",
+      fill: "bg-amber-500",
+    },
+  }[tone];
+
   return (
     <Link
-      href="/preview/report#on-demand-reports"
-      title={label}
-      className="inline-flex max-w-[220px] items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-medium text-emerald-100 transition hover:border-emerald-300/60 hover:bg-emerald-400/15 sm:max-w-[260px]"
+      href={href}
+      className={`min-w-[220px] rounded-2xl border px-3 py-2 transition ${styles.outer}`}
+      title={detail ?? label}
     >
-      <span
-        aria-hidden
-        className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-emerald-300/30 border-t-emerald-200"
-      />
-      <span className="truncate">{label}</span>
+      <div className="flex items-start gap-2">
+        <span
+          aria-hidden
+          className={`mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 ${styles.spinner}`}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-xs font-semibold">{label}</div>
+          {detail ? (
+            <div className="mt-0.5 truncate text-[11px] opacity-80">{detail}</div>
+          ) : null}
+        </div>
+      </div>
+      {(typeof progress === "number" || indeterminate) && (
+        <div className={`mt-2 h-1.5 overflow-hidden rounded-full ${styles.track}`}>
+          <div
+            className={`h-full rounded-full ${styles.fill} ${indeterminate && typeof progress !== "number" ? "w-1/2 animate-pulse" : "transition-all duration-500"}`}
+            style={
+              typeof progress === "number"
+                ? { width: `${Math.max(8, Math.min(100, progress))}%` }
+                : undefined
+            }
+          />
+        </div>
+      )}
     </Link>
   );
 }

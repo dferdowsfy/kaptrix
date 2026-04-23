@@ -38,11 +38,13 @@ For each insight you find:
 - Classify into exactly one category: commercial, technical, regulatory, financial, operational.
 - Assign confidence: high (explicit statement), medium (implied), low (inference/speculation).
 - If the insight maps to a known intake field (e.g. "revenue_arr", "customer_count", "team_size"), set suggested_intake_field and suggested_intake_value.
+- You may also receive intake context from Supabase. Use it only to prioritize what matters and to map suggested intake fields; it is NOT evidence.
 
 Rules:
 - Return 4–10 insights. More text does not mean more insights — be selective.
 - Only include insights a professional analyst would actually act on.
 - Do NOT invent facts. Every insight must trace to text in the document.
+- Every excerpt and factual claim must come from the document text, not from intake context.
 - Each insight id must be unique — use pattern: "ext-<slug>-<n>" where slug is the filename slug.
 
 Return ONLY valid JSON, no prose:
@@ -68,6 +70,8 @@ interface ExtractBody {
   category?: string;
   text?: string;
 }
+
+type IntakeAnswers = Record<string, string | number | string[]>;
 
 function makeSlug(filename: string): string {
   return filename
@@ -154,9 +158,49 @@ async function resolveDocumentInput(body: ExtractBody): Promise<{
   );
 }
 
+function formatIntakeContext(answers: IntakeAnswers): string {
+  const lines: string[] = [];
+  for (const [key, value] of Object.entries(answers).sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const rendered = Array.isArray(value)
+      ? value.map(String).filter(Boolean).join(", ")
+      : value === null || value === undefined || value === ""
+        ? ""
+        : String(value);
+    if (!rendered) continue;
+    const label = key
+      .replace(/__note$/i, " note")
+      .replace(/__other$/i, " other")
+      .replace(/_/g, " ");
+    lines.push(`[intake] ${label}: ${rendered}`);
+  }
+  return lines.join("\n").slice(0, 3_500);
+}
+
+async function loadIntakeContext(args: {
+  supabase: Awaited<ReturnType<typeof requireAuth>>["supabase"];
+  userId: string;
+  clientId?: string;
+}): Promise<string> {
+  if (!args.clientId) return "";
+
+  const { data, error } = await args.supabase
+    .from("user_workspace_state")
+    .select("state")
+    .eq("user_id", args.userId)
+    .eq("engagement_id", args.clientId)
+    .eq("kind", "intake_answers")
+    .maybeSingle();
+
+  if (error || !data?.state || typeof data.state !== "object") return "";
+  return formatIntakeContext(data.state as IntakeAnswers);
+}
+
 export async function POST(request: NextRequest) {
+  let authCtx: Awaited<ReturnType<typeof requireAuth>>;
   try {
-    await requireAuth();
+    authCtx = await requireAuth();
   } catch (err) {
     return authErrorResponse(err);
   }
@@ -184,9 +228,18 @@ export async function POST(request: NextRequest) {
   // slower models / providers while still carrying enough document body
   // for high-signal diligence insights.
   const cappedText = text.length > 7000 ? text.slice(0, 7000) + "\n[…truncated]" : text;
+  const intakeContext = await loadIntakeContext({
+    supabase: authCtx.supabase,
+    userId: authCtx.userId,
+    clientId: body.client_id,
+  });
 
   const slug = makeSlug(filename);
-  const userMessage = `Document: "${filename}" (category: ${category ?? "unknown"})
+  const userMessage = `${
+    intakeContext
+      ? `INTAKE CONTEXT (from Supabase; context only — not evidence):\n${intakeContext}\n\n`
+      : ""
+  }Document: "${filename}" (category: ${category ?? "unknown"})
 
 --- BEGIN DOCUMENT TEXT ---
 ${cappedText}

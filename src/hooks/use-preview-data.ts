@@ -35,7 +35,7 @@ const fetcher = async (url: string) => {
 };
 
 export function usePreviewClients() {
-  const { data, error, isLoading } = useSWR<{ clients: PreviewClientSummary[] }>(
+  const { data, error, isLoading, mutate } = useSWR<{ clients: PreviewClientSummary[] }>(
     "/api/preview/clients",
     fetcher,
     { revalidateOnFocus: false },
@@ -44,6 +44,7 @@ export function usePreviewClients() {
     clients: data?.clients ?? [],
     error,
     isLoading,
+    refresh: mutate,
   };
 }
 

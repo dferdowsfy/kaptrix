@@ -50,7 +50,7 @@ export default function PreviewOverviewPage() {
           <div className="grid grid-cols-3 gap-2 sm:gap-3">
             <Tile label="Tier" value={client.tier} />
             <Tile label="Fee" value={formatCurrency(client.fee_usd)} />
-            <Tile label="Status" value={client.status} />
+            <Tile label="Status" value={client.status_label} />
           </div>
         </div>
       </div>
@@ -77,9 +77,13 @@ export default function PreviewOverviewPage() {
         />
         <MetricCard
           label="Recommendation"
-          value={client.recommendation}
-          helper="Current investment posture"
-          tone="warn"
+          value={client.recommendation ?? "—"}
+          helper={
+            client.recommendation
+              ? "Current investment posture"
+              : "Populates after scoring/report context is available"
+          }
+          tone={client.recommendation ? "warn" : "default"}
         />
       </div>
 

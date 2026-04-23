@@ -11,9 +11,10 @@ export type PreviewClientSummary = {
   industry: string;
   deal_stage: string;
   status: string;
+  status_label: string;
   tier: "essentials" | "standard" | "premium";
   composite_score: number | null;
-  recommendation: string;
+  recommendation: string | null;
   fee_usd: number;
   deadline: string; // ISO date
   summary: string;
@@ -27,6 +28,7 @@ export const PREVIEW_CLIENTS: PreviewClientSummary[] = [
     industry: "Legal Tech",
     deal_stage: "confirmatory",
     status: "analysis",
+    status_label: "Analysis",
     tier: "standard",
     composite_score: 3.1,
     recommendation: "Proceed with conditions",
@@ -42,6 +44,7 @@ export const PREVIEW_CLIENTS: PreviewClientSummary[] = [
     industry: "Healthcare AI",
     deal_stage: "initial",
     status: "scoping",
+    status_label: "Scoping",
     tier: "premium",
     composite_score: 3.6,
     recommendation: "Proceed",
@@ -57,6 +60,7 @@ export const PREVIEW_CLIENTS: PreviewClientSummary[] = [
     industry: "Financial Services",
     deal_stage: "confirmatory",
     status: "analysis",
+    status_label: "Analysis",
     tier: "standard",
     composite_score: 2.4,
     recommendation: "Pause",
@@ -72,9 +76,10 @@ export const PREVIEW_CLIENTS: PreviewClientSummary[] = [
     industry: "Industrial AI",
     deal_stage: "initial",
     status: "intake",
+    status_label: "In intake",
     tier: "essentials",
     composite_score: null,
-    recommendation: "In intake",
+    recommendation: null,
     fee_usd: 6500,
     deadline: "2026-05-15T17:00:00.000Z",
     summary:

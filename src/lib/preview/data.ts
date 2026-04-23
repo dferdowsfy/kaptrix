@@ -17,6 +17,12 @@ import {
   PREVIEW_CLIENTS,
   type PreviewClientSummary,
 } from "@/lib/preview-clients";
+import { calculateCompositeScore } from "@/lib/scoring/calculator";
+import type {
+  KnowledgeEntry,
+  KnowledgeStep,
+  ScoringPayload,
+} from "@/lib/preview/kb-format";
 import type {
   BenchmarkCase,
   Document,
@@ -163,6 +169,42 @@ function engagementShellFor(clientId: string): Engagement {
   };
 }
 
+function engagementStatusLabel(status: string): string {
+  if (status === "delivered") return "Delivered";
+  if (status === "intake") return "In intake";
+  return status
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+type KnowledgeBaseState = Partial<Record<KnowledgeStep, KnowledgeEntry>>;
+
+function extractScoringSummaryFromKnowledgeBase(state: unknown): {
+  composite_score: number | null;
+  decision_band: string | null;
+} {
+  if (!state || typeof state !== "object") {
+    return { composite_score: null, decision_band: null };
+  }
+  const scoringEntry = (state as KnowledgeBaseState).scoring;
+  if (!scoringEntry || scoringEntry.payload.kind !== "scoring") {
+    return { composite_score: null, decision_band: null };
+  }
+
+  const payload = scoringEntry.payload as ScoringPayload;
+  const candidate = payload.context_aware_composite ?? payload.composite_score;
+  return {
+    composite_score:
+      typeof candidate === "number" && Number.isFinite(candidate)
+        ? Math.round(candidate * 10) / 10
+        : null,
+    decision_band:
+      typeof payload.decision_band === "string" && payload.decision_band.trim()
+        ? payload.decision_band.trim()
+        : null,
+  };
+}
+
 export function fallbackSnapshot(clientId: string): PreviewSnapshot {
   if (clientId === DEFAULT_PREVIEW_CLIENT_ID) return FULL_DEMO_SNAPSHOT;
   const mock = PREVIEW_CLIENTS.find((c) => c.id === clientId);
@@ -261,10 +303,14 @@ export async function getPreviewClients(
           industry: row.industry,
           deal_stage: row.deal_stage,
           status: row.status,
+          status_label: engagementStatusLabel(row.status),
           tier: row.tier as PreviewClientSummary["tier"],
           composite_score:
             row.composite_score === null ? null : Number(row.composite_score),
-          recommendation: row.recommendation,
+          recommendation:
+            row.recommendation && row.recommendation !== engagementStatusLabel(row.status)
+              ? row.recommendation
+              : null,
           fee_usd: Number(row.fee_usd),
           deadline: row.deadline,
           summary: row.summary,
@@ -272,32 +318,121 @@ export async function getPreviewClients(
       : PREVIEW_CLIENTS;
 
   const previewIds = new Set(previewClients.map((c) => c.id));
-  const realClients: PreviewClientSummary[] = (realRows ?? [])
-    .filter((e) => !previewIds.has(e.id))
-    .map((e) => ({
+  const realEngagements = (realRows ?? []).filter((e) => !previewIds.has(e.id));
+
+  const knowledgeBaseByEngagement = new Map<
+    string,
+    { composite_score: number | null; decision_band: string | null }
+  >();
+  const scoreCompositeByEngagement = new Map<string, number>();
+
+  if (realEngagements.length > 0) {
+    const engagementIds = realEngagements.map((e) => e.id);
+    const engagementById = new Map(realEngagements.map((e) => [e.id, e]));
+
+    const knowledgeBaseQuery = supabase
+      .from("user_workspace_state")
+      .select("engagement_id, user_id, updated_at, state")
+      .eq("kind", "knowledge_base")
+      .in("engagement_id", engagementIds);
+
+    const scopedKnowledgeBaseQuery =
+      options.includeAllEngagements || !options.ownerId
+        ? knowledgeBaseQuery
+        : knowledgeBaseQuery.eq("user_id", options.ownerId);
+
+    const [{ data: knowledgeBaseRows }, { data: scoreRows }] = await Promise.all([
+      scopedKnowledgeBaseQuery,
+      supabase.from("scores").select("*").in("engagement_id", engagementIds),
+    ]);
+
+    const bestKnowledgeBaseRow = new Map<
+      string,
+      {
+        composite_score: number | null;
+        decision_band: string | null;
+        priority: number;
+        updatedAt: string | null;
+      }
+    >();
+
+    for (const row of knowledgeBaseRows ?? []) {
+      const scoringSummary = extractScoringSummaryFromKnowledgeBase(row.state);
+      if (
+        scoringSummary.composite_score === null &&
+        scoringSummary.decision_band === null
+      ) {
+        continue;
+      }
+
+      const engagement = engagementById.get(row.engagement_id);
+      const priority =
+        engagement?.assigned_operator_id && row.user_id === engagement.assigned_operator_id
+          ? 3
+          : options.ownerId && row.user_id === options.ownerId
+            ? 2
+            : 1;
+
+      const current = bestKnowledgeBaseRow.get(row.engagement_id);
+      const isNewer = (row.updated_at ?? "") > (current?.updatedAt ?? "");
+      if (!current || priority > current.priority || (priority === current.priority && isNewer)) {
+        bestKnowledgeBaseRow.set(row.engagement_id, {
+          composite_score: scoringSummary.composite_score,
+          decision_band: scoringSummary.decision_band,
+          priority,
+          updatedAt: row.updated_at ?? null,
+        });
+      }
+    }
+
+    for (const [engagementId, info] of bestKnowledgeBaseRow) {
+      knowledgeBaseByEngagement.set(engagementId, {
+        composite_score: info.composite_score,
+        decision_band: info.decision_band,
+      });
+    }
+
+    const scoresByEngagement = new Map<string, Score[]>();
+    for (const row of (scoreRows as Score[] | null) ?? []) {
+      const existing = scoresByEngagement.get(row.engagement_id) ?? [];
+      existing.push(row);
+      scoresByEngagement.set(row.engagement_id, existing);
+    }
+
+    for (const [engagementId, scores] of scoresByEngagement) {
+      if (scores.length === 0) continue;
+      scoreCompositeByEngagement.set(
+        engagementId,
+        calculateCompositeScore(scores).composite_score,
+      );
+    }
+  }
+
+  const realClients: PreviewClientSummary[] = realEngagements
+    .map((e) => {
+      const scoringSummary = knowledgeBaseByEngagement.get(e.id);
+      return {
       id: e.id,
       target: e.target_company_name,
       client: e.client_firm_name,
       industry: "",
       deal_stage: e.deal_stage,
       status: e.status,
+      status_label: engagementStatusLabel(e.status),
       tier:
         e.tier === "signal_scan"
           ? "essentials"
           : e.tier === "deep"
             ? "premium"
             : "standard",
-      composite_score: null,
-      recommendation:
-        e.status === "delivered"
-          ? "Delivered"
-          : e.status === "intake"
-            ? "In intake"
-            : "In progress",
+      composite_score:
+        scoringSummary?.composite_score ?? scoreCompositeByEngagement.get(e.id) ?? null,
+      recommendation: scoringSummary?.decision_band ?? null,
       fee_usd: e.engagement_fee ?? 0,
       deadline: e.delivery_deadline ?? "",
       summary: "",
-    }));
+      };
+    });
 
   // Real engagements first so the newest is near the top.
   return [...realClients, ...previewClients];
