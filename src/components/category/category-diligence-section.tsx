@@ -175,7 +175,7 @@ function CategoryCard({ row }: { row: CategoryEngagementRow }) {
         hover:shadow-[0_0_0_4px_rgba(217,70,239,0.15),0_18px_50px_-20px_rgba(192,38,211,0.55)]"
     >
       <a
-        href={`/app/overview?client_id=${encodeURIComponent(row.id)}`}
+        href={`/category/${row.id}/overview`}
         className="flex items-start justify-between gap-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-fuchsia-500"
       >
         <div className="min-w-0 flex-1">
@@ -219,7 +219,7 @@ function CategoryCard({ row }: { row: CategoryEngagementRow }) {
             {showPromote ? "Cancel" : "Promote →"}
           </button>
           <a
-            href={`/app/overview?client_id=${encodeURIComponent(row.id)}`}
+            href={`/category/${row.id}/overview`}
             className="font-semibold text-fuchsia-700 transition group-hover:translate-x-0.5"
           >
             Open workspace →

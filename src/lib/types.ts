@@ -477,3 +477,198 @@ export interface SubCriterion {
   description: string;
   score_bands?: ScoreBand[];
 }
+
+// ============================================
+// Market Intelligence (MI) pathway types
+// ============================================
+
+/**
+ * The 7 dimensions of the MI scoring rubric.
+ * Entirely separate from ScoreDimension (company pathway).
+ * Backed by mi_scores.dimension (migration 00046).
+ */
+export type MiDimension =
+  | 'thesis_durability'
+  | 'category_attractiveness'
+  | 'competitive_defensibility'
+  | 'timing_confidence'
+  | 'threat_concentration'
+  | 'evidence_strength'
+  | 'signal_noise_ratio';
+
+export type MiEvidenceSourceType =
+  | 'market_report'
+  | 'funding_data'
+  | 'regulatory'
+  | 'customer_signal'
+  | 'talent_signal'
+  | 'incumbent_signal'
+  | 'expert_interview'
+  | 'other';
+
+export type MiInsightType =
+  | 'pressure_test'
+  | 'structure_map'
+  | 'threat_model'
+  | 'company_shortlist'
+  | 'gap_map'
+  | 'adjacent_category'
+  | 'timing_read'
+  | 'positioning';
+
+export type MiAssumptionStatus =
+  | 'unverified'
+  | 'supported'
+  | 'weakened'
+  | 'contradicted';
+
+export type MiLinkType = 'supports' | 'weakens' | 'contradicts';
+
+export type MiIntakeStatus = 'draft' | 'confirmed';
+
+// ── MI Intake ──────────────────────────────────────────────────────────────
+
+export interface MiIntakeQuestion {
+  id: string;
+  category:
+    | 'thesis_assumptions'
+    | 'market_structure'
+    | 'incumbent_threat_model'
+    | 'technology_maturity'
+    | 'regulatory_risk'
+    | 'capital_dynamics'
+    | 'customer_behavior'
+    | 'exit_landscape';
+  question: string;
+  guidance_note?: string;
+  answer?: string;
+  is_editable: boolean;
+  is_required?: boolean;
+}
+
+export interface MiIntakeQuestionSet {
+  id: string;
+  engagement_id: string;
+  questions: MiIntakeQuestion[];
+  generated_by_model: string | null;
+  generated_at: string | null;
+  confirmed_at: string | null;
+  status: MiIntakeStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── MI Thesis Assumptions ──────────────────────────────────────────────────
+
+export interface MiThesisAssumption {
+  id: string;
+  engagement_id: string;
+  assumption_text: string;
+  assumption_category: string;
+  evidence_status: MiAssumptionStatus;
+  load_bearing_score: number | null;   // [0, 1]
+  evidence_type_needed: string | null;
+  ordering: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── MI Evidence ────────────────────────────────────────────────────────────
+
+export interface MiEvidenceItem {
+  id: string;
+  engagement_id: string;
+  source_type: MiEvidenceSourceType;
+  source_name: string;
+  source_url: string | null;
+  excerpt: string | null;
+  full_text: string | null;
+  storage_path: string | null;
+  recency_date: string | null;        // ISO date string
+  confidence: 'high' | 'medium' | 'low';
+  created_at: string;
+  created_by: string | null;
+}
+
+export interface MiEvidenceLink {
+  id: string;
+  evidence_id: string;
+  assumption_id: string;
+  link_type: MiLinkType;
+  operator_note: string | null;
+  created_at: string;
+}
+
+// ── MI Insights ────────────────────────────────────────────────────────────
+
+export interface MiInsight {
+  id: string;
+  engagement_id: string;
+  insight_type: MiInsightType;
+  content: Record<string, unknown>;          // Schema varies per insight_type
+  raw_llm_output: string | null;
+  generated_by_model: string | null;
+  generated_at: string;
+  user_edited_at: string | null;
+  user_edited_content: Record<string, unknown> | null;
+}
+
+// ── MI Scores ──────────────────────────────────────────────────────────────
+
+export interface MiScore {
+  id: string;
+  engagement_id: string;
+  dimension: MiDimension;
+  score_0_to_5: number;
+  llm_justification: string | null;
+  operator_override: boolean;
+  operator_rationale: string | null;
+  generated_by_model: string | null;
+  generated_at: string | null;
+  updated_at: string;
+}
+
+// ── MI Shortlist ───────────────────────────────────────────────────────────
+
+export interface MiShortlistCompany {
+  id: string;
+  engagement_id: string;
+  company_name: string;
+  rationale: string | null;
+  signal_summary: string | null;
+  source_urls: string[];
+  website_url: string | null;
+  promoted_to_engagement_id: string | null;
+  created_at: string;
+  created_by: string | null;
+}
+
+// ── MI Reports ─────────────────────────────────────────────────────────────
+
+export interface MiReport {
+  id: string;
+  engagement_id: string;
+  version: number;
+  content_markdown: string | null;
+  section_status: Record<string, 'pending' | 'generating' | 'done' | 'error'>;
+  tier_depth: string | null;
+  generated_at: string;
+}
+
+// ── MI Rubric Config ───────────────────────────────────────────────────────
+
+export interface MiRubricSubCriterion {
+  id: string;
+  label: string;
+  description: string;
+  weight: number;
+}
+
+export interface MiRubricDimension {
+  dimension: MiDimension;
+  label: string;
+  description: string;
+  sub_criteria: MiRubricSubCriterion[];
+  weight: number;
+  ordering: number;
+}
