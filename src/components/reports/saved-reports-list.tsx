@@ -97,56 +97,60 @@ function SavedReportRow({ record }: { record: ReportRecord }) {
     record.reportId;
 
   return (
-    <div className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-700">
-          {eyebrow}
-        </p>
-        <h4 className="mt-0.5 truncate text-sm font-semibold text-slate-900">
-          {record.title}
-        </h4>
-        <p className="mt-0.5 truncate text-xs text-slate-500">
-          {record.target}
-          {record.client ? ` · ${record.client}` : ""}
-          {record.generated_at
-            ? ` · Generated ${formatDateTime(record.generated_at)}`
-            : ""}
-        </p>
+    <div className="flex flex-col px-5 py-4">
+      {/* Header row — title on the left, action buttons on the right */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-indigo-700">
+            {eyebrow}
+          </p>
+          <h4 className="mt-0.5 truncate text-sm font-semibold text-slate-900">
+            {record.title}
+          </h4>
+          <p className="mt-0.5 truncate text-xs text-slate-500">
+            {record.target}
+            {record.client ? ` · ${record.client}` : ""}
+            {record.generated_at
+              ? ` · Generated ${formatDateTime(record.generated_at)}`
+              : ""}
+          </p>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            {expanded ? "Hide" : "View"}
+          </button>
+          <button
+            type="button"
+            onClick={exportPdf}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            PDF
+          </button>
+          <button
+            type="button"
+            onClick={exportDocx}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            DOCX
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          {expanded ? "Hide" : "View"}
-        </button>
-        <button
-          type="button"
-          onClick={exportPdf}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          PDF
-        </button>
-        <button
-          type="button"
-          onClick={exportDocx}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-        >
-          DOCX
-        </button>
-        <button
-          type="button"
-          onClick={remove}
-          className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:bg-rose-50"
-        >
-          Delete
-        </button>
-      </div>
-
+      {/* Expanded preview — always full width, always below the header row */}
       {expanded && record.content ? (
-        <div className="mt-3 w-full max-h-[640px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-inner sm:basis-full">
+        <div className="mt-4 max-h-[640px] overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-inner">
           <ReportMarkdown source={record.content} />
         </div>
       ) : null}

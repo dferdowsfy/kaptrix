@@ -15,6 +15,27 @@ export async function GET() {
   try {
     const ctx = await requireAuth();
 
+    // Read hidden_menu_keys via the service client so admin-enforced hides
+    // are always visible here regardless of whether RLS exposes this column
+    // to the row-owner's JWT. Falls back to the value from requireAuth() if
+    // the service client isn't configured.
+    let hidden_menu_keys: string[] = ctx.hidden_menu_keys ?? [];
+    const svc = getServiceClient();
+    let full_name: string | null = null;
+    let firm_name: string | null = null;
+    if (svc) {
+      const { data: row } = await svc
+        .from("users")
+        .select("hidden_menu_keys, full_name, firm_name")
+        .eq("id", ctx.userId)
+        .maybeSingle();
+      if (row?.hidden_menu_keys != null) {
+        hidden_menu_keys = row.hidden_menu_keys as string[];
+      }
+      full_name = (row?.full_name as string | null) ?? null;
+      firm_name = (row?.firm_name as string | null) ?? null;
+    }
+
     // Resolve the canonical permission map. Prefer the RPC (merges role
     // defaults + user overrides) and fall back to reconstructing from the
     // legacy denylist if the RPC isn't available (e.g. migration not yet
@@ -26,8 +47,13 @@ export async function GET() {
     );
     if (!rpcErr && rpcData && typeof rpcData === "object") {
       permissions = rpcData as Record<string, boolean>;
+      // Overlay admin-enforced hides so the permissions map stays consistent
+      // with hidden_menu_keys even when the RPC hasn't been updated.
+      for (const k of hidden_menu_keys) {
+        permissions[k] = false;
+      }
     } else {
-      const hidden = new Set(ctx.hidden_menu_keys ?? []);
+      const hidden = new Set(hidden_menu_keys);
       for (const key of [
         "home",
         "overview",
@@ -51,9 +77,11 @@ export async function GET() {
         email: ctx.email,
         role: ctx.role,
         approved: ctx.approved,
-        hidden_menu_keys: ctx.hidden_menu_keys,
+        hidden_menu_keys,
         permissions,
         is_admin: ctx.role === "admin",
+        full_name,
+        firm_name,
       },
       {
         headers: {
@@ -81,12 +109,14 @@ export async function PATCH(request: NextRequest) {
 
     const patch: Record<string, unknown> = {};
 
-    // No user-writable fields are currently exposed here. `hidden_menu_keys`
-    // is intentionally admin-only. If/when additional self-service fields
-    // are introduced (e.g. phone, job_title), add them explicitly.
-
-    // Silently ignore attempts to write admin-controlled fields.
-    void body;
+    // Self-service writable fields. `hidden_menu_keys` is intentionally
+    // admin-only and is ignored here even if supplied.
+    if (typeof body.full_name === "string") {
+      patch.full_name = body.full_name.trim().slice(0, 120);
+    }
+    if (typeof body.firm_name === "string") {
+      patch.firm_name = body.firm_name.trim().slice(0, 120);
+    }
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json(
@@ -107,7 +137,7 @@ export async function PATCH(request: NextRequest) {
       .from("users")
       .update(patch)
       .eq("id", ctx.userId)
-      .select("id, hidden_menu_keys")
+      .select("id, full_name, firm_name")
       .maybeSingle();
 
     if (error) {
