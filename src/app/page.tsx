@@ -568,6 +568,9 @@ export default function HomePage() {
               <Link href="/how-it-works" className="transition hover:text-[#0B0B1A]">
                 How it works
               </Link>
+              <Link href="/framework" className="transition hover:text-[#0B0B1A]">
+                Framework
+              </Link>
               <Link href="/app" className="transition hover:text-[#0B0B1A]">
                 Platform
               </Link>

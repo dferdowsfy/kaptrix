@@ -58,6 +58,9 @@ export function PublicHeader() {
           <Link href="/how-it-works" className={linkClass("/how-it-works")}>
             How it works
           </Link>
+          <Link href="/framework" className={linkClass("/framework")}>
+            Framework
+          </Link>
           <Link href="/demo" className={linkClass("/demo")}>
             Platform
           </Link>
