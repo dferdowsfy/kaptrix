@@ -3,6 +3,10 @@ import { SECURITY_HEADERS } from "./src/lib/security/headers";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Served at kaptrix.com/aideligence behind a Vercel rewrite from the
+  // KaptrixComply project. basePath ensures all routes, asset URLs, and
+  // <Link> hrefs resolve under /aideligence.
+  basePath: "/aideligence",
   async headers() {
     return [
       {
