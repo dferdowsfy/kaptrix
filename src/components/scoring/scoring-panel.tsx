@@ -853,39 +853,39 @@ function ContextAdjustmentPanel({ signals }: { signals: ContextSignal[] }) {
   const sources = Object.keys(grouped) as (keyof typeof KNOWLEDGE_STEP_LABELS)[];
 
   return (
-    <div className="rounded-lg border border-indigo-200 bg-indigo-50/60 p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-indigo-900">
+    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-6">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-lg font-semibold text-indigo-900">
           Context signals feeding the score
         </p>
-        <span className="text-[10px] uppercase tracking-[0.2em] text-indigo-700">
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">
           {signals.length} signal{signals.length === 1 ? "" : "s"}
         </span>
       </div>
-      <p className="mt-1 text-xs text-indigo-800/80">
+      <p className="mt-2 text-sm text-indigo-800/80">
         Submissions from earlier steps adjust each dimension. Caps prevent any
         single step from overriding operator judgment.
       </p>
-      <div className="mt-3 space-y-3">
+      <div className="mt-5 space-y-5">
         {sources.map((src) => (
           <div key={src}>
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-800">
+            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-800">
               From {KNOWLEDGE_STEP_LABELS[src]}
             </p>
-            <ul className="mt-1 space-y-1">
+            <ul className="mt-2 space-y-2">
               {grouped[src].map((s, i) => (
                 <li
                   key={`${src}-${i}`}
-                  className="flex items-start justify-between gap-3 text-xs text-gray-800"
+                  className="flex items-start justify-between gap-3 text-base text-gray-800"
                 >
                   <span>
-                    <span className="font-mono text-[10px] text-gray-500">
+                    <span className="font-mono text-sm text-gray-500">
                       {s.dimension}
                     </span>{" "}
                     — {s.reason}
                   </span>
                   <span
-                    className={`shrink-0 font-semibold ${
+                    className={`shrink-0 text-base font-semibold tabular-nums ${
                       s.delta < 0 ? "text-rose-700" : "text-emerald-700"
                     }`}
                   >

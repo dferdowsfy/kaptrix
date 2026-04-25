@@ -338,8 +338,15 @@ export default function PreviewScoringPage() {
         : [],
     [engagement.id, engineOutput, hasEngineEvidence],
   );
+  // Determinism: prefer the deterministic engine output for displayed
+  // numbers so re-generating with the same inputs always yields the same
+  // numeric scores. The LLM `suggestedScores` are only consulted when the
+  // engine has no evidence to score against (cold start). Saved
+  // `snapshot.scores` are the final fallback for restored sessions.
   const panelScores =
-    suggestedScores ?? (engineScores.length > 0 ? engineScores : snapshot?.scores ?? []);
+    engineScores.length > 0
+      ? engineScores
+      : (suggestedScores ?? snapshot?.scores ?? []);
   const upstreamChanged =
     (scoringDirty.dirty && suggestedScores !== null) || inputsChanged;
 
