@@ -185,9 +185,36 @@ export interface DecisionResult {
   label: string;
   tone: "go" | "warn" | "stop";
   rationale: string[];
+  /**
+   * Plain-language narrative (1–2 sentences) explaining why the decision
+   * landed where it did. Generated deterministically from the same
+   * inputs as `rationale` so re-renders never show a different summary
+   * for the same scores.
+   */
+  summary: string;
   blocking_dimensions: ScoreDimension[];
   critical_red_flag_count: number;
   composite_delta: number | null;
+}
+
+// Friendly names for each scoring dimension. Mirrors the labels used in
+// the dimension grid and Context signals card so the narrative reads
+// naturally. Kept in sync with `DIMENSION_SHORT_LABEL` in
+// `src/lib/preview/system-signals.ts`.
+const DIMENSION_FRIENDLY_NAME: Record<ScoreDimension, string> = {
+  product_credibility: "Product Credibility",
+  tooling_exposure: "Tooling & Vendor Exposure",
+  data_sensitivity: "Data Risk",
+  governance_safety: "Governance & Safety",
+  production_readiness: "Production Readiness",
+  open_validation: "Open Validation",
+};
+
+function joinList(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 const DECISION_LABELS: Record<Decision, { label: string; tone: "go" | "warn" | "stop" }> = {
@@ -368,14 +395,106 @@ export function deriveDecision(input: DeriveDecisionInput): DecisionResult {
   }
 
   const meta = DECISION_LABELS[decision];
+  const summary = buildDecisionSummary({
+    decision,
+    phase,
+    composite: composite.composite_score,
+    blocking,
+    criticals,
+    delta,
+  });
   return {
     phase,
     decision,
     label: meta.label,
     tone: meta.tone,
     rationale,
+    summary,
     blocking_dimensions: blocking,
     critical_red_flag_count: criticals,
     composite_delta: delta,
   };
+}
+
+/**
+ * Convert the structural decision inputs into a 1–2 sentence narrative
+ * the operator can read at a glance. Pure function: same inputs → same
+ * sentences, every time.
+ */
+function buildDecisionSummary(args: {
+  decision: Decision;
+  phase: LifecyclePhase;
+  composite: number;
+  blocking: ScoreDimension[];
+  criticals: number;
+  delta: number | null;
+}): string {
+  const { decision, phase, composite, blocking, criticals, delta } = args;
+  const compositeStr = composite.toFixed(1);
+  const blockingNames = blocking.map((d) => DIMENSION_FRIENDLY_NAME[d]);
+  const blockingPhrase = blockingNames.length
+    ? `${joinList(blockingNames)} ${blockingNames.length === 1 ? "scores" : "score"} below the 2.0 floor`
+    : "";
+  const criticalsPhrase =
+    criticals > 0
+      ? `${criticals} critical red flag${criticals === 1 ? "" : "s"} surfaced in pre-analysis`
+      : "";
+  const concerns = [blockingPhrase, criticalsPhrase].filter(Boolean);
+  const concernsList = joinList(concerns);
+
+  // Pre-investment phase
+  if (phase === "pre_investment") {
+    if (decision === "invest") {
+      return `Composite of ${compositeStr}/5.0 clears the 3.5 invest threshold with no blocking dimensions and no critical red flags. The evidence supports moving forward without conditions.`;
+    }
+    if (decision === "do_not_invest") {
+      const reason =
+        composite < THRESHOLDS.do_not_invest_ceiling
+          ? `Composite of ${compositeStr}/5.0 is below the 2.5 do-not-invest ceiling`
+          : `${criticals} critical red flag${criticals === 1 ? "" : "s"} make the thesis indefensible`;
+      const detail = concerns.length
+        ? `, and ${concernsList}.`
+        : ".";
+      return `${reason}${detail} Recommendation is to pass; bringing this engagement back would require closing each gap and clearing the red flags before re-scoring.`;
+    }
+    // invest_with_conditions
+    const opener = `Composite of ${compositeStr}/5.0 sits between the 2.5 do-not-invest ceiling and the 3.5 invest threshold`;
+    const middle = concerns.length
+      ? ` because ${concernsList}.`
+      : ".";
+    return `${opener}${middle} Approval is contingent on remediating the flagged areas and re-scoring before final commitment.`;
+  }
+
+  // Active engagement phase
+  if (phase === "active") {
+    const d = delta ?? 0;
+    const trend =
+      d > 0
+        ? `improving by ${d.toFixed(1)} versus the prior scorecard`
+        : d < 0
+          ? `down ${Math.abs(d).toFixed(1)} versus the prior scorecard`
+          : "flat versus the prior scorecard";
+    if (decision === "continue") {
+      return `Composite of ${compositeStr}/5.0 is ${trend} with no critical red flags. Stay the course on the existing plan.`;
+    }
+    if (decision === "stall_and_rediligence") {
+      const reason = concerns.length
+        ? `; ${concernsList}`
+        : "";
+      return `Composite of ${compositeStr}/5.0 is ${trend}${reason}. Pause new commitments and re-diligence the affected areas before continuing.`;
+    }
+    // stall
+    return `Composite of ${compositeStr}/5.0 is ${trend} — not a clear deterioration but not enough lift to greenlight further investment. Hold the current envelope and revisit at the next checkpoint.`;
+  }
+
+  // Post-close phase
+  if (decision === "double_down") {
+    return `Composite of ${compositeStr}/5.0 with strong Production Readiness and Governance & Safety scores. The asset is performing — increase exposure if portfolio construction allows.`;
+  }
+  if (decision === "wind_down") {
+    const reason = concerns.length ? ` and ${concernsList}` : "";
+    return `Composite of ${compositeStr}/5.0 with Production Readiness below the 2.5 hold floor${reason}. Begin a wind-down plan; remediation costs likely exceed expected return.`;
+  }
+  // hold
+  return `Composite of ${compositeStr}/5.0 — the asset is functioning but not earning additional capital. Hold the position and address the open gaps before any follow-on.`;
 }

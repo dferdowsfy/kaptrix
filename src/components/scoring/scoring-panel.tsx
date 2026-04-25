@@ -833,11 +833,17 @@ function DecisionBadge({ decision }: { decision: DecisionResult }) {
         </span>
       </div>
       <p className="mt-1 text-lg font-bold">{decision.label}</p>
-      <ul className="mt-2 space-y-0.5 text-xs">
-        {decision.rationale.map((r, i) => (
-          <li key={i}>• {r}</li>
-        ))}
-      </ul>
+      <p className="mt-2 text-base leading-relaxed">{decision.summary}</p>
+      <details className="mt-3 text-xs opacity-80">
+        <summary className="cursor-pointer select-none font-semibold uppercase tracking-wider opacity-70 hover:opacity-100">
+          Score details
+        </summary>
+        <ul className="mt-2 space-y-0.5">
+          {decision.rationale.map((r, i) => (
+            <li key={i}>• {r}</li>
+          ))}
+        </ul>
+      </details>
     </div>
   );
 }
