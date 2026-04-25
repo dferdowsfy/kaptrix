@@ -413,6 +413,136 @@ export default function PreviewScoringPage() {
         </GenerateButton>
       </div>
 
+      {/* Engine inputs debug panel — top of the page, open by default,
+          high-contrast amber so it can't be missed. Reveals exactly what
+          the deterministic engine sees on each render so the operator
+          can verify their intake / coverage / positioning edits actually
+          reached the engine. */}
+      <details
+        open
+        className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 text-xs shadow-sm"
+      >
+        <summary className="cursor-pointer select-none text-base font-bold text-amber-900 hover:text-amber-950">
+          🔍 Engine inputs (debug) — what the scoring engine actually sees
+        </summary>
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Intake responses seen by engine ({engineInput.intake.length})
+            </p>
+            {engineInput.intake.length === 0 ? (
+              <p className="mt-2 italic text-slate-500">
+                None — the engine has no intake fields. If you have edited
+                Intake, the localStorage write or Supabase PUT may have
+                failed. Check Network → /api/preview/knowledge-base PUT.
+              </p>
+            ) : (
+              <ul className="mt-2 space-y-1 font-mono text-[11px] text-slate-700">
+                {engineInput.intake.map((r, i) => (
+                  <li key={`${r.field}-${i}`} className="flex gap-2">
+                    <span className="shrink-0 font-semibold text-slate-900">
+                      {r.field}
+                    </span>
+                    <span className="text-slate-500">
+                      {Array.isArray(r.value)
+                        ? `[${r.value.join(", ")}]`
+                        : String(r.value)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              Artifacts seen by engine ({engineInput.artifacts.length})
+            </p>
+            {engineInput.artifacts.length === 0 ? (
+              <p className="mt-2 italic text-slate-500">
+                None — no parsed uploaded documents, extracted insights,
+                coverage gaps, positioning entries, or pre-analysis flags
+                are reaching the engine.
+              </p>
+            ) : (
+              <>
+                <ul className="mt-2 space-y-1 text-[11px] text-slate-700">
+                  {(["document", "insight", "coverage", "pre_analysis", "benchmark"] as const).map(
+                    (kind) => {
+                      const n = engineInput.artifacts.filter(
+                        (a) => a.kind === kind,
+                      ).length;
+                      if (n === 0) return null;
+                      return (
+                        <li key={kind} className="flex justify-between">
+                          <span className="font-mono text-slate-500">{kind}</span>
+                          <span className="font-semibold text-slate-900">{n}</span>
+                        </li>
+                      );
+                    },
+                  )}
+                </ul>
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700">
+                    Show all {engineInput.artifacts.length} artifact claims
+                  </summary>
+                  <ul className="mt-2 max-h-60 space-y-1 overflow-y-auto rounded-md bg-slate-50 p-2 font-mono text-[10px] text-slate-700">
+                    {engineInput.artifacts.map((a) => (
+                      <li key={a.id}>
+                        <span className="text-slate-400">[{a.kind}]</span>{" "}
+                        <span className="text-indigo-700">
+                          {a.dimension}.{a.sub_criterion}
+                        </span>{" "}
+                        <span className="text-slate-500">{a.signal}</span>{" "}
+                        <span>{a.claim.slice(0, 120)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-amber-200 pt-3 text-[11px] text-slate-600 sm:grid-cols-4">
+          <div>
+            <p className="font-semibold text-slate-500">Inputs hash</p>
+            <p
+              className="mt-0.5 font-mono break-all text-slate-700"
+              title="SHA-256 of canonical inputs. Same hash = identical output."
+            >
+              {engineOutput.inputs_hash.slice(0, 16)}…
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">Sub-criteria scored</p>
+            <p className="mt-0.5 text-slate-900">
+              {engineOutput.sub_criteria.length}
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">With evidence</p>
+            <p className="mt-0.5 text-slate-900">
+              {
+                engineOutput.sub_criteria.filter(
+                  (s) => s.source_mix !== "insufficient",
+                ).length
+              }
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-slate-500">KB versions</p>
+            <p className="mt-0.5 font-mono text-[10px] text-slate-700">
+              {(
+                ["intake", "coverage", "insights", "pre_analysis", "positioning"] as KnowledgeStep[]
+              )
+                .map((s) => `${s}:${kb[s]?.version ?? "—"}`)
+                .join("  ")}
+            </p>
+          </div>
+        </div>
+      </details>
+
       {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
         <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">
           <p className="text-sm font-medium text-slate-600">No scores generated yet.</p>
@@ -530,132 +660,6 @@ export default function PreviewScoringPage() {
 
         {hasEngineEvidence && <EngineSourceMix output={engineOutput} />}
       </div>
-
-      {/* Engine inputs debug panel — reveals exactly what the
-          deterministic engine sees on each render so the operator can
-          verify their intake / coverage / positioning edits actually
-          reached the engine. */}
-      <details className="rounded-2xl border border-slate-200 bg-white p-5 text-xs shadow-sm">
-        <summary className="cursor-pointer select-none text-sm font-semibold text-slate-700 hover:text-slate-900">
-          🔍 Engine inputs (debug)
-        </summary>
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Intake responses seen by engine ({engineInput.intake.length})
-            </p>
-            {engineInput.intake.length === 0 ? (
-              <p className="mt-2 italic text-slate-500">
-                None — the engine has no intake fields. If you have edited
-                Intake, the localStorage write or Supabase PUT may have
-                failed. Check Network → /api/preview/knowledge-base PUT.
-              </p>
-            ) : (
-              <ul className="mt-2 space-y-1 font-mono text-[11px] text-slate-700">
-                {engineInput.intake.map((r, i) => (
-                  <li key={`${r.field}-${i}`} className="flex gap-2">
-                    <span className="shrink-0 font-semibold text-slate-900">
-                      {r.field}
-                    </span>
-                    <span className="text-slate-500">
-                      {Array.isArray(r.value)
-                        ? `[${r.value.join(", ")}]`
-                        : String(r.value)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-              Artifacts seen by engine ({engineInput.artifacts.length})
-            </p>
-            {engineInput.artifacts.length === 0 ? (
-              <p className="mt-2 italic text-slate-500">
-                None — no parsed uploaded documents, extracted insights,
-                coverage gaps, positioning entries, or pre-analysis flags
-                are reaching the engine.
-              </p>
-            ) : (
-              <>
-                <ul className="mt-2 space-y-1 text-[11px] text-slate-700">
-                  {(["document", "insight", "coverage", "pre_analysis", "benchmark"] as const).map(
-                    (kind) => {
-                      const n = engineInput.artifacts.filter(
-                        (a) => a.kind === kind,
-                      ).length;
-                      if (n === 0) return null;
-                      return (
-                        <li key={kind} className="flex justify-between">
-                          <span className="font-mono text-slate-500">{kind}</span>
-                          <span className="font-semibold text-slate-900">{n}</span>
-                        </li>
-                      );
-                    },
-                  )}
-                </ul>
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-[11px] text-slate-500 hover:text-slate-700">
-                    Show all {engineInput.artifacts.length} artifact claims
-                  </summary>
-                  <ul className="mt-2 max-h-60 space-y-1 overflow-y-auto rounded-md bg-slate-50 p-2 font-mono text-[10px] text-slate-700">
-                    {engineInput.artifacts.map((a) => (
-                      <li key={a.id}>
-                        <span className="text-slate-400">[{a.kind}]</span>{" "}
-                        <span className="text-indigo-700">
-                          {a.dimension}.{a.sub_criterion}
-                        </span>{" "}
-                        <span className="text-slate-500">{a.signal}</span>{" "}
-                        <span>{a.claim.slice(0, 120)}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-3 text-[11px] text-slate-600 sm:grid-cols-4">
-          <div>
-            <p className="font-semibold text-slate-500">Inputs hash</p>
-            <p
-              className="mt-0.5 font-mono break-all text-slate-700"
-              title="SHA-256 of canonical inputs. Same hash = identical output."
-            >
-              {engineOutput.inputs_hash.slice(0, 16)}…
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold text-slate-500">Sub-criteria scored</p>
-            <p className="mt-0.5 text-slate-900">
-              {engineOutput.sub_criteria.length}
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold text-slate-500">With evidence</p>
-            <p className="mt-0.5 text-slate-900">
-              {
-                engineOutput.sub_criteria.filter(
-                  (s) => s.source_mix !== "insufficient",
-                ).length
-              }
-            </p>
-          </div>
-          <div>
-            <p className="font-semibold text-slate-500">KB versions</p>
-            <p className="mt-0.5 font-mono text-[10px] text-slate-700">
-              {(
-                ["intake", "coverage", "insights", "pre_analysis", "positioning"] as KnowledgeStep[]
-              )
-                .map((s) => `${s}:${kb[s]?.version ?? "—"}`)
-                .join("  ")}
-            </p>
-          </div>
-        </div>
-      </details>
     </div>
   );
 }
