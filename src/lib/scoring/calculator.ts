@@ -419,12 +419,86 @@ export function deriveDecision(input: DeriveDecisionInput): DecisionResult {
 }
 
 /**
- * Convert the structural decision inputs into a 1–2 sentence narrative
- * an investment-committee reader can act on without ever seeing the
- * scoring rubric. No "composite", no "floor", no "ceiling", no
- * dimension IDs — instead, plain underwriting language.
+ * Static lookup table mapping every composite score from 0.0 to 5.0
+ * (in 0.1 steps) to a single hand-written sentence describing the
+ * conviction level at that exact score. Phase-agnostic: the action
+ * verb (Pass / Term sheet / Continue / Wind-down) lives in the
+ * decision label that renders above the summary, so this table can
+ * focus purely on strength of case.
  *
- * Pure function: same inputs → same sentences, every time.
+ * The table is the source of truth for the narrative — re-renders with
+ * the same composite return the same sentence, byte-for-byte.
+ */
+const COMPOSITE_NARRATIVE: Record<string, string> = {
+  "0.0": "There is effectively no defensible investment case at this level.",
+  "0.1": "The fundamentals are absent — there is no path forward as it stands.",
+  "0.2": "The evidence base is too thin to support any investment thesis.",
+  "0.3": "Foundational gaps make the opportunity uninvestable in current form.",
+  "0.4": "Multiple foundational issues prevent the asset from being underwritten.",
+  "0.5": "Severe weakness across nearly every diligence area.",
+  "0.6": "Severe weakness; a substantial rebuild would be required before reconsideration.",
+  "0.7": "Deep concerns across operations, governance, and product credibility.",
+  "0.8": "Deep concerns; the risk-return profile is indefensible to committee.",
+  "0.9": "Materially below our underwriting threshold across multiple core areas.",
+  "1.0": "Well below underwriting threshold with multiple foundational issues.",
+  "1.1": "Conviction is materially weak — the case for this opportunity does not hold.",
+  "1.2": "Conviction is weak; the thesis cannot survive committee scrutiny.",
+  "1.3": "Significant weakness; specific gaps make this uninvestable today.",
+  "1.4": "Significant weakness across the diligence rubric.",
+  "1.5": "Several material concerns remain unresolved.",
+  "1.6": "Multiple weak areas; the issues are too foundational to resolve through deal terms.",
+  "1.7": "Multiple weak areas; substantial remediation would be required to reconsider.",
+  "1.8": "Several concerns above the absolute floor but not enough to greenlight.",
+  "1.9": "Below the underwriting bar; the thesis is not yet defensible.",
+  "2.0": "Below the underwriting bar; concerns are above the critical floor but the case is not yet sound.",
+  "2.1": "Just below the underwriting bar; the opportunity has potential but is not ready.",
+  "2.2": "Just below the bar; concerns must be resolved before reconsideration.",
+  "2.3": "Marginally below the bar; improvable but not yet investable.",
+  "2.4": "Marginally below the bar; the thesis has merit but unresolved concerns remain.",
+  "2.5": "Right at the underwriting bar; conditional approval only.",
+  "2.6": "At the bar with conditions; the thesis is approachable subject to remediation.",
+  "2.7": "Marginally above the bar; underwritable with conditions.",
+  "2.8": "Just above the bar; conditional approval pending remediation.",
+  "2.9": "Just above the bar; the case holds with conditions.",
+  "3.0": "Acceptable with conditions; the thesis is sound.",
+  "3.1": "Acceptable with conditions; fundamentals support proceeding subject to remediation.",
+  "3.2": "Solid base case with conditions; open gaps need to be addressed.",
+  "3.3": "Solid base case; conditions are addressable in confirmatory diligence.",
+  "3.4": "Approaching pass-grade; remaining conditions are minor and tractable.",
+  "3.5": "Above the underwriting bar; ready to proceed with light conditions.",
+  "3.6": "Above the bar; conditions are limited and addressable in confirmatory DD.",
+  "3.7": "Comfortable pass on the underwriting case.",
+  "3.8": "Comfortable pass; risks are well-understood and manageable.",
+  "3.9": "Strong base case across the rubric.",
+  "4.0": "Strong investment thesis; risks are well-managed with a clear path to value creation.",
+  "4.1": "Strong investment thesis with no material conditions remaining.",
+  "4.2": "Strong conviction; the opportunity is meaningfully above our threshold.",
+  "4.3": "Strong conviction; diligence fully supports proceeding.",
+  "4.4": "High conviction; no material conditions remaining.",
+  "4.5": "High conviction; team and execution capability are well-evidenced.",
+  "4.6": "High conviction; warrants lead consideration if structure allows.",
+  "4.7": "Very high conviction; warrants lead position if portfolio allocation allows.",
+  "4.8": "Very high conviction; the opportunity warrants priority allocation.",
+  "4.9": "Highest conviction; outstanding evidence across nearly every diligence area.",
+  "5.0": "Highest conviction; outstanding evidence across every diligence area.",
+};
+
+function lookupCompositeNarrative(composite: number): string {
+  // Clamp to [0, 5] and round to one decimal so the score always lands
+  // on a key that exists in the table.
+  const clamped = Math.max(0, Math.min(5, composite));
+  const key = (Math.round(clamped * 10) / 10).toFixed(1);
+  return COMPOSITE_NARRATIVE[key] ?? COMPOSITE_NARRATIVE["2.5"];
+}
+
+/**
+ * Compose the final summary sentence(s) shown on the decision badge:
+ *   1. The static narrative for the composite score.
+ *   2. A "Specific concerns" clause naming each blocking dimension
+ *      using investor-friendly phrasing.
+ *   3. A red-flag clause if pre-analysis surfaced critical issues.
+ *
+ * Pure function: same inputs → identical output, every render.
  */
 function buildDecisionSummary(args: {
   decision: Decision;
@@ -434,83 +508,20 @@ function buildDecisionSummary(args: {
   criticals: number;
   delta: number | null;
 }): string {
-  const { decision, phase, blocking, criticals, delta } = args;
-  const concernPhrases = blocking.map((d) => DIMENSION_INVESTOR_CONCERN[d]);
-  const concernsList = joinList(concernPhrases);
+  const { composite, blocking, criticals } = args;
+  const parts: string[] = [lookupCompositeNarrative(composite)];
 
-  // Phrase the cluster of concerns differently depending on count, so
-  // single-issue and multi-issue cases both read naturally.
-  const concernsClause =
-    concernPhrases.length === 0
-      ? ""
-      : concernPhrases.length === 1
-        ? `weakness in ${concernsList}`
-        : concernPhrases.length === 2
-          ? `weakness across ${concernsList}`
-          : `material concerns across ${concernsList}`;
-
-  const redFlagClause =
-    criticals === 0
-      ? ""
-      : criticals === 1
-        ? "an unresolved red flag from diligence"
-        : `${criticals} unresolved red flags from diligence`;
-
-  // Combine concerns and red flags into one well-formed clause.
-  const issuesClause = (() => {
-    if (concernsClause && redFlagClause) {
-      return `${concernsClause}, alongside ${redFlagClause}`;
-    }
-    return concernsClause || redFlagClause;
-  })();
-
-  // ── Pre-investment ───────────────────────────────────────────────
-  if (phase === "pre_investment") {
-    if (decision === "invest") {
-      return "This opportunity meets our underwriting bar across the rubric — no material concerns surfaced, and there are no unresolved red flags. Recommend proceeding to term sheet.";
-    }
-    if (decision === "do_not_invest") {
-      const why = issuesClause
-        ? `${issuesClause.charAt(0).toUpperCase()}${issuesClause.slice(1)} undermine the thesis, and the issues are too foundational to resolve through deal terms.`
-        : "The risk-adjusted return is indefensible at the current evidence level.";
-      return `This opportunity falls below our underwriting bar. ${why} Recommend passing; we would only revisit if the team substantially strengthens those areas and clears the outstanding red flags.`;
-    }
-    // invest_with_conditions
-    const why = issuesClause
-      ? `but ${issuesClause} need to be remediated before final commitment`
-      : "but additional diligence is needed before final commitment";
-    return `The headline thesis is underwritable, ${why}. Recommend a conditional offer contingent on the team closing those gaps and providing fresh evidence at the next checkpoint.`;
+  if (blocking.length > 0) {
+    const concernPhrases = blocking.map((d) => DIMENSION_INVESTOR_CONCERN[d]);
+    const lead = concernPhrases.length === 1 ? "Specific concern:" : "Specific concerns:";
+    parts.push(`${lead} ${joinList(concernPhrases)}.`);
   }
 
-  // ── Active engagement ────────────────────────────────────────────
-  if (phase === "active") {
-    const d = delta ?? 0;
-    const trend =
-      d > 0
-        ? `Operating posture has strengthened versus the prior scorecard`
-        : d < 0
-          ? `Operating posture has deteriorated versus the prior scorecard`
-          : `Operating posture is flat versus the prior scorecard`;
-    if (decision === "continue") {
-      return `${trend} with no critical issues. The asset is tracking the original thesis — continue execution against the existing plan.`;
-    }
-    if (decision === "stall_and_rediligence") {
-      const why = issuesClause ? `, with ${issuesClause}` : "";
-      return `${trend}${why}. Pause further commitments and re-run diligence on the affected areas before deploying additional capital.`;
-    }
-    // stall
-    return `${trend} — within tolerance, but not delivering the upside we originally underwrote. Maintain the current envelope and reassess at the next milestone.`;
+  if (criticals > 0) {
+    parts.push(
+      `Note ${criticals} unresolved red flag${criticals === 1 ? "" : "s"} from pre-analysis.`,
+    );
   }
 
-  // ── Post-close ───────────────────────────────────────────────────
-  if (decision === "double_down") {
-    return "The portfolio company is performing across operational maturity and governance — the thesis is validated by results to date. Recommend follow-on participation if portfolio allocation allows.";
-  }
-  if (decision === "wind_down") {
-    const why = issuesClause ? `, with ${issuesClause}` : "";
-    return `The portfolio company is materially below the operational bar needed to continue${why}. Remediation cost likely exceeds expected return — recommend an orderly wind-down.`;
-  }
-  // hold
-  const why = issuesClause ? `; address ${issuesClause}` : "";
-  return `The portfolio company is functioning but not earning additional capital${why}. Hold the position and revisit only with substantially better evidence on the open items.`;
+  return parts.join(" ");
 }
