@@ -96,6 +96,19 @@ Copy `.env.example` to `.env.local` for local dev. On Vercel, add each of these 
 3. Vercel detects Next.js 16 automatically — no `vercel.json` needed.
 4. First deploy triggers the preview-data auto-seed on first request to `/api/preview/clients`. Subsequent requests read directly from Supabase.
 
+
+### Subpath deployment on `kaptrix.com/aideligence`
+
+This app is served from `kaptrix.com/aideligence` via a Vercel rewrite in the KaptrixComply project.
+To prevent unstyled pages and broken navigation, `next.config.ts` sets `basePath: "/aideligence"`.
+
+Why this is required:
+
+- Without `basePath`, browser requests for `/_next/static/*` resolve at the apex host path and can be routed to KaptrixComply, where they 404.
+- With `basePath`, Next.js emits routes, static asset URLs, and `next/link` hrefs under `/aideligence`, so the proxy/rewrite forwards them to this app correctly.
+
+> `basePath` is inlined at build time. If you ever change `/aideligence`, rebuild and redeploy.
+
 ## Mobile
 
 The UI is mobile-optimized: a device-width viewport, a horizontally-scrollable dashboard sidebar and preview tab bar, stacked header chips, touch-safe 16 px form fonts (prevents iOS auto-zoom), and a full-bleed chatbot panel on small screens.
