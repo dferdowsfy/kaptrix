@@ -26,20 +26,41 @@ export interface CompositeResult {
   }[];
 }
 
+/**
+ * Neutral default for a dimension that has no scored sub-criteria.
+ * Treating "no evidence" as 0 makes the composite drop sharply when an
+ * intake field is removed (because removing a signal sends a sub-
+ * criterion from intake-floored 1.5 back to 0). That's misleading —
+ * "no evidence" should be neutral / unknown, not the worst possible
+ * score. The baseline matches the engine's BASELINE constant so the
+ * semantics line up across the pipeline.
+ */
+const DIMENSION_NEUTRAL_DEFAULT = 2.5;
+
 export function calculateCompositeScore(scores: Score[]): CompositeResult {
   const dimensionDetails = SCORING_DIMENSIONS.map((dim) => {
-    const dimScores = scores.filter((s) => s.dimension === dim.key);
+    // Only consider sub-criteria that actually have evidence. The engine
+    // emits Score entries with score_0_to_5 = 0 when a sub-criterion has
+    // neither intake nor artifact support; those entries should NOT
+    // pull the dimension average down because they carry zero
+    // information. Filtering them out makes intake edits visible: when
+    // a signal is added or removed, the count of contributing
+    // sub-criteria changes, and the average shifts accordingly.
+    const dimScoresAll = scores.filter((s) => s.dimension === dim.key);
+    const dimScores = dimScoresAll.filter((s) => s.score_0_to_5 > 0);
     const average =
       dimScores.length > 0
         ? dimScores.reduce((sum, s) => sum + s.score_0_to_5, 0) / dimScores.length
-        : 0;
+        : DIMENSION_NEUTRAL_DEFAULT;
 
     return {
       dimension: dim.key,
       name: dim.name,
       weight: dim.weight,
       average_score: Math.round(average * 10) / 10,
-      sub_scores: dimScores.map((s) => ({
+      // Surface every sub-criterion (scored or insufficient) so the
+      // operator can see what's missing in the per-dimension drill-down.
+      sub_scores: dimScoresAll.map((s) => ({
         sub_criterion: s.sub_criterion,
         score: s.score_0_to_5,
       })),

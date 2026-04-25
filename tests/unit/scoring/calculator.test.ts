@@ -25,10 +25,14 @@ function makeScore(
 }
 
 describe("calculateCompositeScore", () => {
-  it("returns 0 when no scores are provided", () => {
+  it("returns the neutral 2.5 baseline when no scores are provided", () => {
+    // Updated semantics: dimensions with no scored sub-criteria default
+    // to a neutral 2.5 (unknown / no evidence) instead of 0. Composite
+    // for an empty engagement is therefore 2.5 — the message is "we
+    // have no information yet", not "this is the worst possible deal".
     const result = calculateCompositeScore([]);
-    expect(result.composite_score).toBe(0);
-    expect(Object.values(result.dimension_scores).every((s) => s === 0)).toBe(true);
+    expect(result.composite_score).toBeCloseTo(2.5, 1);
+    expect(Object.values(result.dimension_scores).every((s) => s === 2.5)).toBe(true);
   });
 
   it("calculates weighted composite correctly", () => {
@@ -42,11 +46,17 @@ describe("calculateCompositeScore", () => {
     const result = calculateCompositeScore(scores);
 
     // product_credibility avg = 3.5, weight = 0.25 → 0.875
-    // tooling_exposure avg = 2.5, weight = 0.20 → 0.5
-    // other dimensions = 0
+    // tooling_exposure  avg = 2.5, weight = 0.20 → 0.5
+    // other 4 dimensions have no evidence → neutral 2.5
+    //   data_sensitivity     0.15 → 0.375
+    //   governance_safety    0.15 → 0.375
+    //   production_readiness 0.15 → 0.375
+    //   open_validation      0.10 → 0.25
+    // total: 0.875 + 0.5 + 0.375*3 + 0.25 = 2.75
     expect(result.dimension_scores.product_credibility).toBe(3.5);
     expect(result.dimension_scores.tooling_exposure).toBe(2.5);
-    expect(result.composite_score).toBeCloseTo(1.4, 1);
+    expect(result.dimension_scores.data_sensitivity).toBe(2.5);
+    expect(result.composite_score).toBeCloseTo(2.8, 1);
   });
 
   it("returns full dimension details", () => {

@@ -541,6 +541,13 @@ export default function PreviewScoringPage() {
             </p>
           </div>
         </div>
+
+        {/* High-precision composite + per-dimension breakdown so the
+            operator can see micro-changes (~0.05) that rounding to one
+            decimal would otherwise hide. The engine intake-only branch
+            clamps each sub-criterion to [1.5, 3.5], so small intake
+            edits often only move the composite by 0.02-0.10. */}
+        <PrecisionEngineBreakdown engineOutput={engineOutput} />
       </details>
 
       {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
@@ -667,6 +674,97 @@ export default function PreviewScoringPage() {
 // ── Engine source mix ────────────────────────────────────────────────
 // Source-mix bucket counts + confidence summary, rendered borderless so
 // it nests cleanly inside the combined header card.
+
+// ── Precision engine breakdown ───────────────────────────────────────
+// Shows the unrounded operator composite and per-dimension averages
+// straight from the engine output. The user-facing composite is
+// rounded to 1 decimal, which hides intake-only edits that move the
+// score by less than 0.05. This panel exposes the raw math so changes
+// are always visible.
+function PrecisionEngineBreakdown({
+  engineOutput,
+}: {
+  engineOutput: ReturnType<typeof runScoringEngine>;
+}) {
+  // Group sub-criteria by dimension and compute averages.
+  const byDim = new Map<string, number[]>();
+  for (const s of engineOutput.sub_criteria) {
+    const arr = byDim.get(s.dimension) ?? [];
+    arr.push(s.score);
+    byDim.set(s.dimension, arr);
+  }
+  const dimAverages: { dim: string; avg: number; n: number }[] = [];
+  for (const [dim, scores] of byDim) {
+    const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+    dimAverages.push({ dim, avg, n: scores.length });
+  }
+  dimAverages.sort((a, b) => a.dim.localeCompare(b.dim));
+  const operatorComposite =
+    dimAverages.reduce((sum, d) => sum + d.avg, 0) /
+    Math.max(1, dimAverages.length);
+
+  // Source-mix counts so user can see the intake-only floor in action.
+  const intakeOnly = engineOutput.sub_criteria.filter(
+    (s) => s.source_mix === "intake_only",
+  ).length;
+  const flooredAt15 = engineOutput.sub_criteria.filter(
+    (s) => s.source_mix === "intake_only" && s.score === 1.5,
+  ).length;
+
+  return (
+    <div className="mt-4 rounded-lg border border-amber-200 bg-white p-4">
+      <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+        Engine math (unrounded — to surface micro-changes)
+      </p>
+      <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <p className="text-[11px] font-semibold text-slate-500">
+            Per-dimension average (raw engine output)
+          </p>
+          <ul className="mt-1 space-y-0.5 font-mono text-[11px] text-slate-700">
+            {dimAverages.map((d) => (
+              <li key={d.dim} className="flex justify-between gap-3">
+                <span>{d.dim}</span>
+                <span className="tabular-nums">
+                  <span className="text-slate-900">{d.avg.toFixed(3)}</span>
+                  <span className="ml-2 text-slate-400">/ 5.000</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 border-t border-slate-100 pt-2 font-mono text-[11px] text-slate-700">
+            <span className="font-semibold">Operator composite (raw):</span>{" "}
+            <span className="tabular-nums text-slate-900">
+              {operatorComposite.toFixed(3)}
+            </span>
+          </p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-slate-500">
+            Why small intake edits don&rsquo;t move the displayed score much
+          </p>
+          <ul className="mt-1 space-y-1 text-[11px] text-slate-700">
+            <li>
+              <span className="font-semibold">{intakeOnly}</span> of{" "}
+              {engineOutput.sub_criteria.length} sub-criteria have only
+              intake signals (no artifact upload to validate).
+            </li>
+            <li>
+              <span className="font-semibold">{flooredAt15}</span> of those
+              are floored at 1.5 — the engine&rsquo;s intake-only minimum.
+            </li>
+            <li className="pt-1 text-[10px] italic text-slate-500">
+              Floored sub-criteria don&rsquo;t move when you remove a
+              negative intake signal — they&rsquo;re already at the floor.
+              Upload artifacts in Evidence &amp; Coverage to unlock
+              changes above 3 and below 1.5.
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function EngineSourceMix({
   output,
