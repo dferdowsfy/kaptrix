@@ -269,11 +269,11 @@ export function ScoringPanel({
           {!previewMode && saving && (
             <span className="text-xs text-gray-400">Saving…</span>
           )}
-          {scoringStale && onForceResync && (
-            <GenerateButton type="button" onClick={onForceResync} size="sm">
-              Re-generate scores
-            </GenerateButton>
-          )}
+          {/* The page-level "Re-generate scores" button at the top of
+              the page is the single entry point. The duplicate button
+              that used to render here when scores went stale was a
+              no-op for the deterministic engine (which already re-runs
+              on every render), so it's been removed. */}
         </div>
       </div>
 

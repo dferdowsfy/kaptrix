@@ -16,6 +16,7 @@ import {
   isStageDirty,
   currentContextSlice,
   formatKnowledgeBaseEvidence,
+  hydrateKnowledgeBaseFromSupabase,
   type KnowledgeEntry,
   type KnowledgeStep,
 } from "@/lib/preview/knowledge-base";
@@ -253,8 +254,18 @@ export default function PreviewScoringPage() {
     processedRunKeyRef.current = null;
   }, [selectedId]);
 
-  const run = useCallback(() => {
+  const run = useCallback(async () => {
     if (!selectedId) return;
+    // Pull the latest KB state from Supabase before re-scoring. This
+    // covers the cross-device case where intake / coverage edits were
+    // made on another tab or device — without this, the engine would
+    // run against stale localStorage and produce identical scores even
+    // though the operator's inputs have changed.
+    try {
+      await hydrateKnowledgeBaseFromSupabase(selectedId);
+    } catch {
+      // Network or auth failure — proceed with local KB.
+    }
     // Compose the full scoring context: structured KB payloads +
     // uploaded document text + extracted knowledge insights. This is
     // the normalisation layer — every signal the operator has produced
