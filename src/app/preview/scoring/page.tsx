@@ -366,29 +366,29 @@ export default function PreviewScoringPage() {
         </GenerateButton>
       </div>
 
-      {/* KB inputs + stale banner */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 text-xs shadow-sm">
-        <p className="font-semibold text-slate-800">Knowledge base inputs</p>
+      {/* Combined inputs + engine summary header */}
+      <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         {(upstreamChanged || staleUpstream.length > 0) && (
-          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             <span className="font-semibold">Upstream context changed.</span>{" "}
             {inputsChanged
-              ? "New evidence (uploaded documents or extracted insights) has been added since scores were generated — click Re-generate scores to incorporate it."
+              ? "New evidence has been added since scores were generated. Click Re-generate scores to incorporate it."
               : upstreamChanged
-                ? `${scoringDirty.reasons.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} updated — click Re-generate scores to rebuild from the latest evidence.`
+                ? `${scoringDirty.reasons.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} updated — re-generate scores to rebuild from the latest evidence.`
                 : `Re-submit ${staleUpstream.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} to clear the stale flag.`}
           </div>
         )}
-        <div className="mt-2 flex flex-wrap gap-2">
-          {submittedSteps.length === 0 && (
-            <span className="text-slate-500">No steps submitted yet.</span>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {submittedSteps.length === 0 && missingSteps.length === 0 && (
+            <span className="text-sm text-slate-500">No steps submitted yet.</span>
           )}
           {submittedSteps.map((s) => {
             const stale = kb[s]?.stale === true;
             return (
               <span
                 key={s}
-                className={`rounded-full px-2.5 py-1 text-[11px] font-medium ${
+                className={`rounded-full px-3 py-1.5 text-sm font-medium ${
                   stale
                     ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200"
                     : "bg-emerald-100 text-emerald-800"
@@ -407,19 +407,23 @@ export default function PreviewScoringPage() {
           {missingSteps.map((s) => (
             <span
               key={s}
-              className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-800 ring-1 ring-amber-200"
+              className="rounded-full bg-amber-50 px-3 py-1.5 text-sm font-medium text-amber-800 ring-1 ring-amber-200"
             >
               · {KNOWLEDGE_STEP_LABELS[s]} pending
             </span>
           ))}
+          {hasEngineEvidence && (
+            <span
+              className="ml-auto rounded-full bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-600 ring-1 ring-slate-200"
+              title="SHA-256 of canonical inputs. Identical hash = identical output."
+            >
+              hash {engineOutput.inputs_hash.slice(0, 10)}…
+            </span>
+          )}
         </div>
-      </div>
 
-      {/* Deterministic engine summary — always visible when any
-          intake or artifact evidence exists. */}
-      {hasEngineEvidence && (
-        <EngineSourceSummary output={engineOutput} />
-      )}
+        {hasEngineEvidence && <EngineSourceMix output={engineOutput} />}
+      </div>
 
       {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
         <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">
@@ -483,14 +487,11 @@ export default function PreviewScoringPage() {
   );
 }
 
-// ── Engine source summary banner ─────────────────────────────────────
-//
-// Aggregates the deterministic engine output into a single at-a-glance
-// panel so the operator can see where scores are coming from without
-// expanding every dimension. Renders source-mix counts + a stable
-// inputs hash (same inputs → same hash → same scores, always).
+// ── Engine source mix ────────────────────────────────────────────────
+// Source-mix bucket counts + confidence summary, rendered borderless so
+// it nests cleanly inside the combined header card.
 
-function EngineSourceSummary({
+function EngineSourceMix({
   output,
 }: {
   output: ReturnType<typeof runScoringEngine>;
@@ -514,38 +515,21 @@ function EngineSourceSummary({
   const total = output.sub_criteria.length;
 
   return (
-    <div className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 text-xs shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-semibold text-indigo-900">
-            Deterministic scoring engine
-          </p>
-          <p className="mt-0.5 text-[11px] text-indigo-700">
-            Same intake + artifacts produce the same scores, every time. Source
-            indicators appear on each sub-criterion below.
-          </p>
-        </div>
-        <span
-          className="shrink-0 rounded-full bg-white px-2 py-0.5 font-mono text-[10px] text-indigo-700 ring-1 ring-indigo-200"
-          title="SHA-256 of canonical inputs. Identical hash = identical output."
-        >
-          hash {output.inputs_hash.slice(0, 10)}…
-        </span>
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <BucketTile label="Artifact supported" value={counts.artifact_supported} total={total} tone="emerald" />
+        <BucketTile label="Artifact only" value={counts.artifact_only} total={total} tone="sky" />
+        <BucketTile label="Intake only" value={counts.intake_only} total={total} tone="amber" />
+        <BucketTile label="Contradictory" value={counts.contradictory} total={total} tone="rose" />
+        <BucketTile label="Insufficient" value={counts.insufficient} total={total} tone="slate" />
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <SummaryChip label="Artifact supported" value={counts.artifact_supported} total={total} tone="emerald" />
-        <SummaryChip label="Artifact only" value={counts.artifact_only} total={total} tone="sky" />
-        <SummaryChip label="Intake only" value={counts.intake_only} total={total} tone="amber" />
-        <SummaryChip label="Contradictory" value={counts.contradictory} total={total} tone="rose" />
-        <SummaryChip label="Insufficient" value={counts.insufficient} total={total} tone="slate" />
-      </div>
-      <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-indigo-900">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm text-slate-700">
         <span>
           <strong>{highConf}</strong> HIGH · <strong>{total - highConf - lowConf}</strong> MEDIUM · <strong>{lowConf}</strong> LOW confidence
         </span>
         {contradictions > 0 && (
           <span className="font-semibold text-rose-700">
-            ⚠ {contradictions} contradiction(s) surfaced
+            ⚠ {contradictions} contradiction{contradictions === 1 ? "" : "s"} surfaced
           </span>
         )}
       </div>
@@ -553,7 +537,7 @@ function EngineSourceSummary({
   );
 }
 
-function SummaryChip({
+function BucketTile({
   label,
   value,
   total,
@@ -572,11 +556,11 @@ function SummaryChip({
     slate: "bg-slate-50 text-slate-800 ring-slate-200",
   }[tone];
   return (
-    <div className={`rounded-lg px-2 py-1.5 ring-1 ring-inset ${cls}`}>
-      <p className="text-[10px] font-medium uppercase tracking-wide opacity-70">{label}</p>
-      <p className="text-sm font-semibold">
+    <div className={`rounded-xl px-4 py-3 ring-1 ring-inset ${cls}`}>
+      <p className="text-[11px] font-semibold uppercase tracking-wider opacity-75">{label}</p>
+      <p className="mt-1 text-3xl font-semibold tabular-nums leading-none">
         {value}
-        <span className="text-[10px] font-normal opacity-60"> / {total}</span>
+        <span className="ml-1 text-sm font-normal opacity-60">/ {total}</span>
       </p>
     </div>
   );
