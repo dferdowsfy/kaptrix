@@ -238,82 +238,88 @@ export function ScoringPanel({
 
   return (
     <div className="space-y-6">
-      {/* Composite score */}
-      <div className="rounded-lg border bg-white p-6 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs font-medium text-gray-500">
-              {contextSignals.length > 0
-                ? "Context-aware composite"
-                : "Composite Score"}
+      {/* Composite score header — bare on the page background, mirroring
+          the Stitch "Evidence Gathering Dashboard" layout. The previous
+          card chrome was removed so the composite sits flush above the
+          decision badge and the per-dimension card grid. */}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="text-xs font-medium text-gray-500">
+            {contextSignals.length > 0
+              ? "Context-aware composite"
+              : "Composite Score"}
+          </p>
+          <p className="mt-1 text-5xl font-bold tabular-nums text-gray-900">
+            {adjustedComposite.toFixed(1)}
+            <span className="ml-1 text-2xl font-normal text-gray-400">
+              / 5.0
+            </span>
+          </p>
+          {contextSignals.length > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              Operator composite {composite.composite_score.toFixed(1)}
+              {" · "}
+              context Δ {contextAdjustment.composite_delta >= 0 ? "+" : ""}
+              {contextAdjustment.composite_delta.toFixed(2)}
             </p>
-            <p className="mt-1 text-4xl font-bold text-gray-900">
-              {adjustedComposite.toFixed(1)}
-              <span className="text-lg text-gray-400"> / 5.0</span>
-            </p>
-            {contextSignals.length > 0 && (
-              <p className="mt-1 text-xs text-gray-500">
-                Operator composite {composite.composite_score.toFixed(1)}
-                {" · "}
-                context Δ {contextAdjustment.composite_delta >= 0 ? "+" : ""}
-                {contextAdjustment.composite_delta.toFixed(2)}
-              </p>
-            )}
-          </div>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
           {!previewMode && saving && (
             <span className="text-xs text-gray-400">Saving…</span>
           )}
-          <div className="flex items-center gap-3">
-            {scoringStale && onForceResync && (
-              <GenerateButton
-                type="button"
-                onClick={onForceResync}
-                size="sm"
+          {scoringStale && onForceResync && (
+            <GenerateButton type="button" onClick={onForceResync} size="sm">
+              Re-generate scores
+            </GenerateButton>
+          )}
+        </div>
+      </div>
+
+      <DecisionBadge decision={decision} />
+
+      {/* Dimension scores — 3-column card grid (Stitch design).
+          Each card shows the dimension name, the (context-adjusted) score,
+          its delta vs the operator score, and a fill bar to 5.0. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {composite.dimension_details.map((dim) => {
+          const delta = contextAdjustment.dimension_delta[dim.dimension] ?? 0;
+          const adjusted = Math.max(0, Math.min(5, dim.average_score + delta));
+          return (
+            <div
+              key={dim.dimension}
+              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+            >
+              <p
+                className="truncate text-sm font-medium text-slate-700"
+                title={dim.name}
               >
-                Re-generate scores
-              </GenerateButton>
-            )}
-          </div>
-        </div>
-
-        <DecisionBadge decision={decision} />
-
-        {/* Dimension score bars */}
-        <div className="mt-4 space-y-2">
-          {composite.dimension_details.map((dim) => {
-            const delta = contextAdjustment.dimension_delta[dim.dimension] ?? 0;
-            const adjusted = Math.max(
-              0,
-              Math.min(5, dim.average_score + delta),
-            );
-            return (
-              <div key={dim.dimension} className="flex items-center gap-3">
-                <span className="w-40 text-xs text-gray-600 truncate">
-                  {dim.name}
-                </span>
-                <div className="flex-1 h-2 rounded-full bg-gray-100 relative">
-                  <div
-                    className="h-2 rounded-full bg-gray-900 transition-all"
-                    style={{ width: `${(adjusted / 5) * 100}%` }}
-                  />
-                </div>
-                <span className="w-14 text-right text-xs font-medium text-gray-700">
+                {dim.name}
+              </p>
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className="text-3xl font-bold tabular-nums text-slate-900">
                   {adjusted.toFixed(1)}
-                  {delta !== 0 && (
-                    <span
-                      className={`ml-1 text-[10px] ${
-                        delta < 0 ? "text-rose-600" : "text-emerald-600"
-                      }`}
-                    >
-                      ({delta > 0 ? "+" : ""}
-                      {delta.toFixed(2)})
-                    </span>
-                  )}
                 </span>
+                {delta !== 0 && (
+                  <span
+                    className={`text-xs font-semibold ${
+                      delta < 0 ? "text-rose-600" : "text-emerald-600"
+                    }`}
+                  >
+                    ({delta > 0 ? "+" : ""}
+                    {delta.toFixed(2)})
+                  </span>
+                )}
               </div>
-            );
-          })}
-        </div>
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                <div
+                  className="h-full rounded-full bg-slate-900 transition-all"
+                  style={{ width: `${(adjusted / 5) * 100}%` }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {contextSignals.length > 0 && (
