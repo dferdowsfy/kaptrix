@@ -197,17 +197,19 @@ export interface DecisionResult {
   composite_delta: number | null;
 }
 
-// Friendly names for each scoring dimension. Mirrors the labels used in
-// the dimension grid and Context signals card so the narrative reads
-// naturally. Kept in sync with `DIMENSION_SHORT_LABEL` in
-// `src/lib/preview/system-signals.ts`.
-const DIMENSION_FRIENDLY_NAME: Record<ScoreDimension, string> = {
-  product_credibility: "Product Credibility",
-  tooling_exposure: "Tooling & Vendor Exposure",
-  data_sensitivity: "Data Risk",
-  governance_safety: "Governance & Safety",
-  production_readiness: "Production Readiness",
-  open_validation: "Open Validation",
+// Investor-facing translations of each scoring dimension. The dimension
+// IDs (`data_sensitivity`, `production_readiness`, etc.) and the short
+// labels in `DIMENSION_SHORT_LABEL` are correct but read like an
+// engineering rubric. The narrative summary uses these phrases instead
+// so an IC reader who has never seen the rubric still understands what
+// the concern is.
+const DIMENSION_INVESTOR_CONCERN: Record<ScoreDimension, string> = {
+  product_credibility: "the actual product capability behind the pitch",
+  tooling_exposure: "third-party vendor and tooling dependencies",
+  data_sensitivity: "data handling and regulatory exposure",
+  governance_safety: "governance practices and safety posture",
+  production_readiness: "operational maturity to run in production",
+  open_validation: "outstanding evidence and validation work",
 };
 
 function joinList(items: string[]): string {
@@ -418,8 +420,11 @@ export function deriveDecision(input: DeriveDecisionInput): DecisionResult {
 
 /**
  * Convert the structural decision inputs into a 1–2 sentence narrative
- * the operator can read at a glance. Pure function: same inputs → same
- * sentences, every time.
+ * an investment-committee reader can act on without ever seeing the
+ * scoring rubric. No "composite", no "floor", no "ceiling", no
+ * dimension IDs — instead, plain underwriting language.
+ *
+ * Pure function: same inputs → same sentences, every time.
  */
 function buildDecisionSummary(args: {
   decision: Decision;
@@ -429,72 +434,83 @@ function buildDecisionSummary(args: {
   criticals: number;
   delta: number | null;
 }): string {
-  const { decision, phase, composite, blocking, criticals, delta } = args;
-  const compositeStr = composite.toFixed(1);
-  const blockingNames = blocking.map((d) => DIMENSION_FRIENDLY_NAME[d]);
-  const blockingPhrase = blockingNames.length
-    ? `${joinList(blockingNames)} ${blockingNames.length === 1 ? "scores" : "score"} below the 2.0 floor`
-    : "";
-  const criticalsPhrase =
-    criticals > 0
-      ? `${criticals} critical red flag${criticals === 1 ? "" : "s"} surfaced in pre-analysis`
-      : "";
-  const concerns = [blockingPhrase, criticalsPhrase].filter(Boolean);
-  const concernsList = joinList(concerns);
+  const { decision, phase, blocking, criticals, delta } = args;
+  const concernPhrases = blocking.map((d) => DIMENSION_INVESTOR_CONCERN[d]);
+  const concernsList = joinList(concernPhrases);
 
-  // Pre-investment phase
+  // Phrase the cluster of concerns differently depending on count, so
+  // single-issue and multi-issue cases both read naturally.
+  const concernsClause =
+    concernPhrases.length === 0
+      ? ""
+      : concernPhrases.length === 1
+        ? `weakness in ${concernsList}`
+        : concernPhrases.length === 2
+          ? `weakness across ${concernsList}`
+          : `material concerns across ${concernsList}`;
+
+  const redFlagClause =
+    criticals === 0
+      ? ""
+      : criticals === 1
+        ? "an unresolved red flag from diligence"
+        : `${criticals} unresolved red flags from diligence`;
+
+  // Combine concerns and red flags into one well-formed clause.
+  const issuesClause = (() => {
+    if (concernsClause && redFlagClause) {
+      return `${concernsClause}, alongside ${redFlagClause}`;
+    }
+    return concernsClause || redFlagClause;
+  })();
+
+  // ── Pre-investment ───────────────────────────────────────────────
   if (phase === "pre_investment") {
     if (decision === "invest") {
-      return `Composite of ${compositeStr}/5.0 clears the 3.5 invest threshold with no blocking dimensions and no critical red flags. The evidence supports moving forward without conditions.`;
+      return "This opportunity meets our underwriting bar across the rubric — no material concerns surfaced, and there are no unresolved red flags. Recommend proceeding to term sheet.";
     }
     if (decision === "do_not_invest") {
-      const reason =
-        composite < THRESHOLDS.do_not_invest_ceiling
-          ? `Composite of ${compositeStr}/5.0 is below the 2.5 do-not-invest ceiling`
-          : `${criticals} critical red flag${criticals === 1 ? "" : "s"} make the thesis indefensible`;
-      const detail = concerns.length
-        ? `, and ${concernsList}.`
-        : ".";
-      return `${reason}${detail} Recommendation is to pass; bringing this engagement back would require closing each gap and clearing the red flags before re-scoring.`;
+      const why = issuesClause
+        ? `${issuesClause.charAt(0).toUpperCase()}${issuesClause.slice(1)} undermine the thesis, and the issues are too foundational to resolve through deal terms.`
+        : "The risk-adjusted return is indefensible at the current evidence level.";
+      return `This opportunity falls below our underwriting bar. ${why} Recommend passing; we would only revisit if the team substantially strengthens those areas and clears the outstanding red flags.`;
     }
     // invest_with_conditions
-    const opener = `Composite of ${compositeStr}/5.0 sits between the 2.5 do-not-invest ceiling and the 3.5 invest threshold`;
-    const middle = concerns.length
-      ? ` because ${concernsList}.`
-      : ".";
-    return `${opener}${middle} Approval is contingent on remediating the flagged areas and re-scoring before final commitment.`;
+    const why = issuesClause
+      ? `but ${issuesClause} need to be remediated before final commitment`
+      : "but additional diligence is needed before final commitment";
+    return `The headline thesis is underwritable, ${why}. Recommend a conditional offer contingent on the team closing those gaps and providing fresh evidence at the next checkpoint.`;
   }
 
-  // Active engagement phase
+  // ── Active engagement ────────────────────────────────────────────
   if (phase === "active") {
     const d = delta ?? 0;
     const trend =
       d > 0
-        ? `improving by ${d.toFixed(1)} versus the prior scorecard`
+        ? `Operating posture has strengthened versus the prior scorecard`
         : d < 0
-          ? `down ${Math.abs(d).toFixed(1)} versus the prior scorecard`
-          : "flat versus the prior scorecard";
+          ? `Operating posture has deteriorated versus the prior scorecard`
+          : `Operating posture is flat versus the prior scorecard`;
     if (decision === "continue") {
-      return `Composite of ${compositeStr}/5.0 is ${trend} with no critical red flags. Stay the course on the existing plan.`;
+      return `${trend} with no critical issues. The asset is tracking the original thesis — continue execution against the existing plan.`;
     }
     if (decision === "stall_and_rediligence") {
-      const reason = concerns.length
-        ? `; ${concernsList}`
-        : "";
-      return `Composite of ${compositeStr}/5.0 is ${trend}${reason}. Pause new commitments and re-diligence the affected areas before continuing.`;
+      const why = issuesClause ? `, with ${issuesClause}` : "";
+      return `${trend}${why}. Pause further commitments and re-run diligence on the affected areas before deploying additional capital.`;
     }
     // stall
-    return `Composite of ${compositeStr}/5.0 is ${trend} — not a clear deterioration but not enough lift to greenlight further investment. Hold the current envelope and revisit at the next checkpoint.`;
+    return `${trend} — within tolerance, but not delivering the upside we originally underwrote. Maintain the current envelope and reassess at the next milestone.`;
   }
 
-  // Post-close phase
+  // ── Post-close ───────────────────────────────────────────────────
   if (decision === "double_down") {
-    return `Composite of ${compositeStr}/5.0 with strong Production Readiness and Governance & Safety scores. The asset is performing — increase exposure if portfolio construction allows.`;
+    return "The portfolio company is performing across operational maturity and governance — the thesis is validated by results to date. Recommend follow-on participation if portfolio allocation allows.";
   }
   if (decision === "wind_down") {
-    const reason = concerns.length ? ` and ${concernsList}` : "";
-    return `Composite of ${compositeStr}/5.0 with Production Readiness below the 2.5 hold floor${reason}. Begin a wind-down plan; remediation costs likely exceed expected return.`;
+    const why = issuesClause ? `, with ${issuesClause}` : "";
+    return `The portfolio company is materially below the operational bar needed to continue${why}. Remediation cost likely exceeds expected return — recommend an orderly wind-down.`;
   }
   // hold
-  return `Composite of ${compositeStr}/5.0 — the asset is functioning but not earning additional capital. Hold the position and address the open gaps before any follow-on.`;
+  const why = issuesClause ? `; address ${issuesClause}` : "";
+  return `The portfolio company is functioning but not earning additional capital${why}. Hold the position and revisit only with substantially better evidence on the open items.`;
 }
