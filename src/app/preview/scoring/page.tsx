@@ -366,7 +366,66 @@ export default function PreviewScoringPage() {
         </GenerateButton>
       </div>
 
-      {/* Combined inputs + engine summary header */}
+      {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
+        <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">
+          <p className="text-sm font-medium text-slate-600">No scores generated yet.</p>
+          <p className="mt-1 text-xs text-slate-400">
+            Complete the Intake questionnaire, then click &ldquo;Generate scores&rdquo; above.
+          </p>
+        </div>
+      )}
+
+      {loading && (
+        <div className="rounded-2xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500">
+          <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+          Analysing knowledge base and generating scores…
+          <p className="mt-2 text-xs text-slate-400">
+            You can navigate to other pages — scoring continues in the background.
+          </p>
+        </div>
+      )}
+
+      {storeError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          {storeError}
+        </div>
+      )}
+
+      {(suggestedScores || hasEngineEvidence || snapshot?.scores) && !loading && (
+        <ScoringPanel
+          engagementId={engagement.id}
+          scores={panelScores}
+          patternMatches={patternMatches}
+          benchmarkCases={benchmarks}
+          dealStage={engagement.deal_stage}
+          status={engagement.status}
+          analyses={analyses}
+          contextSignals={contextSignals}
+          engineMetadataBySub={engineMetadataBySub}
+          previewMode
+          scoringStale={upstreamChanged}
+          onForceResync={() => void run()}
+          onScoresChange={(snap) => {
+            if (!selectedId) return;
+            submitScoringToKnowledgeBase({
+              clientId: selectedId,
+              scores: snap.scores,
+              composite_score: snap.composite_score,
+              context_aware_composite: snap.context_aware_composite,
+              decision_band: snap.decision_band,
+              autoSync: true,
+            });
+          }}
+        />
+      )}
+
+      {generatedAt && !loading && (
+        <p className="text-right text-[11px] text-slate-400">
+          Scores generated {new Date(generatedAt).toLocaleString()} · LLM suggestions — adjust as needed
+        </p>
+      )}
+
+      {/* Inputs + engine summary — diagnostic context below the scores */}
       <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         {(upstreamChanged || staleUpstream.length > 0) && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -424,65 +483,6 @@ export default function PreviewScoringPage() {
 
         {hasEngineEvidence && <EngineSourceMix output={engineOutput} />}
       </div>
-
-      {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">
-          <p className="text-sm font-medium text-slate-600">No scores generated yet.</p>
-          <p className="mt-1 text-xs text-slate-400">
-            Complete the Intake questionnaire, then click &ldquo;Generate scores&rdquo; above.
-          </p>
-        </div>
-      )}
-
-      {loading && (
-        <div className="rounded-2xl border border-slate-200 bg-white py-10 text-center text-sm text-slate-500">
-          <div className="mx-auto mb-3 h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-          Analysing knowledge base and generating scores…
-          <p className="mt-2 text-xs text-slate-400">
-            You can navigate to other pages — scoring continues in the background.
-          </p>
-        </div>
-      )}
-
-      {storeError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {storeError}
-        </div>
-      )}
-
-      {generatedAt && !loading && (
-        <p className="text-right text-[11px] text-slate-400">
-          Scores generated {new Date(generatedAt).toLocaleString()} · LLM suggestions — adjust as needed
-        </p>
-      )}
-
-      {(suggestedScores || hasEngineEvidence || snapshot?.scores) && !loading && (
-        <ScoringPanel
-          engagementId={engagement.id}
-          scores={panelScores}
-          patternMatches={patternMatches}
-          benchmarkCases={benchmarks}
-          dealStage={engagement.deal_stage}
-          status={engagement.status}
-          analyses={analyses}
-          contextSignals={contextSignals}
-          engineMetadataBySub={engineMetadataBySub}
-          previewMode
-          scoringStale={upstreamChanged}
-          onForceResync={() => void run()}
-          onScoresChange={(snap) => {
-            if (!selectedId) return;
-            submitScoringToKnowledgeBase({
-              clientId: selectedId,
-              scores: snap.scores,
-              composite_score: snap.composite_score,
-              context_aware_composite: snap.context_aware_composite,
-              decision_band: snap.decision_band,
-              autoSync: true,
-            });
-          }}
-        />
-      )}
     </div>
   );
 }
