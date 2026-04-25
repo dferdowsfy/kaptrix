@@ -1,12 +1,18 @@
 import type { NextConfig } from "next";
 import { SECURITY_HEADERS } from "./src/lib/security/headers";
 
+// In production we serve at kaptrix.com/aideligence behind a Vercel rewrite
+// from the KaptrixComply project, so basePath ensures all routes, asset URLs,
+// and <Link> hrefs resolve under /aideligence. Locally, we skip the prefix so
+// http://localhost:3000/ works directly. Override with NEXT_PUBLIC_BASE_PATH
+// if you need to mirror the prod path in dev.
+const basePath =
+  process.env.NEXT_PUBLIC_BASE_PATH ??
+  (process.env.NODE_ENV === "production" ? "/aideligence" : "");
+
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  // Served at kaptrix.com/aideligence behind a Vercel rewrite from the
-  // KaptrixComply project. basePath ensures all routes, asset URLs, and
-  // <Link> hrefs resolve under /aideligence.
-  basePath: "/aideligence",
+  ...(basePath ? { basePath } : {}),
   async headers() {
     return [
       {
