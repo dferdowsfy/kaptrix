@@ -237,13 +237,33 @@ export function ScoringPanel({
     [engagementId, previewMode],
   );
 
+  // Track when the main composite header scrolls out of view so we can
+  // pop a floating composite chip into the bottom-left corner. Lets the
+  // operator keep an eye on the score while editing sub-criterion
+  // sliders deeper in the page.
+  const compositeHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [showFloatingComposite, setShowFloatingComposite] = useState(false);
+  useEffect(() => {
+    const el = compositeHeaderRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowFloatingComposite(!entry.isIntersecting),
+      { rootMargin: "-80px 0px 0px 0px", threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="space-y-6">
       {/* Composite score header — bare on the page background, mirroring
           the Stitch "Evidence Gathering Dashboard" layout. The previous
           card chrome was removed so the composite sits flush above the
           decision badge and the per-dimension card grid. */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div
+        ref={compositeHeaderRef}
+        className="flex flex-wrap items-end justify-between gap-3"
+      >
         <div>
           <p className="text-xs font-medium text-gray-500">
             {contextSignals.length > 0
@@ -279,20 +299,51 @@ export function ScoringPanel({
 
       <DecisionBadge decision={decision} />
 
+      {/* "Adjust scoring below" hint — sets expectations that the
+          generated score is fully editable in the per-dimension sections
+          that follow. */}
+      <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 px-4 py-3 text-sm text-indigo-900">
+        <p>
+          <span className="font-semibold">This composite is built from every input you&rsquo;ve given Kaptrix</span>
+          {" "}— intake answers, evidence uploads, extracted insights,
+          positioning, and pre-analysis red flags. Tap any dimension below to
+          jump to its sub-criteria and override individual scores; the
+          composite recalculates as you go.
+        </p>
+      </div>
+
       {/* Dimension scores — 3-column card grid (Stitch design).
           Each card shows the dimension name, the (context-adjusted) score,
-          its delta vs the operator score, and a fill bar to 5.0. */}
+          its delta vs the operator score, and a fill bar to 5.0. Clicking
+          a card expands the matching scoring section below and scrolls to
+          it so the operator can adjust without hunting for it. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {composite.dimension_details.map((dim) => {
           const delta = contextAdjustment.dimension_delta[dim.dimension] ?? 0;
           const adjusted = Math.max(0, Math.min(5, dim.average_score + delta));
+          const onJump = () => {
+            setExpandedDimension(dim.dimension);
+            // Defer scroll to next tick so the section has rendered in
+            // its expanded state before we measure its position.
+            requestAnimationFrame(() => {
+              const el = document.getElementById(
+                `scoring-section-${dim.dimension}`,
+              );
+              if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "start" });
+              }
+            });
+          };
           return (
-            <div
+            <button
               key={dim.dimension}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+              type="button"
+              onClick={onJump}
+              className="group rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-indigo-400 hover:shadow-md focus-visible:border-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+              aria-label={`Jump to ${dim.name} sub-criteria`}
             >
               <p
-                className="truncate text-sm font-medium text-slate-700"
+                className="truncate text-sm font-medium text-slate-700 group-hover:text-indigo-700"
                 title={dim.name}
               >
                 {dim.name}
@@ -318,7 +369,10 @@ export function ScoringPanel({
                   style={{ width: `${(adjusted / 5) * 100}%` }}
                 />
               </div>
-            </div>
+              <p className="mt-2 text-[10px] font-medium uppercase tracking-wider text-slate-400 group-hover:text-indigo-500">
+                Tap to adjust →
+              </p>
+            </button>
           );
         })}
       </div>
@@ -348,9 +402,14 @@ export function ScoringPanel({
         </div>
       )}
 
-      {/* Dimension scoring sections */}
+      {/* Dimension scoring sections — id anchor lets the dimension grid
+          cards above scroll directly into the matching section. */}
       {SCORING_DIMENSIONS.map((dim) => (
-        <div key={dim.key} className="rounded-lg border bg-white shadow-sm">
+        <div
+          key={dim.key}
+          id={`scoring-section-${dim.key}`}
+          className="scroll-mt-24 rounded-lg border bg-white shadow-sm"
+        >
           <button
             onClick={() =>
               setExpandedDimension(
@@ -401,6 +460,47 @@ export function ScoringPanel({
           )}
         </div>
       ))}
+
+      {/* Floating composite chip — appears once the operator scrolls
+          past the main composite header so the score stays visible
+          while editing sub-criterion sliders below. */}
+      <div
+        className={`fixed bottom-6 left-6 z-40 transition-all duration-200 ${
+          showFloatingComposite
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-4 opacity-0"
+        }`}
+      >
+        <div
+          className={`flex items-center gap-3 rounded-2xl border bg-white p-3 pr-4 shadow-2xl ring-1 ring-black/5 ${
+            decision.tone === "go"
+              ? "border-emerald-200"
+              : decision.tone === "warn"
+                ? "border-amber-200"
+                : "border-rose-200"
+          }`}
+        >
+          <div
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums text-white ${
+              decision.tone === "go"
+                ? "bg-emerald-600"
+                : decision.tone === "warn"
+                  ? "bg-amber-600"
+                  : "bg-rose-600"
+            }`}
+          >
+            {adjustedComposite.toFixed(1)}
+          </div>
+          <div className="leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Composite · live
+            </p>
+            <p className="text-sm font-semibold text-slate-900">
+              {decision.label}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
