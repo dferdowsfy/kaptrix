@@ -151,19 +151,31 @@ export default function PreviewScoringPage() {
   // rationale assistance only.
   const engineOutput = useMemo(() => {
     const intakeEntry = kb.intake;
+    const coverageEntry = kb.coverage;
     const preAnalysisEntry = kb.pre_analysis;
+    const positioningEntry = kb.positioning;
     const intakePayload =
       intakeEntry?.payload.kind === "intake"
         ? (intakeEntry.payload as IntakePayload)
+        : null;
+    const coveragePayload =
+      coverageEntry?.payload.kind === "coverage"
+        ? coverageEntry.payload
         : null;
     const preAnalysisPayload =
       preAnalysisEntry?.payload.kind === "pre_analysis"
         ? (preAnalysisEntry.payload as PreAnalysisPayload)
         : null;
+    const positioningPayload =
+      positioningEntry?.payload.kind === "positioning"
+        ? positioningEntry.payload
+        : null;
     return runScoringEngine(
       buildEngineInputFromPreview({
         intake: intakePayload,
+        coverage: coveragePayload,
         preAnalysis: preAnalysisPayload,
+        positioning: positioningPayload,
         uploadedDocs,
         extractedInsights,
       }),
@@ -209,8 +221,22 @@ export default function PreviewScoringPage() {
       .map((i) => i.id)
       .sort()
       .join(",");
-    const kbStepCount = Object.keys(kb).length;
-    return `docs:${docSig}|ins:${insightSig}|kb:${kbStepCount}`;
+    // Hash each KB step by its version, not just step count, so re-
+    // submitting intake/coverage/insights/pre_analysis/positioning with
+    // edited content invalidates the cache and triggers a re-score.
+    // Each `submit*ToKnowledgeBase` call bumps the version monotonically.
+    const kbSig = (
+      [
+        "intake",
+        "coverage",
+        "insights",
+        "pre_analysis",
+        "positioning",
+      ] as KnowledgeStep[]
+    )
+      .map((step) => `${step}:${kb[step]?.version ?? 0}`)
+      .join("|");
+    return `docs:${docSig}|ins:${insightSig}|kb:${kbSig}`;
   }, [uploadedDocs, extractedInsights, kb]);
 
   const inputsChanged =

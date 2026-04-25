@@ -10,7 +10,9 @@
 
 import type { ScoreDimension } from "@/lib/types";
 import type {
+  CoveragePayload,
   IntakePayload,
+  PositioningPayload,
   PreAnalysisPayload,
 } from "@/lib/preview/kb-format";
 import type { UploadedDoc } from "@/lib/preview/uploaded-docs";
@@ -262,11 +264,132 @@ function preAnalysisArtifacts(
   return out;
 }
 
+// ── Coverage payload → artifacts ─────────────────────────────────────
+//
+// The coverage submission is the operator's own count of "do we have
+// enough evidence yet?". It feeds the open_validation dimension
+// directly:
+//   - lots of recorded gaps → the target sits in the low band (gaps
+//     are concrete unknowns the team has not yet resolved)
+//   - zero gaps with at least three artifacts in evidence → the team
+//     has done the work; emit a high signal
+// Each individual gap summary is also emitted as its own low signal so
+// it shows up in the engine's evidence trail.
+
+function coverageArtifacts(
+  c: CoveragePayload | null | undefined,
+): ArtifactEvidence[] {
+  if (!c) return [];
+  const out: ArtifactEvidence[] = [];
+
+  if (c.gaps_count >= 5) {
+    out.push({
+      id: "coverage:gaps_high",
+      kind: "coverage",
+      dimension: "open_validation",
+      sub_criterion: "known_unknowns",
+      signal: "supports_low",
+      claim: `Coverage review recorded ${c.gaps_count} unfilled evidence gaps.`,
+    });
+  } else if (c.gaps_count === 0 && c.documents_total >= 3) {
+    out.push({
+      id: "coverage:gaps_clean",
+      kind: "coverage",
+      dimension: "open_validation",
+      sub_criterion: "specialist_review",
+      signal: "supports_high",
+      claim: `Coverage review complete with no remaining gaps and ${c.documents_total} artifacts in evidence.`,
+    });
+  }
+
+  c.gap_summaries.forEach((summary, idx) => {
+    if (!summary || !summary.trim()) return;
+    out.push({
+      id: `coverage:gap:${idx}`,
+      kind: "coverage",
+      dimension: "open_validation",
+      sub_criterion: "known_unknowns",
+      signal: "supports_low",
+      claim: summary.trim(),
+    });
+  });
+
+  return out;
+}
+
+// ── Positioning payload → artifacts ──────────────────────────────────
+//
+// Positioning captures how the target compares to known peers + how
+// confident the operator is in that read. We map:
+//   - high confidence → product_credibility supports_high
+//   - low confidence  → product_credibility supports_low
+//   - each validation_priority → open_validation supports_low
+//   - >=3 comparables identified → product_credibility supports_mid
+
+function positioningArtifacts(
+  p: PositioningPayload | null | undefined,
+): ArtifactEvidence[] {
+  if (!p) return [];
+  const out: ArtifactEvidence[] = [];
+
+  if (p.confidence === "high" && p.positioning_summary?.trim()) {
+    out.push({
+      id: "positioning:high_confidence",
+      kind: "insight",
+      dimension: "product_credibility",
+      sub_criterion: "ai_value_vs_wrapper",
+      signal: "supports_high",
+      claim: `High-confidence positioning read: ${p.positioning_summary.trim().slice(0, 240)}`,
+    });
+  } else if (p.confidence === "low") {
+    out.push({
+      id: "positioning:low_confidence",
+      kind: "insight",
+      dimension: "product_credibility",
+      sub_criterion: "ai_value_vs_wrapper",
+      signal: "supports_low",
+      claim: `Low-confidence positioning: ${(p.confidence_rationale || "rationale pending").trim().slice(0, 240)}`,
+    });
+  }
+
+  p.validation_priorities.forEach((pri, idx) => {
+    if (!pri || !pri.trim()) return;
+    out.push({
+      id: `positioning:priority:${idx}`,
+      kind: "insight",
+      dimension: "open_validation",
+      sub_criterion: "known_unknowns",
+      signal: "supports_low",
+      claim: `Positioning validation priority: ${pri.trim()}`,
+    });
+  });
+
+  if (p.comparables.length >= 3) {
+    const names = p.comparables
+      .slice(0, 4)
+      .map((c) => c.name)
+      .filter(Boolean)
+      .join(", ");
+    out.push({
+      id: "positioning:comparables",
+      kind: "insight",
+      dimension: "product_credibility",
+      sub_criterion: "customer_vs_claimed",
+      signal: "supports_mid",
+      claim: `${p.comparables.length} comparable(s) identified${names ? `: ${names}` : ""}.`,
+    });
+  }
+
+  return out;
+}
+
 // ── Top-level adapter ────────────────────────────────────────────────
 
 export interface PreviewEngineInputSources {
   intake?: IntakePayload | null;
+  coverage?: CoveragePayload | null;
   preAnalysis?: PreAnalysisPayload | null;
+  positioning?: PositioningPayload | null;
   uploadedDocs?: readonly UploadedDoc[];
   extractedInsights?: readonly KnowledgeInsight[];
 }
@@ -278,6 +401,8 @@ export function buildEngineInputFromPreview(
   const artifacts: ArtifactEvidence[] = [
     ...docArtifacts(sources.uploadedDocs ?? []),
     ...insightArtifacts(sources.extractedInsights ?? []),
+    ...coverageArtifacts(sources.coverage),
+    ...positioningArtifacts(sources.positioning),
     ...preAnalysisArtifacts(sources.preAnalysis),
   ];
   return { intake, artifacts };
