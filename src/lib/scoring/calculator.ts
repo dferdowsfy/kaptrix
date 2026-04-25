@@ -192,8 +192,17 @@ export interface DecisionResult {
    * for the same scores.
    */
   summary: string;
+  /** Final context-adjusted composite, on the 0..5 scale. */
+  composite_score: number;
+  /** Raw operator composite before any context adjustment. */
+  operator_composite: number;
+  /** Δ added to the operator composite by knowledge-base context, or null if none. */
+  context_composite_delta: number | null;
+  /** Final context-adjusted dimension scores keyed by dimension id. */
+  dimension_scores: Record<ScoreDimension, number>;
   blocking_dimensions: ScoreDimension[];
   critical_red_flag_count: number;
+  /** Δ between this composite and the prior scorecard (trend), or null. */
   composite_delta: number | null;
 }
 
@@ -412,6 +421,10 @@ export function deriveDecision(input: DeriveDecisionInput): DecisionResult {
     tone: meta.tone,
     rationale,
     summary,
+    composite_score: composite.composite_score,
+    operator_composite: baseComposite.composite_score,
+    context_composite_delta: adj ? adj.composite_delta : null,
+    dimension_scores: composite.dimension_scores,
     blocking_dimensions: blocking,
     critical_red_flag_count: criticals,
     composite_delta: delta,

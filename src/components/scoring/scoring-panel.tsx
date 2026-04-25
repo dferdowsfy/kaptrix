@@ -13,6 +13,7 @@ import {
 } from "@/lib/scoring/context";
 import type { SubCriterionEngineOutput } from "@/lib/scoring/engine-types";
 import { KNOWLEDGE_STEP_LABELS } from "@/lib/preview/knowledge-base";
+import { DIMENSION_SHORT_LABEL } from "@/lib/preview/system-signals";
 import { GenerateButton } from "@/components/preview/generate-button";
 import type {
   BenchmarkCase,
@@ -834,16 +835,178 @@ function DecisionBadge({ decision }: { decision: DecisionResult }) {
       </div>
       <p className="mt-1 text-lg font-bold">{decision.label}</p>
       <p className="mt-2 text-base leading-relaxed">{decision.summary}</p>
-      <details className="mt-3 text-xs opacity-80">
-        <summary className="cursor-pointer select-none font-semibold uppercase tracking-wider opacity-70 hover:opacity-100">
-          Score details
+      <details className="mt-3">
+        <summary className="cursor-pointer select-none text-xs font-semibold uppercase tracking-wider opacity-70 hover:opacity-100">
+          How this score was calculated
         </summary>
-        <ul className="mt-2 space-y-0.5">
-          {decision.rationale.map((r, i) => (
-            <li key={i}>• {r}</li>
-          ))}
-        </ul>
+        <DecisionLogicExplainer decision={decision} />
       </details>
+    </div>
+  );
+}
+
+/**
+ * Walks the operator through the math behind a decision: the composite
+ * breakdown, the rule that fires for the current lifecycle phase, the
+ * blocking dimensions and their actual scores, and any red-flag count.
+ * Pure presentation — all numbers come from the DecisionResult, no
+ * additional calculation here.
+ */
+function DecisionLogicExplainer({ decision }: { decision: DecisionResult }) {
+  const composite = decision.composite_score;
+  const operator = decision.operator_composite;
+  const ctxDelta = decision.context_composite_delta;
+  const trendDelta = decision.composite_delta;
+
+  return (
+    <div className="mt-3 space-y-4 rounded-lg bg-white/40 p-4 text-xs leading-relaxed">
+      {/* ── 1. Composite breakdown ─────────────────────────── */}
+      <section>
+        <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">
+          Composite score
+        </p>
+        <p className="mt-1">
+          <span className="font-semibold">{composite.toFixed(1)} / 5.0</span> — the
+          weighted average across all six diligence dimensions (Product
+          Credibility, Tooling &amp; Vendor Exposure, Data Risk, Governance
+          &amp; Safety, Production Readiness, Open Validation).
+        </p>
+        {ctxDelta !== null && ctxDelta !== 0 && (
+          <p className="mt-1 opacity-90">
+            Operator score was{" "}
+            <span className="font-semibold tabular-nums">
+              {operator.toFixed(1)}
+            </span>
+            ; context signals from intake, coverage, insights, and
+            pre-analysis adjusted it by{" "}
+            <span className="font-semibold tabular-nums">
+              {ctxDelta >= 0 ? "+" : ""}
+              {ctxDelta.toFixed(2)}
+            </span>{" "}
+            to land on {composite.toFixed(1)}.
+          </p>
+        )}
+        {trendDelta !== null && (
+          <p className="mt-1 opacity-90">
+            Versus the prior scorecard:{" "}
+            <span className="font-semibold tabular-nums">
+              {trendDelta >= 0 ? "+" : ""}
+              {trendDelta.toFixed(1)}
+            </span>{" "}
+            ({trendDelta > 0
+              ? "improving"
+              : trendDelta < 0
+                ? "declining"
+                : "flat"}
+            ).
+          </p>
+        )}
+      </section>
+
+      {/* ── 2. Decision rule for this lifecycle phase ─────── */}
+      <section>
+        <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">
+          Decision rule ·{" "}
+          {decision.phase === "pre_investment"
+            ? "pre-investment"
+            : decision.phase === "active"
+              ? "active engagement"
+              : "post-close"}
+        </p>
+        {decision.phase === "pre_investment" && (
+          <ul className="mt-1 space-y-0.5">
+            <li>
+              <span className="font-semibold">Invest</span> — composite ≥ 3.5
+              with no blocking dimensions and no critical red flags.
+            </li>
+            <li>
+              <span className="font-semibold">Invest with conditions</span> —
+              composite between 2.5 and 3.5, or above 3.5 with blockers.
+            </li>
+            <li>
+              <span className="font-semibold">Do not invest</span> — composite
+              below 2.5, or 2+ critical red flags from pre-analysis.
+            </li>
+          </ul>
+        )}
+        {decision.phase === "active" && (
+          <ul className="mt-1 space-y-0.5">
+            <li>
+              <span className="font-semibold">Continue</span> — trend ≥ +0.3
+              with no critical red flags.
+            </li>
+            <li>
+              <span className="font-semibold">Stall</span> — trend within
+              ±0.3.
+            </li>
+            <li>
+              <span className="font-semibold">Stall &amp; re-diligence</span> —
+              trend ≤ −0.3, or 2+ critical red flags.
+            </li>
+          </ul>
+        )}
+        {decision.phase === "post_close" && (
+          <ul className="mt-1 space-y-0.5">
+            <li>
+              <span className="font-semibold">Double-down</span> — Production
+              Readiness ≥ 3.5 and Governance &amp; Safety ≥ 3.0, no critical
+              red flags.
+            </li>
+            <li>
+              <span className="font-semibold">Hold</span> — between thresholds.
+            </li>
+            <li>
+              <span className="font-semibold">Wind-down</span> — Production
+              Readiness &lt; 2.5, or 2+ critical red flags.
+            </li>
+          </ul>
+        )}
+        <p className="mt-2">
+          → Result: <span className="font-semibold">{decision.label}</span>.
+        </p>
+      </section>
+
+      {/* ── 3. Blocking dimensions ─────────────────────────── */}
+      {decision.blocking_dimensions.length > 0 && (
+        <section>
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">
+            Blocking dimensions · any score below 2.0
+          </p>
+          <p className="mt-1 opacity-90">
+            A single dimension below 2.0 prevents a clean &ldquo;Invest&rdquo;
+            even when the composite is otherwise strong.
+          </p>
+          <ul className="mt-2 space-y-1">
+            {decision.blocking_dimensions.map((d) => {
+              const score = decision.dimension_scores[d];
+              return (
+                <li key={d} className="flex items-baseline justify-between gap-3">
+                  <span>{DIMENSION_SHORT_LABEL[d]}</span>
+                  <span className="font-mono font-semibold tabular-nums">
+                    {typeof score === "number" ? score.toFixed(1) : "—"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+
+      {/* ── 4. Critical red flags ──────────────────────────── */}
+      {decision.critical_red_flag_count > 0 && (
+        <section>
+          <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">
+            Critical red flags from pre-analysis
+          </p>
+          <p className="mt-1">
+            {decision.critical_red_flag_count} unresolved{" "}
+            {decision.critical_red_flag_count === 1 ? "issue" : "issues"} that
+            cannot be resolved through deal terms alone. Two or more force a
+            &ldquo;Do not invest&rdquo; / &ldquo;Stall &amp; re-diligence&rdquo;
+            decision regardless of composite.
+          </p>
+        </section>
+      )}
     </div>
   );
 }
