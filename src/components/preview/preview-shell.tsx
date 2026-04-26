@@ -580,13 +580,13 @@ export function SectionHeader({
 }) {
   return (
     <div>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-indigo-600 sm:text-xs">
+      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-indigo-600 sm:text-sm">
         {eyebrow}
       </p>
-      <h2 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+      <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
         {title}
       </h2>
-      <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
+      <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
         {description}
       </p>
     </div>
@@ -644,22 +644,22 @@ export function PanelHeader({
 }) {
   return (
     <div
-      className={`flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r ${PANEL_GRADIENT[tone]} px-5 py-4 text-white sm:px-6`}
+      className={`flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r ${PANEL_GRADIENT[tone]} px-5 py-5 text-white sm:px-6`}
     >
       <div className="min-w-0">
         {eyebrow && (
-          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/70">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-white/70">
             {eyebrow}
           </p>
         )}
-        <h2 className="mt-1 truncate text-lg font-bold tracking-tight text-white sm:text-xl">
+        <h2 className="mt-1 truncate text-xl font-bold tracking-tight text-white sm:text-2xl">
           {title}
         </h2>
       </div>
       {(meta || rightSlot) && (
         <div className="flex shrink-0 items-center gap-2">
           {meta && (
-            <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/90 ring-1 ring-white/20">
+            <span className="rounded-full bg-white/15 px-3.5 py-1.5 text-sm font-semibold text-white/90 ring-1 ring-white/20">
               {meta}
             </span>
           )}

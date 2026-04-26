@@ -406,10 +406,6 @@ export function ScoringPanel({
         })}
       </div>
 
-      {contextSignals.length > 0 && (
-        <ContextAdjustmentPanel signals={contextSignals} />
-      )}
-
       {/* Pattern matches sidebar */}
       {patternMatches.length > 0 && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
@@ -433,18 +429,18 @@ export function ScoringPanel({
 
       {/* CTA: marks the boundary between the auto-generated composite
           (everything above) and the editable per-dimension sections
-          (everything below). Encourages the operator to actively
-          adjust scores rather than accepting the engine output as-is. */}
+          (everything below). Clicking "Adjust below" opens the first
+          dimension and smooth-scrolls to it. */}
       <div className="relative overflow-hidden rounded-2xl border-2 border-indigo-300 bg-gradient-to-r from-indigo-50 via-white to-indigo-50 px-6 py-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-600">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">
               Step 2 · Your turn
             </p>
-            <p className="mt-1 text-lg font-semibold text-slate-900">
+            <p className="mt-1 text-xl font-semibold text-slate-900">
               Refine the score below
             </p>
-            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+            <p className="mt-2 max-w-2xl text-base text-slate-600">
               The composite above is Kaptrix&rsquo;s starting point. Open
               each dimension to review the engine&rsquo;s sub-criterion
               scores, override anything that doesn&rsquo;t match what you
@@ -452,9 +448,25 @@ export function ScoringPanel({
               go.
             </p>
           </div>
-          <span className="hidden shrink-0 items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white shadow-sm sm:inline-flex">
+          <button
+            type="button"
+            onClick={() => {
+              const first = SCORING_DIMENSIONS[0];
+              if (!first) return;
+              setExpandedDimension(first.key);
+              requestAnimationFrame(() => {
+                const el = document.getElementById(
+                  `scoring-section-${first.key}`,
+                );
+                if (el) {
+                  el.scrollIntoView({ behavior: "smooth", block: "start" });
+                }
+              });
+            }}
+            className="hidden shrink-0 items-center gap-2 rounded-full bg-indigo-600 px-5 py-2.5 text-sm font-semibold uppercase tracking-wider text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-500 sm:inline-flex"
+          >
             ↓ Adjust below
-          </span>
+          </button>
         </div>
       </div>
 
@@ -750,10 +762,10 @@ function SubCriterionInput({
       : "text-indigo-700 bg-indigo-50 border-indigo-200";
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <div>
-        <p className="text-sm font-medium text-gray-900">{name}</p>
-        <p className="text-xs text-gray-500">{description}</p>
+        <p className="text-base font-semibold text-gray-900">{name}</p>
+        <p className="mt-0.5 text-sm text-gray-600">{description}</p>
       </div>
       {engineMetadata && (
         <EngineSourceBadges meta={engineMetadata} />
@@ -781,16 +793,16 @@ function SubCriterionInput({
           }}
           className="flex-1"
         />
-        <span className="w-10 text-center text-sm font-bold text-gray-900">
+        <span className="w-12 text-center text-lg font-bold text-gray-900 tabular-nums">
           {score.toFixed(1)}
         </span>
       </div>
       {activeBand && (
         <div
-          className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-xs transition-all ${bandColor}`}
+          className={`flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm transition-all ${bandColor}`}
         >
           <span className="shrink-0 font-bold">{activeBand.label}</span>
-          <span className="text-[11px] leading-snug opacity-90">
+          <span className="text-sm leading-snug opacity-90">
             {activeBand.description}
           </span>
         </div>
@@ -804,11 +816,11 @@ function SubCriterionInput({
           }
         }}
         placeholder={placeholder}
-        rows={2}
-        className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+        rows={5}
+        className="block min-h-[140px] w-full resize-y rounded-md border border-gray-300 px-3 py-2.5 text-sm leading-relaxed shadow-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
       />
       {rationale.length > 0 && rationale.length < 20 && (
-        <p className="text-xs text-red-500">
+        <p className="text-sm text-red-500">
           Rationale must be at least 20 characters
         </p>
       )}
