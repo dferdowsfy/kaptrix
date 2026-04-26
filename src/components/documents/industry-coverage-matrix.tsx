@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Document } from "@/lib/types";
 import type { UploadedDoc } from "@/lib/preview/uploaded-docs";
 import {
@@ -56,12 +56,49 @@ export function IndustryCoverageMatrix({
   const [customName, setCustomName] = useState("");
   const [customKind, setCustomKind] = useState("");
   const customFileInputRef = useRef<HTMLInputElement>(null);
+  const customFolderInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   // Category the hidden <input type=file> is bound to for the current
   // click. Set immediately before we call .click() and read back in
   // onChange. Using a ref avoids a stale-state race if the user clicks
   // a second Upload button before the first file picker opens.
   const pendingCategoryRef = useRef<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Filter to the file types the parser pipeline actually supports.
+  // Folder uploads and drag-drop drop everything (including .DS_Store,
+  // images that aren't image/*, etc.) — keep only extensions that map
+  // to a parser branch in src/lib/parsers/index.ts.
+  const SUPPORTED_EXT = useMemo(
+    () =>
+      new Set([
+        "pdf",
+        "docx",
+        "xlsx",
+        "pptx",
+        "txt",
+        "csv",
+        "png",
+        "jpg",
+        "jpeg",
+        "webp",
+      ]),
+    [],
+  );
+  const filterSupported = useCallback(
+    (files: File[]): { kept: File[]; skipped: number } => {
+      const kept: File[] = [];
+      let skipped = 0;
+      for (const f of files) {
+        const ext = f.name.split(".").pop()?.toLowerCase() ?? "";
+        if (SUPPORTED_EXT.has(ext)) kept.push(f);
+        else skipped++;
+      }
+      return { kept, skipped };
+    },
+    [SUPPORTED_EXT],
+  );
 
   const triggerUpload = (category: string) => {
     if (!clientId) return;
@@ -76,7 +113,15 @@ export function IndustryCoverageMatrix({
     const category = pendingCategoryRef.current;
     pendingCategoryRef.current = null;
     if (!files || files.length === 0 || !category || !clientId) return;
-    await uploadFilesForCategory({ clientId, category, files });
+    const { kept, skipped } = filterSupported(Array.from(files));
+    if (skipped > 0) {
+      setSkippedNotice(
+        `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
+      );
+      setTimeout(() => setSkippedNotice(null), 5000);
+    }
+    if (kept.length === 0) return;
+    await uploadFilesForCategory({ clientId, category, files: kept });
   };
 
   // Custom artifact: slugify user-provided name into a stable category
@@ -100,10 +145,111 @@ export function IndustryCoverageMatrix({
   const handleCustomFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0 || !clientId || !customCategory) return;
-    await uploadFilesForCategory({ clientId, category: customCategory, files });
+    const { kept, skipped } = filterSupported(Array.from(files));
+    if (skipped > 0) {
+      setSkippedNotice(
+        `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
+      );
+      setTimeout(() => setSkippedNotice(null), 5000);
+    }
+    if (kept.length === 0) return;
+    await uploadFilesForCategory({
+      clientId,
+      category: customCategory,
+      files: kept,
+    });
     setCustomName("");
     setCustomKind("");
   };
+
+  const handleCustomFolderClick = () => {
+    if (!clientId || !customCategory) return;
+    if (customFolderInputRef.current) customFolderInputRef.current.value = "";
+    customFolderInputRef.current?.click();
+  };
+
+  // Recursively walks a directory entry from a drag-drop event,
+  // returning every File found regardless of nesting depth.
+  const readEntriesRecursively = useCallback(
+    async (entry: FileSystemEntry): Promise<File[]> => {
+      const out: File[] = [];
+      if (entry.isFile) {
+        const fileEntry = entry as FileSystemFileEntry;
+        await new Promise<void>((resolve) => {
+          fileEntry.file((f) => {
+            out.push(f);
+            resolve();
+          }, () => resolve());
+        });
+      } else if (entry.isDirectory) {
+        const dirEntry = entry as FileSystemDirectoryEntry;
+        const reader = dirEntry.createReader();
+        const readBatch = (): Promise<FileSystemEntry[]> =>
+          new Promise((resolve) => {
+            reader.readEntries((entries) => resolve(entries), () => resolve([]));
+          });
+        // readEntries returns batches — keep reading until empty.
+        while (true) {
+          const batch = await readBatch();
+          if (batch.length === 0) break;
+          for (const e of batch) {
+            const nested = await readEntriesRecursively(e);
+            out.push(...nested);
+          }
+        }
+      }
+      return out;
+    },
+    [],
+  );
+
+  const handleCustomDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsDragging(false);
+      if (!clientId || !customCategory) return;
+
+      // Prefer the modern items API so we can recursively expand
+      // dropped folders. Fall back to dataTransfer.files for browsers
+      // that don't support it.
+      const items = e.dataTransfer.items;
+      const collected: File[] = [];
+      if (items && items.length > 0) {
+        const tasks: Promise<File[]>[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry?.();
+          if (entry) tasks.push(readEntriesRecursively(entry));
+          else {
+            const f = items[i].getAsFile();
+            if (f) collected.push(f);
+          }
+        }
+        const expanded = await Promise.all(tasks);
+        for (const arr of expanded) collected.push(...arr);
+      } else {
+        const fl = e.dataTransfer.files;
+        for (let i = 0; i < fl.length; i++) collected.push(fl[i]);
+      }
+
+      const { kept, skipped } = filterSupported(collected);
+      if (skipped > 0) {
+        setSkippedNotice(
+          `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
+        );
+        setTimeout(() => setSkippedNotice(null), 5000);
+      }
+      if (kept.length === 0) return;
+      await uploadFilesForCategory({
+        clientId,
+        category: customCategory,
+        files: kept,
+      });
+      setCustomName("");
+      setCustomKind("");
+    },
+    [clientId, customCategory, filterSupported, readEntriesRecursively],
+  );
 
   const onStateChangeRef = useRef(onStateChange);
   useEffect(() => {
@@ -181,10 +327,24 @@ export function IndustryCoverageMatrix({
         className="sr-only"
         onChange={handleCustomFileChange}
       />
+      {/* Folder upload: webkitdirectory tells the picker to select a
+          whole directory; React requires the lowercase attribute on a
+          plain HTMLInputElement, so we set it via JSX. Files are
+          filtered to supported types in handleCustomFileChange. */}
+      <input
+        ref={customFolderInputRef}
+        type="file"
+        multiple
+        // @ts-expect-error — non-standard but supported in Chromium and Safari
+        webkitdirectory=""
+        directory=""
+        className="sr-only"
+        onChange={handleCustomFileChange}
+      />
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr]">
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-slate-500">
+          <span className="text-xs font-medium text-slate-500">
             Name<span className="text-rose-400"> *</span>
           </span>
           <input
@@ -196,7 +356,7 @@ export function IndustryCoverageMatrix({
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[11px] font-medium text-slate-500">
+          <span className="text-xs font-medium text-slate-500">
             Type
           </span>
           <select
@@ -214,17 +374,67 @@ export function IndustryCoverageMatrix({
             <option value="other">Other</option>
           </select>
         </label>
-        <div className="flex items-end">
+      </div>
+
+      {/* Drop zone — accepts multiple files OR a whole folder via
+          drag-and-drop, recursively expanding dropped directories. */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (clientId && customCategory) setIsDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsDragging(false);
+        }}
+        onDrop={handleCustomDrop}
+        className={`mt-4 rounded-xl border-2 border-dashed px-5 py-8 text-center transition ${
+          !clientId || !customCategory
+            ? "border-slate-200 bg-slate-50 opacity-60"
+            : isDragging
+              ? "border-indigo-400 bg-indigo-50"
+              : "border-slate-300 bg-white hover:border-slate-400"
+        }`}
+      >
+        <p className="text-base font-medium text-slate-800">
+          Drop files or a folder here
+        </p>
+        <p className="mt-1 text-sm text-slate-500">
+          Supports PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPEG · everything
+          parses through the same pipeline as a single file
+        </p>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button
             type="button"
             disabled={!clientId || !customCategory}
             onClick={handleCustomUploadClick}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 sm:w-auto"
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Choose file
+            Choose files
+          </button>
+          <button
+            type="button"
+            disabled={!clientId || !customCategory}
+            onClick={handleCustomFolderClick}
+            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Choose folder
           </button>
         </div>
+        {!customCategory && (
+          <p className="mt-3 text-xs text-slate-400">
+            Enter a name above to enable uploads
+          </p>
+        )}
       </div>
+
+      {skippedNotice && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {skippedNotice}
+        </div>
+      )}
 
       {(() => {
         const custom = uploadedDocs.filter((d) => d.category.startsWith("custom_"));
