@@ -5,15 +5,17 @@ import {
 import { visionExtract } from "@/lib/llm/vision";
 
 export async function parsePdf(buffer: Buffer): Promise<string> {
-  const { PDFParse } = await import("pdf-parse");
-  const parser = new PDFParse({ data: buffer });
-
-  try {
-    const result = await parser.getText();
-    return result.text;
-  } finally {
-    await parser.destroy();
-  }
+  // pdf-parse v1.x is the Node-compatible line. v2.x pulls pdfjs-dist v5
+  // which requires browser DOM globals (DOMMatrix) that don't exist in
+  // Vercel's serverless runtime, breaking uploads with "DOMMatrix is not
+  // defined" or generic 500s. Importing /lib/pdf-parse.js bypasses the
+  // package's debug-only index that tries to read a test PDF at module init.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // @ts-expect-error pdf-parse/lib/pdf-parse.js has no type declarations
+  const mod: any = await import("pdf-parse/lib/pdf-parse.js");
+  const pdfParse = mod.default ?? mod;
+  const result = await pdfParse(buffer);
+  return result.text;
 }
 
 export function estimateTokenCount(text: string): number {

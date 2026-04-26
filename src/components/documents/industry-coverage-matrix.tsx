@@ -52,17 +52,10 @@ export function IndustryCoverageMatrix({
 }: Props) {
   const [industry, setIndustry] = useState<Industry>(defaultIndustry);
   const [expanded, setExpanded] = useState<string | null>(null);
-  // Custom artifact upload state — name + kind typed by the user
-  const [customName, setCustomName] = useState("");
-  const [customKind, setCustomKind] = useState("");
-  const customFileInputRef = useRef<HTMLInputElement>(null);
-  const customFolderInputRef = useRef<HTMLInputElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   // Hero dropzone (top of page) — always routes to a generic
   // "custom_uploads" bucket so the operator can drop files without
-  // first entering a name. The named form at the bottom is for users
-  // who want category-tagged uploads.
+  // first entering a name.
+  const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
   const heroFileInputRef = useRef<HTMLInputElement>(null);
   const heroFolderInputRef = useRef<HTMLInputElement>(null);
   const [heroDragging, setHeroDragging] = useState(false);
@@ -132,50 +125,6 @@ export function IndustryCoverageMatrix({
     await uploadFilesForCategory({ clientId, category, files: kept });
   };
 
-  // Custom artifact: slugify user-provided name into a stable category
-  // prefixed with `custom_` so it doesn't collide with industry artifacts.
-  const customCategory = useMemo(() => {
-    const slug = customName
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "_")
-      .replace(/^_+|_+$/g, "")
-      .slice(0, 40);
-    return slug ? `custom_${slug}` : "";
-  }, [customName]);
-
-  const handleCustomUploadClick = () => {
-    if (!clientId || !customCategory) return;
-    if (customFileInputRef.current) customFileInputRef.current.value = "";
-    customFileInputRef.current?.click();
-  };
-
-  const handleCustomFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !clientId || !customCategory) return;
-    const { kept, skipped } = filterSupported(Array.from(files));
-    if (skipped > 0) {
-      setSkippedNotice(
-        `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
-      );
-      setTimeout(() => setSkippedNotice(null), 5000);
-    }
-    if (kept.length === 0) return;
-    await uploadFilesForCategory({
-      clientId,
-      category: customCategory,
-      files: kept,
-    });
-    setCustomName("");
-    setCustomKind("");
-  };
-
-  const handleCustomFolderClick = () => {
-    if (!clientId || !customCategory) return;
-    if (customFolderInputRef.current) customFolderInputRef.current.value = "";
-    customFolderInputRef.current?.click();
-  };
-
   // Recursively walks a directory entry from a drag-drop event,
   // returning every File found regardless of nesting depth.
   const readEntriesRecursively = useCallback(
@@ -209,54 +158,6 @@ export function IndustryCoverageMatrix({
       return out;
     },
     [],
-  );
-
-  const handleCustomDrop = useCallback(
-    async (e: React.DragEvent<HTMLDivElement>) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setIsDragging(false);
-      if (!clientId || !customCategory) return;
-
-      // Prefer the modern items API so we can recursively expand
-      // dropped folders. Fall back to dataTransfer.files for browsers
-      // that don't support it.
-      const items = e.dataTransfer.items;
-      const collected: File[] = [];
-      if (items && items.length > 0) {
-        const tasks: Promise<File[]>[] = [];
-        for (let i = 0; i < items.length; i++) {
-          const entry = items[i].webkitGetAsEntry?.();
-          if (entry) tasks.push(readEntriesRecursively(entry));
-          else {
-            const f = items[i].getAsFile();
-            if (f) collected.push(f);
-          }
-        }
-        const expanded = await Promise.all(tasks);
-        for (const arr of expanded) collected.push(...arr);
-      } else {
-        const fl = e.dataTransfer.files;
-        for (let i = 0; i < fl.length; i++) collected.push(fl[i]);
-      }
-
-      const { kept, skipped } = filterSupported(collected);
-      if (skipped > 0) {
-        setSkippedNotice(
-          `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
-        );
-        setTimeout(() => setSkippedNotice(null), 5000);
-      }
-      if (kept.length === 0) return;
-      await uploadFilesForCategory({
-        clientId,
-        category: customCategory,
-        files: kept,
-      });
-      setCustomName("");
-      setCustomKind("");
-    },
-    [clientId, customCategory, filterSupported, readEntriesRecursively],
   );
 
   // Hero dropzone handlers — always route to HERO_CATEGORY so the
@@ -384,138 +285,14 @@ export function IndustryCoverageMatrix({
     return byCat;
   }, [uploadedDocs]);
 
-  // Standalone JSX for the custom-artifact uploader. Rendered below the
-  // coverage table.
-  const customArtifactCard = (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
-        <div>
-          <h3 className="text-sm font-semibold text-slate-800">
-            Upload other artifact
-          </h3>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Anything outside the standard list — name it and we&apos;ll add it to the knowledge base.
-          </p>
-        </div>
-      </div>
-
-      <input
-        ref={customFileInputRef}
-        type="file"
-        multiple
-        accept={UPLOAD_ACCEPT_ATTR}
-        className="sr-only"
-        onChange={handleCustomFileChange}
-      />
-      {/* Folder upload: webkitdirectory tells the picker to select a
-          whole directory; React requires the lowercase attribute on a
-          plain HTMLInputElement, so we set it via JSX. Files are
-          filtered to supported types in handleCustomFileChange. */}
-      <input
-        ref={customFolderInputRef}
-        type="file"
-        multiple
-        // @ts-expect-error — non-standard but supported in Chromium and Safari
-        webkitdirectory=""
-        directory=""
-        className="sr-only"
-        onChange={handleCustomFileChange}
-      />
-
-      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_1fr]">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate-500">
-            Name<span className="text-rose-400"> *</span>
-          </span>
-          <input
-            type="text"
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            placeholder="e.g. Customer reference call notes"
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate-500">
-            Type
-          </span>
-          <select
-            value={customKind}
-            onChange={(e) => setCustomKind(e.target.value)}
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-slate-400 focus:outline-none"
-          >
-            <option value="">Select type…</option>
-            <option value="evidence">Evidence / primary source</option>
-            <option value="analysis">Analysis / write-up</option>
-            <option value="contract">Contract / agreement</option>
-            <option value="report">Report / summary</option>
-            <option value="data">Data export / spreadsheet</option>
-            <option value="notes">Meeting notes</option>
-            <option value="other">Other</option>
-          </select>
-        </label>
-      </div>
-
-      {/* Compact button row for the named-category form. The big
-          dropzone now lives at the top of the page (hero); this card
-          is for users who want to tag uploads to a specific named
-          category like "Customer reference call notes". */}
-      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
-        <button
-          type="button"
-          disabled={!clientId || !customCategory}
-          onClick={handleCustomUploadClick}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Choose files
-        </button>
-        <button
-          type="button"
-          disabled={!clientId || !customCategory}
-          onClick={handleCustomFolderClick}
-          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Choose folder
-        </button>
-      </div>
-      {!customCategory && (
-        <p className="mt-1.5 text-right text-xs text-slate-400">
-          Enter a name above to enable upload to a named category
-        </p>
-      )}
-
-      {(() => {
-        const custom = uploadedDocs.filter((d) => d.category.startsWith("custom_"));
-        if (custom.length === 0) return null;
-        const byCat: Record<string, UploadedDoc[]> = {};
-        for (const d of custom) (byCat[d.category] ??= []).push(d);
-        return (
-          <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">
-              Uploaded
-            </p>
-            {Object.entries(byCat).map(([cat, docs]) => {
-              const label = cat
-                .replace(/^custom_/, "")
-                .replace(/_/g, " ")
-                .replace(/\b\w/g, (c) => c.toUpperCase());
-              return (
-                <div
-                  key={cat}
-                  className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2"
-                >
-                  <p className="text-sm font-medium text-slate-800">{label}</p>
-                  <p className="text-[11px] text-slate-400">
-                    {docs.length} file{docs.length > 1 ? "s" : ""}
-                  </p>
-                  <RowUploads uploads={docs} compact clientId={clientId} />
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
-    </div>
+  // Recently-dropped files that flowed through the hero dropzone.
+  // These live in the "custom_uploads" bucket and aren't tied to a
+  // matrix row, so we render them inline under the dropzone for
+  // immediate feedback. They also appear in the global uploaded-docs
+  // store so chat / scoring / reports continue to see them.
+  const heroUploads = useMemo(
+    () => uploadedDocs.filter((d) => d.category === HERO_CATEGORY),
+    [uploadedDocs],
   );
 
   return (
@@ -615,6 +392,26 @@ export function IndustryCoverageMatrix({
       {skippedNotice && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
           {skippedNotice}
+        </div>
+      )}
+
+      {/* Recent uploads — files flowed through the hero dropzone.
+          Appears immediately below the dropzone so the operator sees
+          live parse status (uploading → parsing → parsed) without
+          scrolling to the matrix. The same files are also indexed
+          into the global uploaded-docs store, so chat / scoring /
+          reports continue to see them. */}
+      {heroUploads.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+              Recent uploads
+            </p>
+            <span className="text-xs text-slate-400">
+              {heroUploads.length} file{heroUploads.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <RowUploads uploads={heroUploads} compact clientId={clientId} />
         </div>
       )}
 
@@ -864,8 +661,6 @@ export function IndustryCoverageMatrix({
         </table>
       </div>
 
-      {/* 4. Upload other artifact — below table */}
-      {customArtifactCard}
     </div>
   );
 }
