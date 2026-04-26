@@ -5,7 +5,7 @@ import {
   IndustryCoverageMatrix,
   type IndustryCoverageState,
 } from "@/components/documents/industry-coverage-matrix";
-import { SectionHeader } from "@/components/preview/preview-shell";
+import { SectionHeader, PanelHeader } from "@/components/preview/preview-shell";
 import { demoDocuments } from "@/lib/demo-data";
 import {
   readUploadedDocs,
@@ -82,13 +82,25 @@ export default function PreviewCoveragePage() {
         title="Evidence & Coverage"
         description="Missing artifacts surface as the primary action. Click Upload on any row to open the file picker directly — progress and status appear inline."
       />
-      <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
-        <IndustryCoverageMatrix
-          documents={documents}
-          uploadedDocs={uploaded}
-          clientId={selectedId}
-          onStateChange={setCoverageState}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <PanelHeader
+          tone="indigo"
+          eyebrow="Required artifacts"
+          title="Coverage matrix"
+          meta={
+            documents.length > 0
+              ? `${documents.length} artifact${documents.length === 1 ? "" : "s"}`
+              : undefined
+          }
         />
+        <div className="p-5 sm:p-6">
+          <IndustryCoverageMatrix
+            documents={documents}
+            uploadedDocs={uploaded}
+            clientId={selectedId}
+            onStateChange={setCoverageState}
+          />
+        </div>
       </div>
     </div>
   );

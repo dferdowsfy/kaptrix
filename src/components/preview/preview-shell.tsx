@@ -592,3 +592,80 @@ export function SectionHeader({
     </div>
   );
 }
+
+// ── Shared dark-gradient panel header ────────────────────────────────
+//
+// The scoring page introduced dark-purple gradient bars to mark the
+// boundary between the auto-generated composite (top) and the editable
+// scoring sections (below). We reuse the same visual language across
+// every preview module so:
+//   - Each page has a clear "this is a major section" marker.
+//   - Users can scan the page and see where things start / end.
+//   - The platform feels visually cohesive without becoming repetitive
+//     (each module gets its own tone in the same family).
+//
+// Tones map roughly to module identity:
+//   violet  — Document Intelligence / Insights
+//   indigo  — Evidence & Coverage
+//   purple  — Positioning
+//   fuchsia — Reports
+//   slate   — Neutral / system / debug
+//
+// Tailwind requires literal class strings, so the gradient stops are
+// inlined rather than composed at runtime.
+
+export type PanelTone =
+  | "violet"
+  | "indigo"
+  | "purple"
+  | "fuchsia"
+  | "slate";
+
+const PANEL_GRADIENT: Record<PanelTone, string> = {
+  violet: "from-violet-900 via-purple-900 to-violet-800",
+  indigo: "from-indigo-900 via-violet-900 to-indigo-800",
+  purple: "from-purple-900 via-fuchsia-900 to-purple-800",
+  fuchsia: "from-fuchsia-900 via-purple-900 to-fuchsia-800",
+  slate: "from-slate-900 via-indigo-900 to-slate-800",
+};
+
+export function PanelHeader({
+  eyebrow,
+  title,
+  tone = "violet",
+  meta,
+  rightSlot,
+}: {
+  eyebrow?: string;
+  title: string;
+  tone?: PanelTone;
+  meta?: string;
+  rightSlot?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r ${PANEL_GRADIENT[tone]} px-5 py-4 text-white sm:px-6`}
+    >
+      <div className="min-w-0">
+        {eyebrow && (
+          <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-white/70">
+            {eyebrow}
+          </p>
+        )}
+        <h2 className="mt-1 truncate text-lg font-bold tracking-tight text-white sm:text-xl">
+          {title}
+        </h2>
+      </div>
+      {(meta || rightSlot) && (
+        <div className="flex shrink-0 items-center gap-2">
+          {meta && (
+            <span className="rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white/90 ring-1 ring-white/20">
+              {meta}
+            </span>
+          )}
+          {rightSlot}
+        </div>
+      )}
+    </div>
+  );
+}

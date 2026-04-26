@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { SectionHeader } from "@/components/preview/preview-shell";
+import { SectionHeader, PanelHeader } from "@/components/preview/preview-shell";
 import {
   KnowledgeInsightsPanel,
   type KnowledgeInsight,
@@ -255,12 +255,22 @@ export default function PreviewInsightsPage() {
         title="Document intelligence"
         description="Every surfaced insight is automatically added to the intake model and this client's knowledge base. Remove any that shouldn't inform downstream reasoning."
       />
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border bg-white p-4 shadow-sm sm:p-5">
-        <div className="flex-1 min-w-[240px]">
-          <div className="text-sm font-semibold text-gray-900">
-            Extraction status
-          </div>
-          <div className="mt-0.5 text-xs text-gray-600">
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <PanelHeader
+          tone="indigo"
+          eyebrow="Pipeline"
+          title="Extraction status"
+          meta={
+            extractState.running
+              ? `${extractState.processed} / ${extractState.total}`
+              : extractionDocs.length > 0
+                ? `${extractionDocs.length} document${extractionDocs.length === 1 ? "" : "s"}`
+                : undefined
+          }
+        />
+        <div className="flex flex-wrap items-center gap-3 p-5">
+          <div className="flex-1 min-w-[240px] text-sm text-slate-600">
             {extractState.running
               ? `Extracting — ${extractState.processed}/${extractState.total} documents…`
               : docsMissingInsights.length > 0
@@ -274,33 +284,46 @@ export default function PreviewInsightsPage() {
               </span>
             ) : null}
           </div>
+          <GenerateButton
+            type="button"
+            onClick={() => runExtraction(false)}
+            disabled={extractBusy || !selectedId || docsMissingInsights.length === 0}
+          >
+            {extractState.running
+              ? `Extracting… ${extractState.processed}/${extractState.total}`
+              : `Generate insights${docsMissingInsights.length > 0 ? ` (${docsMissingInsights.length})` : ""}`}
+          </GenerateButton>
+          <GenerateButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => runExtraction(true)}
+            disabled={extractBusy || extractionDocs.length === 0}
+            title="Re-run extraction on every parsed document"
+          >
+            Re-generate all
+          </GenerateButton>
         </div>
-        <GenerateButton
-          type="button"
-          onClick={() => runExtraction(false)}
-          disabled={extractBusy || !selectedId || docsMissingInsights.length === 0}
-        >
-          {extractState.running
-            ? `Extracting… ${extractState.processed}/${extractState.total}`
-            : `Generate insights${docsMissingInsights.length > 0 ? ` (${docsMissingInsights.length})` : ""}`}
-        </GenerateButton>
-        <GenerateButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => runExtraction(true)}
-          disabled={extractBusy || extractionDocs.length === 0}
-          title="Re-run extraction on every parsed document"
-        >
-          Re-generate all
-        </GenerateButton>
       </div>
-      <div className="rounded-2xl border bg-white p-4 shadow-sm sm:p-6">
-        <KnowledgeInsightsPanel
-          documents={documents}
-          insights={activeInsights}
-          onRemove={handleRemove}
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <PanelHeader
+          tone="violet"
+          eyebrow="Document Intelligence · RAG-backed"
+          title="Insights from your data room"
+          meta={
+            extractionDocs.length > 0
+              ? `${extractionDocs.length} indexed · ${activeInsights.length} surfaced`
+              : undefined
+          }
         />
+        <div className="p-5 sm:p-6">
+          <KnowledgeInsightsPanel
+            documents={documents}
+            insights={activeInsights}
+            onRemove={handleRemove}
+          />
+        </div>
       </div>
     </div>
   );

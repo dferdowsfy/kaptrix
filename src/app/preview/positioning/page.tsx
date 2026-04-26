@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
-import { SectionHeader } from "@/components/preview/preview-shell";
+import {
+  SectionHeader,
+  PanelHeader,
+  type PanelTone,
+} from "@/components/preview/preview-shell";
 import { GenerateButton } from "@/components/preview/generate-button";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import {
@@ -242,7 +246,11 @@ export default function PositioningPage() {
           </div>
 
           {/* Target context */}
-          <Card title="Target context" subtitle={`Classified as ${data.target_context.type}`}>
+          <Card
+            tone="purple"
+            title="Target context"
+            subtitle={`Classified as ${data.target_context.type}`}
+          >
             <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(data.target_context)
                 .filter(([k]) => k !== "type")
@@ -259,6 +267,7 @@ export default function PositioningPage() {
 
           {/* Comparables */}
           <Card
+            tone="violet"
             title="Selected comparables"
             subtitle={`${data.comparables.length} peers · vertical + buyer are hard filters`}
           >
@@ -333,7 +342,11 @@ export default function PositioningPage() {
           </Card>
 
           {/* Comparison table */}
-          <Card title="Relative comparison" subtitle="Dimension-by-dimension vs peers">
+          <Card
+            tone="indigo"
+            title="Relative comparison"
+            subtitle="Dimension-by-dimension vs peers"
+          >
             <div className="overflow-x-auto">
               <table className="w-full min-w-[600px] text-left text-sm">
                 <thead>
@@ -371,6 +384,7 @@ export default function PositioningPage() {
 
           {/* Investment interpretation */}
           <Card
+            tone="fuchsia"
             title="Investment interpretation"
             subtitle="Decision-relevant implications"
           >
@@ -393,6 +407,7 @@ export default function PositioningPage() {
 
           {sources.length > 0 && (
             <Card
+              tone="slate"
               title="Web research sources"
               subtitle={`${sources.length} pages consulted by the model`}
             >
@@ -424,19 +439,18 @@ export default function PositioningPage() {
 function Card({
   title,
   subtitle,
+  tone = "purple",
   children,
 }: {
   title: string;
   subtitle?: string;
+  tone?: PanelTone;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <header className="mb-3">
-        <h3 className="text-sm font-semibold text-slate-900">{title}</h3>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
-      </header>
-      {children}
+    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <PanelHeader tone={tone} title={title} eyebrow={subtitle} />
+      <div className="p-5 sm:p-6">{children}</div>
     </section>
   );
 }
