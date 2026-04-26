@@ -432,12 +432,15 @@ export function ScoringPanel({
       )}
 
       {/* Dimension scoring sections — id anchor lets the dimension grid
-          cards above scroll directly into the matching section. */}
+          cards above scroll directly into the matching section. Each
+          dimension gets its own dark purple gradient on the header so
+          the six categories are visually distinct as the operator
+          scrolls. */}
       {SCORING_DIMENSIONS.map((dim) => (
         <div
           key={dim.key}
           id={`scoring-section-${dim.key}`}
-          className="scroll-mt-24 rounded-lg border bg-white shadow-sm"
+          className="scroll-mt-24 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
         >
           <button
             onClick={() =>
@@ -445,17 +448,20 @@ export function ScoringPanel({
                 expandedDimension === dim.key ? null : dim.key,
               )
             }
-            className="flex w-full items-center justify-between p-4"
+            className={`flex w-full items-center justify-between bg-gradient-to-r ${
+              DIMENSION_GRADIENT[dim.key as ScoreDimension] ??
+              "from-slate-800 via-slate-700 to-slate-800"
+            } p-5 text-left text-white transition hover:brightness-110`}
           >
             <div className="flex items-center gap-3">
-              <h3 className="text-sm font-semibold text-gray-900">
+              <h3 className="text-lg font-bold tracking-tight text-white">
                 {dim.name}
               </h3>
-              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                Weight: {(dim.weight * 100).toFixed(0)}%
+              <span className="rounded-full bg-white/15 px-3 py-0.5 text-xs font-semibold uppercase tracking-wider text-white/90 ring-1 ring-white/20">
+                Weight {(dim.weight * 100).toFixed(0)}%
               </span>
             </div>
-            <span className="text-sm text-gray-400">
+            <span className="text-base text-white/80">
               {expandedDimension === dim.key ? "▼" : "▶"}
             </span>
           </button>
@@ -533,6 +539,29 @@ export function ScoringPanel({
     </div>
   );
 }
+
+/**
+ * Per-dimension dark-purple gradient for the section header. Each
+ * dimension gets a distinct shade of the same family so the six
+ * categories read as related but unmistakably separated as the
+ * operator scrolls. Tailwind picks up the literal class strings at
+ * build time, so the gradient stops are inlined here rather than
+ * composed at runtime.
+ */
+const DIMENSION_GRADIENT: Record<ScoreDimension, string> = {
+  product_credibility:
+    "from-violet-900 via-purple-900 to-violet-800",
+  tooling_exposure:
+    "from-indigo-900 via-violet-900 to-indigo-800",
+  data_sensitivity:
+    "from-purple-900 via-fuchsia-900 to-purple-800",
+  governance_safety:
+    "from-slate-900 via-indigo-900 to-slate-800",
+  production_readiness:
+    "from-violet-950 via-indigo-900 to-violet-900",
+  open_validation:
+    "from-fuchsia-900 via-purple-900 to-fuchsia-800",
+};
 
 function getActiveBand(bands: ScoreBand[] | undefined, score: number): ScoreBand | undefined {
   if (!bands || bands.length === 0) return undefined;
@@ -756,12 +785,6 @@ function SubCriterionInput({
           Rationale must be at least 20 characters
         </p>
       )}
-      <ScoringCopilot
-        dimension={dimension}
-        subCriterion={subKey}
-        score={score}
-        rationale={rationale}
-      />
     </div>
   );
 }
