@@ -412,6 +412,28 @@ export default function PreviewScoringPage() {
   const upstreamChanged =
     (scoringDirty.dirty && suggestedScores !== null) || inputsChanged;
 
+  // Header composite — surfaces the same number the ScoringPanel
+  // computes internally so the operator sees it without scrolling. Pure
+  // derivation from panelScores; no backend change.
+  const headerComposite = useMemo(() => {
+    if (panelScores.length === 0) return null;
+    const composite = calculateCompositeScore(panelScores);
+    const adjustment = aggregateContextAdjustment(contextSignals);
+    const contextAware =
+      Math.round(
+        Math.max(
+          0,
+          Math.min(5, composite.composite_score + adjustment.composite_delta),
+        ) * 10,
+      ) / 10;
+    return {
+      raw: composite.composite_score,
+      contextAware,
+      delta: adjustment.composite_delta,
+      hasContext: contextSignals.length > 0,
+    };
+  }, [panelScores, contextSignals]);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -420,19 +442,43 @@ export default function PreviewScoringPage() {
           title="Scoring engine"
           description="Interactive six-dimension scoring with benchmark pattern context. Intake, coverage, insights, and pre-analysis submissions feed directly into the composite and recommendation."
         />
-        <GenerateButton
-          type="button"
-          onClick={() => void run()}
-          disabled={loading}
-          size="lg"
-          className="shrink-0"
-        >
-          {loading
-            ? "Generating scores…"
-            : suggestedScores
-              ? "Re-generate scores"
-              : "Generate scores"}
-        </GenerateButton>
+        <div className="flex shrink-0 items-center gap-4">
+          {headerComposite && (
+            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-right shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {headerComposite.hasContext
+                  ? "Context-aware composite"
+                  : "Composite score"}
+              </p>
+              <p className="mt-0.5 text-3xl font-bold tabular-nums leading-none text-slate-900">
+                {headerComposite.contextAware.toFixed(1)}
+                <span className="ml-1 text-sm font-normal text-slate-400">
+                  / 5.0
+                </span>
+              </p>
+              {headerComposite.hasContext && (
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Operator {headerComposite.raw.toFixed(1)} · Δ{" "}
+                  {headerComposite.delta >= 0 ? "+" : ""}
+                  {headerComposite.delta.toFixed(2)}
+                </p>
+              )}
+            </div>
+          )}
+          <GenerateButton
+            type="button"
+            onClick={() => void run()}
+            disabled={loading}
+            size="lg"
+            className="shrink-0"
+          >
+            {loading
+              ? "Generating scores…"
+              : suggestedScores
+                ? "Re-generate scores"
+                : "Generate scores"}
+          </GenerateButton>
+        </div>
       </div>
 
       {/* Inputs + engine summary — sits at the top so the operator can
