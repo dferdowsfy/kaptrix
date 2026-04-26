@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { SCORING_DIMENSIONS } from "@/lib/constants";
 import {
   calculateCompositeScore,
@@ -81,6 +81,35 @@ export function ScoringPanel({
   );
   const [saving, setSaving] = useState(false);
   const onScoresChangeRef = useRef(onScoresChange);
+
+  // Resync local `scores` state from the parent when the parent passes
+  // a substantively different score set — e.g. when intake / coverage /
+  // positioning edits upstream cause the deterministic engine to emit
+  // new sub-criterion scores. Without this, useState(initialScores)
+  // would freeze the panel on the very first render's prop value and
+  // every later prop update would be silently ignored.
+  //
+  // Compare by content signature, not reference, so re-renders that
+  // produce an equivalent prop don't churn local state and don't blow
+  // away in-flight slider edits.
+  const initialScoresSignature = useMemo(
+    () =>
+      initialScores
+        .map(
+          (s) =>
+            `${s.dimension}.${s.sub_criterion}=${s.score_0_to_5.toFixed(3)}`,
+        )
+        .sort()
+        .join("|"),
+    [initialScores],
+  );
+  useEffect(() => {
+    setScores(initialScores);
+    // We intentionally key only off the signature; pulling
+    // initialScores into the deps would resync every render the parent
+    // produces a new array reference even if values are equivalent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialScoresSignature]);
 
   const composite = calculateCompositeScore(scores);
   const contextAdjustment = aggregateContextAdjustment(contextSignals);
