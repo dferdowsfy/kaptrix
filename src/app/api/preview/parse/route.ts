@@ -4,6 +4,10 @@ import { UPLOAD_LIMITS } from "@/lib/constants";
 import { validateUpload } from "@/lib/security/upload-validator";
 import { requireAuth, authErrorResponse } from "@/lib/security/authz";
 import { getServiceClient } from "@/lib/supabase/service";
+import {
+  classifyDocument,
+  type ClassificationResult,
+} from "@/lib/preview/classify-document";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -76,9 +80,61 @@ export async function POST(request: NextRequest) {
       validation.effectiveMime!,
     );
 
-    if (clientId && docId && text.trim()) {
+    // Auto-classify when the caller didn't pin a specific category. The
+    // per-row Upload buttons in the coverage matrix supply the artifact's
+    // real category; the generic drop-zone defaults to "other" and the
+    // "custom_*" prefix is reserved for user-defined slots — both should
+    // be reclassified using filename + parsed content so the scoring
+    // engine gets evidence under the right sub-criteria.
+    const shouldClassify =
+      !category ||
+      category === "other" ||
+      category.startsWith("custom_");
+
+    let classification: ClassificationResult = {
+      category,
+      classified_by: "user",
+      confidence: "high",
+      reason: "user-supplied category",
+    };
+    if (shouldClassify && text.trim().length > 0) {
+      try {
+        classification = await classifyDocument({
+          filename: file.name,
+          parsedText: text,
+          fallbackCategory: category,
+        });
+      } catch (err) {
+        // Never fail the upload because classification failed.
+        console.warn(
+          "[preview/parse] auto-classify failed, keeping caller-supplied category",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }
+    const finalCategory = classification.category;
+
+    // Persistence outcome flags so the client can surface diagnostics
+    // when an upload reaches "✓ Ready" but the row never lands in
+    // preview_uploaded_docs (and therefore never reaches scoring).
+    let persisted = false;
+    let persistSkippedReason: string | null = null;
+    let persistError: string | null = null;
+
+    if (!clientId || !docId) {
+      persistSkippedReason = "missing_client_or_doc_id";
+    } else if (!text.trim()) {
+      // Image-only / scanned PDFs commonly parse to empty text. Without
+      // this signal the row would silently be dropped.
+      persistSkippedReason = "empty_parsed_text";
+    } else {
       const supabase = getServiceClient();
-      if (supabase) {
+      if (!supabase) {
+        persistSkippedReason = "service_client_unavailable";
+        console.warn(
+          "[preview/parse] KB persist skipped — getServiceClient() returned null (check NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY).",
+        );
+      } else {
         const { error: upsertError } = await supabase
           .from("preview_uploaded_docs")
           .upsert(
@@ -86,7 +142,7 @@ export async function POST(request: NextRequest) {
               id: docId,
               client_id: clientId,
               filename: file.name,
-              category,
+              category: finalCategory,
               mime_type: validation.effectiveMime,
               file_size_bytes: buffer.byteLength,
               parsed_text: text,
@@ -98,10 +154,13 @@ export async function POST(request: NextRequest) {
             { onConflict: "id" },
           );
         if (upsertError) {
+          persistError = upsertError.message;
           console.warn(
             "[preview/parse] KB persist failed",
             upsertError.message,
           );
+        } else {
+          persisted = true;
         }
       }
     }
@@ -112,7 +171,16 @@ export async function POST(request: NextRequest) {
       mime: validation.effectiveMime,
       filename: file.name,
       size: buffer.byteLength,
-      persisted: Boolean(clientId && docId),
+      persisted,
+      // Auto-classification result so the client can update its
+      // localStorage record (so the coverage matrix routes the file to
+      // the right artifact row without a reload).
+      category: finalCategory,
+      classified_by: classification.classified_by,
+      classification_confidence: classification.confidence,
+      classification_reason: classification.reason,
+      ...(persistSkippedReason ? { persist_skipped_reason: persistSkippedReason } : {}),
+      ...(persistError ? { persist_error: persistError } : {}),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";

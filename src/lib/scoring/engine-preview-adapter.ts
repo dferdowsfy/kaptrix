@@ -100,6 +100,7 @@ const CATEGORY_TO_SUBS: Record<
   string,
   Array<{ dimension: ScoreDimension; sub_criterion: string }>
 > = {
+  // ── Universal artifacts (every industry) ────────────────────────────
   security: [
     { dimension: "governance_safety", sub_criterion: "access_controls" },
     { dimension: "governance_safety", sub_criterion: "logging_observability" },
@@ -145,14 +146,111 @@ const CATEGORY_TO_SUBS: Record<
     { dimension: "product_credibility", sub_criterion: "ai_value_vs_wrapper" },
     { dimension: "product_credibility", sub_criterion: "differentiation" },
   ],
+  // ── Financial services ──────────────────────────────────────────────
+  model_risk: [
+    { dimension: "governance_safety", sub_criterion: "human_in_loop" },
+    { dimension: "governance_safety", sub_criterion: "logging_observability" },
+    { dimension: "open_validation", sub_criterion: "specialist_review" },
+  ],
+  sox_controls: [
+    { dimension: "governance_safety", sub_criterion: "access_controls" },
+    { dimension: "governance_safety", sub_criterion: "logging_observability" },
+  ],
+  kyc_aml: [
+    { dimension: "data_sensitivity", sub_criterion: "regulated_data" },
+    { dimension: "governance_safety", sub_criterion: "logging_observability" },
+  ],
+  // ── Healthcare ──────────────────────────────────────────────────────
+  hipaa: [
+    { dimension: "data_sensitivity", sub_criterion: "regulated_data" },
+    { dimension: "data_sensitivity", sub_criterion: "customer_isolation" },
+    { dimension: "governance_safety", sub_criterion: "access_controls" },
+  ],
+  fda_classification: [
+    { dimension: "governance_safety", sub_criterion: "human_in_loop" },
+    { dimension: "open_validation", sub_criterion: "specialist_review" },
+  ],
+  bias_evaluation: [
+    { dimension: "governance_safety", sub_criterion: "output_risk" },
+    { dimension: "open_validation", sub_criterion: "specialist_review" },
+  ],
+  // ── Legal tech ──────────────────────────────────────────────────────
+  privilege_handling: [
+    { dimension: "data_sensitivity", sub_criterion: "customer_isolation" },
+    { dimension: "data_sensitivity", sub_criterion: "regulated_data" },
+    { dimension: "governance_safety", sub_criterion: "access_controls" },
+  ],
+  citation_audit: [
+    { dimension: "governance_safety", sub_criterion: "output_risk" },
+    { dimension: "governance_safety", sub_criterion: "human_in_loop" },
+    { dimension: "product_credibility", sub_criterion: "ai_value_vs_wrapper" },
+  ],
+  // ── Enterprise SaaS ─────────────────────────────────────────────────
+  enterprise_readiness: [
+    { dimension: "governance_safety", sub_criterion: "access_controls" },
+    { dimension: "governance_safety", sub_criterion: "logging_observability" },
+    { dimension: "production_readiness", sub_criterion: "scaling" },
+  ],
+  prompt_injection: [
+    { dimension: "governance_safety", sub_criterion: "output_risk" },
+    { dimension: "open_validation", sub_criterion: "technical_debt" },
+  ],
+  // ── Insurance ───────────────────────────────────────────────────────
+  nydfs_circular: [
+    { dimension: "governance_safety", sub_criterion: "output_risk" },
+    { dimension: "governance_safety", sub_criterion: "human_in_loop" },
+    { dimension: "data_sensitivity", sub_criterion: "regulated_data" },
+  ],
+  adverse_action: [
+    { dimension: "governance_safety", sub_criterion: "output_risk" },
+    { dimension: "governance_safety", sub_criterion: "human_in_loop" },
+  ],
+  // ── Retail / eCommerce ──────────────────────────────────────────────
+  ad_substantiation: [
+    { dimension: "governance_safety", sub_criterion: "output_risk" },
+    { dimension: "governance_safety", sub_criterion: "human_in_loop" },
+  ],
+  // ── Government / defense ────────────────────────────────────────────
+  fedramp: [
+    { dimension: "governance_safety", sub_criterion: "access_controls" },
+    { dimension: "governance_safety", sub_criterion: "logging_observability" },
+    { dimension: "data_sensitivity", sub_criterion: "regulated_data" },
+  ],
+  sbom: [
+    { dimension: "tooling_exposure", sub_criterion: "model_concentration" },
+    { dimension: "open_validation", sub_criterion: "technical_debt" },
+  ],
+  // ── Industrial / IoT ────────────────────────────────────────────────
+  ot_segmentation: [
+    { dimension: "data_sensitivity", sub_criterion: "customer_isolation" },
+    { dimension: "governance_safety", sub_criterion: "access_controls" },
+  ],
 };
+
+// Track categories we've already warned about so a deck of 50 docs doesn't
+// flood the console. Module-scope: cleared on next reload.
+const warnedUnmappedCategories = new Set<string>();
 
 function docArtifacts(docs: readonly UploadedDoc[]): ArtifactEvidence[] {
   const out: ArtifactEvidence[] = [];
   for (const d of docs) {
     if (d.parse_status !== "parsed") continue;
     const targets = CATEGORY_TO_SUBS[d.category];
-    if (!targets) continue;
+    if (!targets) {
+      // Surface this so operators notice when an industry-specific or
+      // user-typed `custom_*` category falls through the engine without
+      // contributing evidence to any sub-criterion.
+      if (
+        process.env.NODE_ENV !== "production" &&
+        !warnedUnmappedCategories.has(d.category)
+      ) {
+        warnedUnmappedCategories.add(d.category);
+        console.warn(
+          `[scoring-engine] No CATEGORY_TO_SUBS mapping for category "${d.category}" — uploaded doc "${d.filename}" will not produce engine artifacts. Add a mapping in src/lib/scoring/engine-preview-adapter.ts.`,
+        );
+      }
+      continue;
+    }
     for (const t of targets) {
       out.push({
         id: `doc:${d.id}:${t.sub_criterion}`,

@@ -60,7 +60,18 @@ export function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
       try {
         const status = xhr.status;
         const body = xhr.responseText;
-        let parsed: { text?: string; tokenCount?: number; error?: string } = {};
+        let parsed: {
+          text?: string;
+          tokenCount?: number;
+          error?: string;
+          persisted?: boolean;
+          persist_skipped_reason?: string;
+          persist_error?: string;
+          category?: string;
+          classified_by?: "user" | "heuristic" | "llm" | "default";
+          classification_confidence?: "high" | "medium" | "low";
+          classification_reason?: string;
+        } = {};
         try {
           parsed = JSON.parse(body);
         } catch {
@@ -89,8 +100,35 @@ export function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
         const parsedText = (parsed.text ?? "").trim();
         const hasClient = Boolean(meta.client_id && parsedText);
 
+        // Surface persistence failures: the file's text is in localStorage
+        // and will reach chat / deterministic engine, but if persisted is
+        // false the LLM scoring path (which reads preview_uploaded_docs
+        // server-side) won't see it. Worth a console warning so the user
+        // can diagnose without spelunking server logs.
+        if (parsed.persisted === false) {
+          console.warn(
+            `[upload] "${meta.filename}" parsed but NOT persisted to preview_uploaded_docs (reason: ${parsed.persist_skipped_reason ?? parsed.persist_error ?? "unknown"}). LLM scoring will not see this file.`,
+          );
+        }
+
+        // The server may have auto-reclassified this upload (drop-zone
+        // default of "other" → real category like "privilege_handling").
+        // Adopt the server's category so the coverage matrix routes the
+        // file to the correct artifact row and the deterministic engine
+        // produces evidence under the right sub-criteria.
+        const effectiveCategory =
+          parsed.category && parsed.category !== meta.category
+            ? parsed.category
+            : meta.category;
+        if (parsed.classified_by && parsed.classified_by !== "user") {
+          console.info(
+            `[upload] "${meta.filename}" auto-classified as "${effectiveCategory}" (${parsed.classified_by}, ${parsed.classification_confidence ?? "?"}): ${parsed.classification_reason ?? ""}`,
+          );
+        }
+        const updatedMeta = { ...meta, category: effectiveCategory };
+
         upsertUploadedDoc({
-          ...meta,
+          ...updatedMeta,
           parse_status: hasClient ? "extracting" : "parsed",
           parsed_text: parsedText,
           token_count: parsed.tokenCount,
@@ -98,15 +136,15 @@ export function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
         });
 
         if (hasClient) {
-          const clientId = meta.client_id;
+          const clientId = updatedMeta.client_id;
           void fetch("/api/preview/extract-insights", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               client_id: clientId,
-              doc_id: meta.id,
-              filename: meta.filename,
-              category: meta.category,
+              doc_id: updatedMeta.id,
+              filename: updatedMeta.filename,
+              category: updatedMeta.category,
               text: parsedText,
             }),
           })
@@ -122,7 +160,7 @@ export function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
                 }
               }
               upsertUploadedDoc({
-                ...meta,
+                ...updatedMeta,
                 parse_status: "parsed",
                 parsed_text: parsedText,
                 token_count: parsed.tokenCount,
@@ -134,7 +172,7 @@ export function uploadAndParse(file: File, meta: UploadedDoc): Promise<void> {
               // Extraction failed — still mark as parsed so the file is
               // usable, but leave insights_count at 0.
               upsertUploadedDoc({
-                ...meta,
+                ...updatedMeta,
                 parse_status: "parsed",
                 parsed_text: parsedText,
                 token_count: parsed.tokenCount,

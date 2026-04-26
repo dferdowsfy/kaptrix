@@ -326,24 +326,36 @@ export async function getPreviewClients(
   >();
   const scoreCompositeByEngagement = new Map<string, number>();
 
-  if (realEngagements.length > 0) {
-    const engagementIds = realEngagements.map((e) => e.id);
+  // KB lookup covers both preview clients and real engagements so the
+  // homepage card composite reflects the latest score the operator
+  // generated, not the seeded value from preview_clients.
+  const allEngagementIds = [
+    ...previewClients.map((c) => c.id),
+    ...realEngagements.map((e) => e.id),
+  ];
+
+  if (allEngagementIds.length > 0) {
     const engagementById = new Map(realEngagements.map((e) => [e.id, e]));
 
     const knowledgeBaseQuery = supabase
       .from("user_workspace_state")
       .select("engagement_id, user_id, updated_at, state")
       .eq("kind", "knowledge_base")
-      .in("engagement_id", engagementIds);
+      .in("engagement_id", allEngagementIds);
 
+    // Preview clients have no assigned_operator_id, so we always need the
+    // ownerId scope when present to pick the right user's KB row.
     const scopedKnowledgeBaseQuery =
       options.includeAllEngagements || !options.ownerId
         ? knowledgeBaseQuery
         : knowledgeBaseQuery.eq("user_id", options.ownerId);
 
+    const realIds = realEngagements.map((e) => e.id);
     const [{ data: knowledgeBaseRows }, { data: scoreRows }] = await Promise.all([
       scopedKnowledgeBaseQuery,
-      supabase.from("scores").select("*").in("engagement_id", engagementIds),
+      realIds.length > 0
+        ? supabase.from("scores").select("*").in("engagement_id", realIds)
+        : Promise.resolve({ data: [] as Score[] }),
     ]);
 
     const bestKnowledgeBaseRow = new Map<
@@ -408,6 +420,20 @@ export async function getPreviewClients(
     }
   }
 
+  // Apply the freshly-generated composite back onto preview cards. The
+  // seeded preview_clients.composite_score is the fallback only.
+  const previewClientsWithLatest = previewClients.map((c) => {
+    const fromKb = knowledgeBaseByEngagement.get(c.id);
+    if (fromKb && fromKb.composite_score !== null) {
+      return {
+        ...c,
+        composite_score: fromKb.composite_score,
+        recommendation: fromKb.decision_band ?? c.recommendation,
+      };
+    }
+    return c;
+  });
+
   const realClients: PreviewClientSummary[] = realEngagements
     .map((e) => {
       const scoringSummary = knowledgeBaseByEngagement.get(e.id);
@@ -435,7 +461,7 @@ export async function getPreviewClients(
     });
 
   // Real engagements first so the newest is near the top.
-  return [...realClients, ...previewClients];
+  return [...realClients, ...previewClientsWithLatest];
 }
 
 export async function getPreviewSnapshot(
