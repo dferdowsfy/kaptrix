@@ -59,6 +59,14 @@ export function IndustryCoverageMatrix({
   const customFolderInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [skippedNotice, setSkippedNotice] = useState<string | null>(null);
+  // Hero dropzone (top of page) — always routes to a generic
+  // "custom_uploads" bucket so the operator can drop files without
+  // first entering a name. The named form at the bottom is for users
+  // who want category-tagged uploads.
+  const heroFileInputRef = useRef<HTMLInputElement>(null);
+  const heroFolderInputRef = useRef<HTMLInputElement>(null);
+  const [heroDragging, setHeroDragging] = useState(false);
+  const HERO_CATEGORY = "custom_uploads";
   // Category the hidden <input type=file> is bound to for the current
   // click. Set immediately before we call .click() and read back in
   // onChange. Using a ref avoids a stale-state race if the user clicks
@@ -251,6 +259,78 @@ export function IndustryCoverageMatrix({
     [clientId, customCategory, filterSupported, readEntriesRecursively],
   );
 
+  // Hero dropzone handlers — always route to HERO_CATEGORY so the
+  // operator can drop files at the top without naming a category.
+  const handleHeroFilesClick = () => {
+    if (!clientId) return;
+    if (heroFileInputRef.current) heroFileInputRef.current.value = "";
+    heroFileInputRef.current?.click();
+  };
+  const handleHeroFolderClick = () => {
+    if (!clientId) return;
+    if (heroFolderInputRef.current) heroFolderInputRef.current.value = "";
+    heroFolderInputRef.current?.click();
+  };
+  const handleHeroFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !clientId) return;
+    const { kept, skipped } = filterSupported(Array.from(files));
+    if (skipped > 0) {
+      setSkippedNotice(
+        `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
+      );
+      setTimeout(() => setSkippedNotice(null), 5000);
+    }
+    if (kept.length === 0) return;
+    await uploadFilesForCategory({
+      clientId,
+      category: HERO_CATEGORY,
+      files: kept,
+    });
+  };
+  const handleHeroDrop = useCallback(
+    async (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setHeroDragging(false);
+      if (!clientId) return;
+      const items = e.dataTransfer.items;
+      const collected: File[] = [];
+      if (items && items.length > 0) {
+        const tasks: Promise<File[]>[] = [];
+        for (let i = 0; i < items.length; i++) {
+          const entry = items[i].webkitGetAsEntry?.();
+          if (entry) tasks.push(readEntriesRecursively(entry));
+          else {
+            const f = items[i].getAsFile();
+            if (f) collected.push(f);
+          }
+        }
+        const expanded = await Promise.all(tasks);
+        for (const arr of expanded) collected.push(...arr);
+      } else {
+        const fl = e.dataTransfer.files;
+        for (let i = 0; i < fl.length; i++) collected.push(fl[i]);
+      }
+      const { kept, skipped } = filterSupported(collected);
+      if (skipped > 0) {
+        setSkippedNotice(
+          `${skipped} file${skipped === 1 ? " was" : "s were"} skipped — unsupported format.`,
+        );
+        setTimeout(() => setSkippedNotice(null), 5000);
+      }
+      if (kept.length === 0) return;
+      await uploadFilesForCategory({
+        clientId,
+        category: HERO_CATEGORY,
+        files: kept,
+      });
+    },
+    [clientId, filterSupported, readEntriesRecursively],
+  );
+
   const onStateChangeRef = useRef(onStateChange);
   useEffect(() => {
     onStateChangeRef.current = onStateChange;
@@ -376,64 +456,32 @@ export function IndustryCoverageMatrix({
         </label>
       </div>
 
-      {/* Drop zone — accepts multiple files OR a whole folder via
-          drag-and-drop, recursively expanding dropped directories. */}
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (clientId && customCategory) setIsDragging(true);
-        }}
-        onDragLeave={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setIsDragging(false);
-        }}
-        onDrop={handleCustomDrop}
-        className={`mt-4 rounded-xl border-2 border-dashed px-5 py-8 text-center transition ${
-          !clientId || !customCategory
-            ? "border-slate-200 bg-slate-50 opacity-60"
-            : isDragging
-              ? "border-indigo-400 bg-indigo-50"
-              : "border-slate-300 bg-white hover:border-slate-400"
-        }`}
-      >
-        <p className="text-base font-medium text-slate-800">
-          Drop files or a folder here
-        </p>
-        <p className="mt-1 text-sm text-slate-500">
-          Supports PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPEG · everything
-          parses through the same pipeline as a single file
-        </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            disabled={!clientId || !customCategory}
-            onClick={handleCustomUploadClick}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Choose files
-          </button>
-          <button
-            type="button"
-            disabled={!clientId || !customCategory}
-            onClick={handleCustomFolderClick}
-            className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Choose folder
-          </button>
-        </div>
-        {!customCategory && (
-          <p className="mt-3 text-xs text-slate-400">
-            Enter a name above to enable uploads
-          </p>
-        )}
+      {/* Compact button row for the named-category form. The big
+          dropzone now lives at the top of the page (hero); this card
+          is for users who want to tag uploads to a specific named
+          category like "Customer reference call notes". */}
+      <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+        <button
+          type="button"
+          disabled={!clientId || !customCategory}
+          onClick={handleCustomUploadClick}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Choose files
+        </button>
+        <button
+          type="button"
+          disabled={!clientId || !customCategory}
+          onClick={handleCustomFolderClick}
+          className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Choose folder
+        </button>
       </div>
-
-      {skippedNotice && (
-        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {skippedNotice}
-        </div>
+      {!customCategory && (
+        <p className="mt-1.5 text-right text-xs text-slate-400">
+          Enter a name above to enable upload to a named category
+        </p>
       )}
 
       {(() => {
@@ -481,6 +529,94 @@ export function IndustryCoverageMatrix({
         className="sr-only"
         onChange={handleFileChange}
       />
+      {/* Hero dropzone hidden inputs — files + folder. */}
+      <input
+        ref={heroFileInputRef}
+        type="file"
+        multiple
+        accept={UPLOAD_ACCEPT_ATTR}
+        className="sr-only"
+        onChange={handleHeroFileChange}
+      />
+      <input
+        ref={heroFolderInputRef}
+        type="file"
+        multiple
+        // @ts-expect-error — non-standard but supported in Chromium and Safari
+        webkitdirectory=""
+        directory=""
+        className="sr-only"
+        onChange={handleHeroFileChange}
+      />
+
+      {/* Hero dropzone — top of the page, prominent target for batch
+          uploads. Light-purple flat background with a soft glowing
+          ring on hover/drag, matching the platform's purple/indigo
+          identity. Routes to a generic "custom_uploads" category so
+          the operator can drop files without first naming them. */}
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (clientId) setHeroDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setHeroDragging(false);
+        }}
+        onDrop={handleHeroDrop}
+        className={`relative overflow-hidden rounded-2xl border bg-violet-50 px-6 py-6 shadow-[0_0_0_1px_rgba(139,92,246,0.12),0_0_24px_rgba(139,92,246,0.18)] transition ${
+          heroDragging
+            ? "border-violet-500 bg-violet-100 shadow-[0_0_0_2px_rgba(139,92,246,0.35),0_0_36px_rgba(139,92,246,0.35)]"
+            : "border-violet-200 hover:border-violet-300 hover:shadow-[0_0_0_1px_rgba(139,92,246,0.2),0_0_28px_rgba(139,92,246,0.25)]"
+        }`}
+      >
+        {/* Subtle inner glow accent, matches purple branding */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 -z-0 bg-gradient-to-r from-violet-100/0 via-violet-200/30 to-violet-100/0"
+        />
+        <div className="relative flex flex-col items-center justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="text-center sm:text-left">
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-violet-700">
+              Drop zone
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              Drop files or a folder to add to the data room
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Supports PDF, DOCX, XLSX, PPTX, CSV, TXT, PNG, JPEG ·
+              everything parses through the same pipeline as a single
+              file.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center justify-center gap-2">
+            <button
+              type="button"
+              disabled={!clientId}
+              onClick={handleHeroFilesClick}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Choose files
+            </button>
+            <button
+              type="button"
+              disabled={!clientId}
+              onClick={handleHeroFolderClick}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-violet-300 bg-white px-4 py-2 text-sm font-semibold text-violet-700 shadow-sm transition hover:border-violet-400 hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Choose folder
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {skippedNotice && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          {skippedNotice}
+        </div>
+      )}
 
       {/* 1. Stats summary — always at top */}
       <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
