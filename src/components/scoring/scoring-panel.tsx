@@ -431,6 +431,33 @@ export function ScoringPanel({
         </div>
       )}
 
+      {/* CTA: marks the boundary between the auto-generated composite
+          (everything above) and the editable per-dimension sections
+          (everything below). Encourages the operator to actively
+          adjust scores rather than accepting the engine output as-is. */}
+      <div className="relative overflow-hidden rounded-2xl border-2 border-indigo-300 bg-gradient-to-r from-indigo-50 via-white to-indigo-50 px-6 py-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-indigo-600">
+              Step 2 · Your turn
+            </p>
+            <p className="mt-1 text-lg font-semibold text-slate-900">
+              Refine the score below
+            </p>
+            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+              The composite above is Kaptrix&rsquo;s starting point. Open
+              each dimension to review the engine&rsquo;s sub-criterion
+              scores, override anything that doesn&rsquo;t match what you
+              know, and add rationale. The composite recalculates as you
+              go.
+            </p>
+          </div>
+          <span className="hidden shrink-0 items-center gap-2 rounded-full bg-indigo-600 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white shadow-sm sm:inline-flex">
+            ↓ Adjust below
+          </span>
+        </div>
+      </div>
+
       {/* Dimension scoring sections — id anchor lets the dimension grid
           cards above scroll directly into the matching section. Each
           dimension gets its own dark purple gradient on the header so
@@ -1173,41 +1200,52 @@ function ContextAdjustmentPanel({ signals }: { signals: ContextSignal[] }) {
   );
   const sources = Object.keys(grouped) as (keyof typeof KNOWLEDGE_STEP_LABELS)[];
 
+  // Collapsed by default + subtle slate styling so the panel reads as a
+  // reference, not a wall of red numbers competing with the actual
+  // editable scoring sections below.
   return (
-    <div className="rounded-xl border border-indigo-200 bg-indigo-50/60 p-6">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-lg font-semibold text-indigo-900">
+    <details className="group rounded-lg border border-slate-200 bg-slate-50/60 px-4 py-3 text-xs">
+      <summary className="flex cursor-pointer select-none items-center justify-between gap-3 text-slate-600 hover:text-slate-900">
+        <span className="text-[11px] font-semibold uppercase tracking-wider">
           Context signals feeding the score
-        </p>
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-700">
-          {signals.length} signal{signals.length === 1 ? "" : "s"}
         </span>
-      </div>
-      <p className="mt-2 text-sm text-indigo-800/80">
-        Submissions from earlier steps adjust each dimension. Caps prevent any
+        <span className="flex items-center gap-2">
+          <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+            {signals.length}
+          </span>
+          <span className="text-[10px] text-slate-400 group-open:hidden">
+            show
+          </span>
+          <span className="hidden text-[10px] text-slate-400 group-open:inline">
+            hide
+          </span>
+        </span>
+      </summary>
+      <p className="mt-3 text-[11px] text-slate-500">
+        Submissions from earlier steps nudge each dimension. Caps prevent any
         single step from overriding operator judgment.
       </p>
-      <div className="mt-5 space-y-5">
+      <div className="mt-3 space-y-3">
         {sources.map((src) => (
           <div key={src}>
-            <p className="text-xs font-semibold uppercase tracking-wider text-indigo-800">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               From {KNOWLEDGE_STEP_LABELS[src]}
             </p>
-            <ul className="mt-2 space-y-2">
+            <ul className="mt-1 space-y-1">
               {grouped[src].map((s, i) => (
                 <li
                   key={`${src}-${i}`}
-                  className="flex items-start justify-between gap-3 text-base text-gray-800"
+                  className="flex items-start justify-between gap-3 text-[11px] text-slate-700"
                 >
                   <span>
-                    <span className="font-mono text-sm text-gray-500">
+                    <span className="font-mono text-[10px] text-slate-400">
                       {s.dimension}
                     </span>{" "}
                     — {s.reason}
                   </span>
                   <span
-                    className={`shrink-0 text-base font-semibold tabular-nums ${
-                      s.delta < 0 ? "text-rose-700" : "text-emerald-700"
+                    className={`shrink-0 font-mono text-[11px] tabular-nums ${
+                      s.delta < 0 ? "text-rose-600" : "text-emerald-600"
                     }`}
                   >
                     {s.delta > 0 ? "+" : ""}
@@ -1219,6 +1257,6 @@ function ContextAdjustmentPanel({ signals }: { signals: ContextSignal[] }) {
           </div>
         ))}
       </div>
-    </div>
+    </details>
   );
 }
