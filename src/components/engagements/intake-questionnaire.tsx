@@ -1625,7 +1625,7 @@ export function IntakeQuestionnaire({
 
       {/* Two-column: section nav + current section */}
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <aside className="hidden lg:sticky lg:top-20 lg:block lg:self-start">
+        <aside className="hidden lg:sticky lg:top-20 lg:block lg:max-h-[calc(100vh-6rem)] lg:self-start lg:overflow-y-auto">
           <nav className="space-y-1 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
             {sections.map((section, idx) => {
               const { done, total } = sectionCompletion(section);
