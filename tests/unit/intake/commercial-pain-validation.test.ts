@@ -37,8 +37,8 @@ describe("Commercial Pain Validation — IntakePayload + KB emission", () => {
     const lines = formatKnowledgeBaseEvidence({
       intake: makeIntakeEntry({
         commercial_pain_validation: {
-          problem_statement: "Underwriting bottleneck.",
-          buyer_persona: "Mid-market PE associates and VPs",
+          problem_statement: "Document / contract analysis",
+          buyer_persona: "C-suite / executive sponsor",
           pain_severity: "Mission-critical",
           pain_frequency: "Daily or continuous",
           cost_of_pain_categories: ["Lost revenue", "Operating cost / FTE drag"],
@@ -47,7 +47,7 @@ describe("Commercial Pain Validation — IntakePayload + KB emission", () => {
           ai_necessity: "Yes — AI is necessary",
           outcome_proof: "Proven with case studies",
           buying_urgency: "Immediate",
-          promised_outcome: "Cut cycle from 4h → 30min",
+          promised_outcome: ["Time / cycle reduction", "Cost reduction"],
         },
       }),
     });
@@ -107,10 +107,11 @@ describe("Commercial Pain Validation — IntakePayload + KB emission", () => {
     const lines = formatKnowledgeBaseEvidence({
       intake: makeIntakeEntry({
         commercial_pain_validation: {
-          problem_statement: "Real problem.",
+          problem_statement: "Document / contract analysis",
           buyer_persona: "", // blank — should be skipped
           pain_severity: undefined, // undefined — skipped
           cost_of_pain_categories: [], // empty array — skipped
+          current_alternative: [], // empty multi — skipped
         },
       }),
     });
@@ -128,7 +129,7 @@ describe("Commercial Pain Validation — IntakePayload + KB emission", () => {
         regulatory_exposure: ["GDPR / UK GDPR"],
         engagement_type: "PE / growth equity — pre-close diligence on a target",
         commercial_pain_validation: {
-          problem_statement: "X",
+          problem_statement: "Document / contract analysis",
         },
       }),
     });
@@ -215,5 +216,43 @@ describe("Commercial Pain Validation — intake form ordering", () => {
     expect(cpIdx).toBeGreaterThan(-1);
     expect(engagementIdx).toBeGreaterThan(-1);
     expect(cpIdx).toBeLessThan(engagementIdx);
+  });
+
+  it("contains zero free-form questions in the Commercial Pain Validation section", () => {
+    // Free-form fields make scoring non-deterministic and reports unreliable.
+    // Every question in this section MUST be 'single' or 'multi' so answers
+    // map cleanly to scoring enums and KB chunks.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require("node:fs") as typeof import("node:fs");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require("node:path") as typeof import("node:path");
+    const src = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "src/components/engagements/intake-questionnaire.tsx",
+      ),
+      "utf-8",
+    );
+
+    // Slice out only the Commercial Pain Validation block from the source.
+    const blockStart = src.indexOf(
+      "// ────────────────── Commercial Pain Validation ──────────────────",
+    );
+    const blockEnd = src.indexOf(
+      "// ────────────────── Engagement Type ──────────────────",
+      blockStart,
+    );
+    expect(blockStart).toBeGreaterThan(-1);
+    expect(blockEnd).toBeGreaterThan(blockStart);
+    const block = src.slice(blockStart, blockEnd);
+
+    // No question in this block may be short_text, long_text, or scale.
+    expect(block).not.toMatch(/type:\s*"short_text"/);
+    expect(block).not.toMatch(/type:\s*"long_text"/);
+    expect(block).not.toMatch(/type:\s*"scale"/);
+
+    // Sanity: there ARE single and multi questions in the block.
+    expect(block).toMatch(/type:\s*"single"/);
+    expect(block).toMatch(/type:\s*"multi"/);
   });
 });

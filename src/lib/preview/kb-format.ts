@@ -84,30 +84,55 @@ export type KnowledgePayload =
  * answer.
  */
 export interface CommercialPainValidationPayload {
+  /** Single-select: primary problem domain. */
   problem_statement?: string;
+  /** Single-select: primary buyer role. */
   buyer_persona?: string;
+  /** Single-select: buyer company size. (Field name retained from spec.) */
   buyer_persona_notes?: string;
+  /** Single-select: pain severity (drives score). */
   pain_severity?: string;
+  /** Single-select: pain frequency (drives score). */
   pain_frequency?: string;
+  /** Multi-select: cost categories. */
   cost_of_pain_categories?: string[];
+  /** Single-select: estimated annual cost per buyer (magnitude bucket). */
   cost_of_pain_notes?: string;
-  current_alternative?: string;
+  /** Multi-select: alternatives buyers use today. */
+  current_alternative?: string[];
+  /** Single-select: switching cost from current alternative. */
   current_alternative_notes?: string;
-  status_quo_failure?: string;
+  /** Multi-select: how the status quo fails. */
+  status_quo_failure?: string[];
+  /** Single-select: status-quo pain acuity. */
   status_quo_failure_notes?: string;
+  /** Multi-select: demand evidence tier (drives score). */
   customer_demand_evidence?: string[];
+  /** Single-select: number of named paying customers. */
   customer_demand_evidence_notes?: string;
+  /** Single-select: solution fit (drives score). */
   solution_fit?: string;
+  /** Single-select: AI necessity (drives score). */
   ai_necessity?: string;
-  ai_necessity_notes?: string;
-  promised_outcome?: string;
+  /** Multi-select: viable non-AI alternatives. */
+  ai_necessity_notes?: string[];
+  /** Multi-select: types of promised outcome. */
+  promised_outcome?: string[];
+  /** Single-select: magnitude of promised outcome. */
   promised_outcome_notes?: string;
+  /** Single-select: outcome proof tier (drives score). */
   outcome_proof?: string;
-  outcome_proof_notes?: string;
+  /** Multi-select: forms of proof present. */
+  outcome_proof_notes?: string[];
+  /** Single-select: primary buying trigger. */
   buying_trigger?: string;
+  /** Single-select: trigger frequency in target market. */
   buying_trigger_notes?: string;
+  /** Single-select: buying urgency (drives score). */
   buying_urgency?: string;
-  missing_pain_evidence?: string;
+  /** Multi-select: missing commercial validation evidence. */
+  missing_pain_evidence?: string[];
+  /** Single-select: obtainability of missing evidence. */
   missing_pain_evidence_notes?: string;
 }
 
@@ -326,9 +351,9 @@ export function formatKnowledgeBaseEvidence(
         cpEmitVal("pain_frequency", cp.pain_frequency);
         cpEmitList("cost_of_pain_categories", cp.cost_of_pain_categories);
         cpEmitVal("cost_of_pain_notes", cp.cost_of_pain_notes);
-        cpEmitVal("current_alternative", cp.current_alternative);
+        cpEmitList("current_alternative", cp.current_alternative);
         cpEmitVal("current_alternative_notes", cp.current_alternative_notes);
-        cpEmitVal("status_quo_failure", cp.status_quo_failure);
+        cpEmitList("status_quo_failure", cp.status_quo_failure);
         cpEmitVal("status_quo_failure_notes", cp.status_quo_failure_notes);
         cpEmitList("customer_demand_evidence", cp.customer_demand_evidence);
         cpEmitVal(
@@ -337,15 +362,15 @@ export function formatKnowledgeBaseEvidence(
         );
         cpEmitVal("solution_fit", cp.solution_fit);
         cpEmitVal("ai_necessity", cp.ai_necessity);
-        cpEmitVal("ai_necessity_notes", cp.ai_necessity_notes);
-        cpEmitVal("promised_outcome", cp.promised_outcome);
+        cpEmitList("ai_necessity_notes", cp.ai_necessity_notes);
+        cpEmitList("promised_outcome", cp.promised_outcome);
         cpEmitVal("promised_outcome_notes", cp.promised_outcome_notes);
         cpEmitVal("outcome_proof", cp.outcome_proof);
-        cpEmitVal("outcome_proof_notes", cp.outcome_proof_notes);
+        cpEmitList("outcome_proof_notes", cp.outcome_proof_notes);
         cpEmitVal("buying_trigger", cp.buying_trigger);
         cpEmitVal("buying_trigger_notes", cp.buying_trigger_notes);
         cpEmitVal("buying_urgency", cp.buying_urgency);
-        cpEmitVal("missing_pain_evidence", cp.missing_pain_evidence);
+        cpEmitList("missing_pain_evidence", cp.missing_pain_evidence);
         cpEmitVal(
           "missing_pain_evidence_notes",
           cp.missing_pain_evidence_notes,
