@@ -90,70 +90,6 @@ function ToneIcon({ tone }: { tone: "go" | "warn" | "stop" }) {
   );
 }
 
-function RocketAccent({ tone }: { tone: "go" | "warn" | "stop" }) {
-  // Subtle, professional accent. Non-childish — geometric, single-stroke.
-  const stroke =
-    tone === "go" ? "#10b981" : tone === "warn" ? "#d97706" : "#e11d48";
-  return (
-    <svg
-      viewBox="0 0 200 160"
-      fill="none"
-      className="h-32 w-44 select-none opacity-60"
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id="rocket-grad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={stroke} stopOpacity="0.14" />
-          <stop offset="100%" stopColor={stroke} stopOpacity="0.02" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M120 30 L150 60 L120 105 L95 80 Z"
-        fill="url(#rocket-grad)"
-        stroke={stroke}
-        strokeOpacity="0.5"
-        strokeWidth="1.5"
-      />
-      <circle
-        cx="130"
-        cy="55"
-        r="5"
-        fill="white"
-        stroke={stroke}
-        strokeOpacity="0.7"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M95 80 L80 95 L95 95 L95 80 Z"
-        fill={stroke}
-        fillOpacity="0.18"
-        stroke={stroke}
-        strokeOpacity="0.4"
-        strokeWidth="1.2"
-      />
-      <path
-        d="M105 110 Q102 120 95 130"
-        stroke={stroke}
-        strokeOpacity="0.45"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeDasharray="2 4"
-      />
-      <path
-        d="M115 115 Q113 128 105 140"
-        stroke={stroke}
-        strokeOpacity="0.3"
-        strokeWidth="1.2"
-        strokeLinecap="round"
-        strokeDasharray="2 4"
-      />
-      <circle cx="160" cy="40" r="1.5" fill={stroke} fillOpacity="0.6" />
-      <circle cx="170" cy="65" r="1.2" fill={stroke} fillOpacity="0.4" />
-      <circle cx="155" cy="80" r="1" fill={stroke} fillOpacity="0.5" />
-    </svg>
-  );
-}
-
 interface ChipSpec {
   label: string;
   tone: "go" | "warn" | "stop";
@@ -222,50 +158,44 @@ export function DecisionSnapshotHero({
     <section
       className={`relative overflow-hidden rounded-2xl border ${TONE_BG[tone]} px-6 py-6 shadow-sm sm:px-8 sm:py-7`}
     >
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Decision snapshot
-          </p>
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          Decision snapshot
+        </p>
 
-          <div className="mt-3 flex items-center gap-3">
-            <span
-              className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${TONE_RING[tone]} ring-1`}
-            >
-              <ToneIcon tone={tone} />
-            </span>
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
-              {decision?.label ?? "Awaiting scores"}
-            </h2>
-          </div>
-
-          {decision?.summary && (
-            <p className="mt-3 max-w-2xl text-sm font-medium text-slate-700">
-              {decision.summary}
-            </p>
-          )}
-
-          {interpretation && (
-            <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-900">
-              {interpretation.headline}
-            </p>
-          )}
-
-          <div className="mt-5 flex flex-wrap gap-2">
-            {chips.map((chip) => (
-              <span
-                key={chip.label}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${CHIP_TONE[chip.tone]}`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                {chip.label}
-              </span>
-            ))}
-          </div>
+        <div className="mt-3 flex items-center gap-3">
+          <span
+            className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${TONE_RING[tone]} ring-1`}
+          >
+            <ToneIcon tone={tone} />
+          </span>
+          <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            {decision?.label ?? "Awaiting scores"}
+          </h2>
         </div>
 
-        <div className="hidden shrink-0 sm:block">
-          <RocketAccent tone={tone} />
+        {decision?.summary && (
+          <p className="mt-3 max-w-2xl text-sm font-medium text-slate-700">
+            {decision.summary}
+          </p>
+        )}
+
+        {interpretation && (
+          <p className="mt-1 max-w-2xl text-sm font-semibold text-slate-900">
+            {interpretation.headline}
+          </p>
+        )}
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          {chips.map((chip) => (
+            <span
+              key={chip.label}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${CHIP_TONE[chip.tone]}`}
+            >
+              <span className="h-1.5 w-1.5 rounded-full bg-current" />
+              {chip.label}
+            </span>
+          ))}
         </div>
       </div>
     </section>
