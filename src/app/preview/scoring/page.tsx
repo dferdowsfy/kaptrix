@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { ScoringPanel } from "@/components/scoring/scoring-panel";
 import { ScoreOverview } from "@/components/scoring/score-overview";
 import { calculateCommercialPainConfidence } from "@/lib/scoring/commercial-pain";
+import { intakeAnswersToCommercialPainInputs } from "@/lib/scoring/intake-to-commercial-pain";
 import {
   demoBenchmarkCases,
   demoEngagement,
@@ -487,11 +488,19 @@ export default function PreviewScoringPage() {
           Commercial Pain Confidence is a separate scoring layer (Phase 2),
           AI Diligence Score is the existing six-dimension composite, and
           Evidence Coverage Confidence qualifies the scores without ever
-          modifying them. The preview page has no Commercial Pain data
-          model yet, so that card surfaces "Not yet completed" until
-          Phase 1 lands. */}
+          modifying them. Commercial pain reads from the in-memory KB
+          (auto-promoted by the intake page on every change), so the
+          score updates live as answers come in. */}
       <ScoreOverview
-        commercialPain={calculateCommercialPainConfidence(null)}
+        commercialPain={calculateCommercialPainConfidence(
+          intakeAnswersToCommercialPainInputs(
+            kb.intake?.payload.kind === "intake"
+              ? (kb.intake.payload.commercial_pain_validation as
+                  | Parameters<typeof intakeAnswersToCommercialPainInputs>[0]
+                  | undefined) ?? null
+              : null,
+          ),
+        )}
         aiDiligenceComposite={headerComposite?.raw ?? null}
         evidenceCoverageConfidence={null}
       />

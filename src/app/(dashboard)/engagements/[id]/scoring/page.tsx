@@ -3,6 +3,7 @@ import { ScoringPanel } from "@/components/scoring/scoring-panel";
 import { ScoreOverview } from "@/components/scoring/score-overview";
 import { calculateCompositeScore } from "@/lib/scoring/calculator";
 import { calculateCommercialPainConfidence } from "@/lib/scoring/commercial-pain";
+import { intakeAnswersToCommercialPainInputs } from "@/lib/scoring/intake-to-commercial-pain";
 import type { Score, BenchmarkCase, PatternMatch } from "@/lib/types";
 
 interface Props {
@@ -13,11 +14,19 @@ export default async function ScoringPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
+  // Resolve the authed user up-front so we can fetch their intake
+  // answers (per-user row in user_workspace_state). Commercial pain
+  // answers are user-scoped today, mirroring the existing intake model.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const [
     { data: scores },
     { data: patternMatches },
     { data: benchmarks },
     { data: evidenceConfidence },
+    intakeAnswersRow,
   ] = await Promise.all([
     supabase.from("scores").select("*").eq("engagement_id", id).order("dimension"),
     supabase
@@ -31,6 +40,15 @@ export default async function ScoringPage({ params }: Props) {
       .select("composite")
       .eq("engagement_id", id)
       .maybeSingle(),
+    user
+      ? supabase
+          .from("user_workspace_state")
+          .select("state")
+          .eq("user_id", user.id)
+          .eq("engagement_id", id)
+          .eq("kind", "intake_answers")
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
   const scoresList = (scores as Score[]) ?? [];
@@ -41,11 +59,17 @@ export default async function ScoringPage({ params }: Props) {
   const aiDiligenceComposite =
     scoresList.length > 0 ? calculateCompositeScore(scoresList).composite_score : null;
 
-  // Commercial Pain Confidence inputs are not yet persisted on the
-  // engagements table (Phase 1 of the Commercial Pain layer hasn't
-  // landed). Passing null surfaces "Commercial Pain Validation not yet
-  // completed" on the card without breaking legacy engagements.
-  const commercialPain = calculateCommercialPainConfidence(null);
+  // Commercial Pain Confidence — read the intake answers, map display
+  // labels to scoring enums, and let the scoring service handle the
+  // "no answers yet" → null path. This is the same scoring engine the
+  // preview page uses; both surfaces stay in sync.
+  const intakeAnswers =
+    (intakeAnswersRow.data as { state: Record<string, unknown> } | null)?.state ?? null;
+  const commercialPain = calculateCommercialPainConfidence(
+    intakeAnswersToCommercialPainInputs(
+      intakeAnswers as Parameters<typeof intakeAnswersToCommercialPainInputs>[0],
+    ),
+  );
 
   const evidenceCoverageConfidence =
     (evidenceConfidence as { composite: number } | null)?.composite ?? null;
