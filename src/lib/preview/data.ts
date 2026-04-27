@@ -79,8 +79,14 @@ function mapPreviewTier(
 function lightweightSnapshotFor(
   client: PreviewClientSummary,
 ): PreviewSnapshot {
+  // Non-demo preview clients (Harvey, Skylink, etc.) must start CLEAN.
+  // Spreading FULL_DEMO_SNAPSHOT used to leak the LexiFlow demo docs
+  // into every preview client, so the Evidence & Coverage matrix
+  // showed `Provided · 1 file` for artifacts that were never uploaded.
+  // Only the requirements catalog (which is global, not engagement-
+  // specific) and the executive report skeleton are reused; everything
+  // else starts empty and is populated by real uploads / scoring runs.
   return {
-    ...FULL_DEMO_SNAPSHOT,
     engagement: {
       ...demoEngagement,
       id: client.id,
@@ -92,6 +98,15 @@ function lightweightSnapshotFor(
       engagement_fee: client.fee_usd,
       delivery_deadline: client.deadline,
     },
+    requirements: FULL_DEMO_SNAPSHOT.requirements,
+    documents: [],
+    analyses: [],
+    benchmarks: FULL_DEMO_SNAPSHOT.benchmarks,
+    patternMatches: [],
+    scores: [],
+    report: FULL_DEMO_SNAPSHOT.report,
+    knowledgeInsights: [],
+    executiveReport: FULL_DEMO_SNAPSHOT.executiveReport,
   };
 }
 
