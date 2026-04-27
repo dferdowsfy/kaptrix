@@ -90,6 +90,32 @@ export function readUploadedDocs(
   return store[clientId] ?? EMPTY;
 }
 
+/**
+ * Flatten every client's uploads into one array. Used by the global
+ * upload-activity bar so an in-flight upload remains visible across
+ * preview tab navigation, regardless of which client is currently
+ * selected.
+ *
+ * Stable identity when nothing has changed (returns the same array
+ * reference) so useSyncExternalStore doesn't churn.
+ */
+let allUploadsCache: { raw: string | null; list: readonly UploadedDoc[] } = {
+  raw: null,
+  list: EMPTY,
+};
+export function readAllUploadedDocs(): readonly UploadedDoc[] {
+  if (typeof window === "undefined") return EMPTY;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (raw === allUploadsCache.raw) return allUploadsCache.list;
+  const store = readStore();
+  const list: UploadedDoc[] = [];
+  for (const clientId of Object.keys(store)) {
+    for (const d of store[clientId] ?? []) list.push(d);
+  }
+  allUploadsCache = { raw, list };
+  return list;
+}
+
 export function upsertUploadedDoc(doc: UploadedDoc): void {
   const store = { ...readStore() };
   const list = (store[doc.client_id] ?? []).slice();

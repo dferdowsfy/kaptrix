@@ -11,6 +11,7 @@ import {
   type PreviewTabId,
 } from "@/lib/preview-access";
 import { SystemSignalPill } from "@/components/preview/system-signal-pill";
+import { UploadActivityBar } from "@/components/preview/upload-activity-bar";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -80,6 +81,7 @@ export default async function PreviewLayout({
   return (
     <ChatPanelProvider>
       <KbHydrator />
+      <UploadActivityBar />
       <PreviewShell
         chatPanel={<KnowledgeChatPanel />}
         initialServerHidden={serverHidden}

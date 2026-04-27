@@ -19,7 +19,7 @@ export default function PreviewHomePage() {
 
   const openClient = (id: string) => {
     setSelectedId(id);
-    router.push("/preview/intake");
+    router.push("/preview/overview");
   };
 
   const deleteClient = async (id: string, name: string) => {
