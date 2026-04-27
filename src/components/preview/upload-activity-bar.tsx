@@ -1,9 +1,10 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   readAllUploadedDocs,
   subscribeUploadedDocs,
+  upsertUploadedDoc,
   type UploadedDoc,
 } from "@/lib/preview/uploaded-docs";
 
@@ -15,6 +16,17 @@ const IN_FLIGHT_STATUSES: ReadonlySet<UploadedDoc["parse_status"]> = new Set([
   "parsing",
   "extracting",
 ]);
+
+// An "in-flight" upload that hasn't progressed in this long is almost
+// always orphaned — the user closed the tab mid-upload, the
+// extract-insights fetch hung, etc. We auto-mark these as failed on
+// the next render so the activity bar stops claiming we're processing
+// files that nothing is actually working on.
+const STALE_AFTER_MS = 90_000; // 90 seconds
+// And we only count uploads as currently active if they were started
+// recently. Anything older than this window is considered orphaned for
+// display purposes even if it hasn't been swept yet.
+const ACTIVE_WINDOW_MS = 120_000; // 2 minutes
 
 /**
  * Fixed-position activity bar that surfaces in-flight uploads at the
@@ -33,7 +45,40 @@ export function UploadActivityBar() {
     () => EMPTY,
   );
 
-  const inFlight = uploads.filter((d) => IN_FLIGHT_STATUSES.has(d.parse_status));
+  // Re-render every 5s so stale uploads roll out of the active window
+  // and the bar disappears even if the underlying store doesn't tick.
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 5000);
+    return () => clearInterval(id);
+  }, []);
+  void tick; // referenced for hooks linter
+
+  // Sweep: any in-flight doc older than STALE_AFTER_MS gets marked
+  // "failed" so the store self-heals after a tab close / hung fetch.
+  useEffect(() => {
+    const now = Date.now();
+    for (const d of uploads) {
+      if (!IN_FLIGHT_STATUSES.has(d.parse_status)) continue;
+      const age = now - new Date(d.uploaded_at).getTime();
+      if (age > STALE_AFTER_MS) {
+        upsertUploadedDoc({
+          ...d,
+          parse_status: "failed",
+          error: d.error ?? "Upload did not complete (timed out)",
+        });
+      }
+    }
+  }, [uploads]);
+
+  // Display filter: only count uploads that started in the last
+  // ACTIVE_WINDOW_MS. Anything older is orphaned regardless of status.
+  const now = Date.now();
+  const inFlight = uploads.filter(
+    (d) =>
+      IN_FLIGHT_STATUSES.has(d.parse_status) &&
+      now - new Date(d.uploaded_at).getTime() < ACTIVE_WINDOW_MS,
+  );
   if (inFlight.length === 0) return null;
 
   // Average percent across all uploads. Treat anything past "uploading"
