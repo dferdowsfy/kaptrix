@@ -266,65 +266,17 @@ export function ScoringPanel({
     [engagementId, previewMode],
   );
 
-  // Track when the main composite header scrolls out of view so we can
-  // pop a floating composite chip into the bottom-left corner. Lets the
-  // operator keep an eye on the score while editing sub-criterion
-  // sliders deeper in the page.
-  const compositeHeaderRef = useRef<HTMLDivElement | null>(null);
-  const [showFloatingComposite, setShowFloatingComposite] = useState(false);
-  useEffect(() => {
-    const el = compositeHeaderRef.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setShowFloatingComposite(!entry.isIntersecting),
-      { rootMargin: "-80px 0px 0px 0px", threshold: 0 },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
   return (
     <div className="space-y-6">
-      {/* Composite score header — bare on the page background, mirroring
-          the Stitch "Evidence Gathering Dashboard" layout. The previous
-          card chrome was removed so the composite sits flush above the
-          decision badge and the per-dimension card grid. */}
-      <div
-        ref={compositeHeaderRef}
-        className="flex flex-wrap items-end justify-between gap-3"
-      >
-        <div>
-          <p className="text-xs font-medium text-gray-500">
-            {contextSignals.length > 0
-              ? "Context-aware composite"
-              : "Composite Score"}
-          </p>
-          <p className="mt-1 text-5xl font-bold tabular-nums text-gray-900">
-            {adjustedComposite.toFixed(1)}
-            <span className="ml-1 text-2xl font-normal text-gray-400">
-              / 5.0
-            </span>
-          </p>
-          {contextSignals.length > 0 && (
-            <p className="mt-1 text-xs text-gray-500">
-              Operator composite {composite.composite_score.toFixed(1)}
-              {" · "}
-              context Δ {contextAdjustment.composite_delta >= 0 ? "+" : ""}
-              {contextAdjustment.composite_delta.toFixed(2)}
-            </p>
-          )}
+      {/* Composite score is now rendered once, in the AI Diligence Score
+          card of the three-card ScoreOverview at the top of the page.
+          The previous duplicate header + floating chip have been removed
+          to avoid showing the same number two or three times. */}
+      {!previewMode && saving && (
+        <div className="flex justify-end">
+          <span className="text-xs text-gray-400">Saving…</span>
         </div>
-        <div className="flex items-center gap-3">
-          {!previewMode && saving && (
-            <span className="text-xs text-gray-400">Saving…</span>
-          )}
-          {/* The page-level "Re-generate scores" button at the top of
-              the page is the single entry point. The duplicate button
-              that used to render here when scores went stale was a
-              no-op for the deterministic engine (which already re-runs
-              on every render), so it's been removed. */}
-        </div>
-      </div>
+      )}
 
       <DecisionBadge decision={decision} />
 
@@ -535,46 +487,6 @@ export function ScoringPanel({
         </div>
       ))}
 
-      {/* Floating composite chip — appears once the operator scrolls
-          past the main composite header so the score stays visible
-          while editing sub-criterion sliders below. */}
-      <div
-        className={`fixed bottom-6 left-6 z-40 transition-all duration-200 ${
-          showFloatingComposite
-            ? "translate-y-0 opacity-100"
-            : "pointer-events-none translate-y-4 opacity-0"
-        }`}
-      >
-        <div
-          className={`flex items-center gap-3 rounded-2xl border bg-white p-3 pr-4 shadow-2xl ring-1 ring-black/5 ${
-            decision.tone === "go"
-              ? "border-emerald-200"
-              : decision.tone === "warn"
-                ? "border-amber-200"
-                : "border-rose-200"
-          }`}
-        >
-          <div
-            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums text-white ${
-              decision.tone === "go"
-                ? "bg-emerald-600"
-                : decision.tone === "warn"
-                  ? "bg-amber-600"
-                  : "bg-rose-600"
-            }`}
-          >
-            {adjustedComposite.toFixed(1)}
-          </div>
-          <div className="leading-tight">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Composite · live
-            </p>
-            <p className="text-sm font-semibold text-slate-900">
-              {decision.label}
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
