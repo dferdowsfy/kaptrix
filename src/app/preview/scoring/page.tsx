@@ -563,7 +563,7 @@ export default function PreviewScoringPage() {
                 Overall AI Score
               </p>
               <p className="mt-0.5 text-4xl font-bold tabular-nums leading-none text-slate-900">
-                {headerComposite.contextAware.toFixed(1)}
+                {headerComposite.raw.toFixed(1)}
                 <span className="ml-1 text-xl font-normal text-slate-400">
                   / 5.0
                 </span>
