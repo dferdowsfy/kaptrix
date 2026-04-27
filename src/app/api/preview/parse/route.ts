@@ -190,3 +190,51 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+/**
+ * DELETE /api/preview/parse?id=...&client_id=...
+ *
+ * Remove an uploaded artifact from `preview_uploaded_docs`. Mirrors the
+ * Remove button on the Evidence & Coverage matrix so a click flips the
+ * artifact row back to "Missing" and the underlying parsed text stops
+ * flowing into chat / scoring / report context.
+ *
+ * Best-effort: returns 200 even when the row didn't exist (idempotent),
+ * so the client's optimistic local removal isn't undone by a 404.
+ */
+export async function DELETE(request: NextRequest) {
+  try {
+    await requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const { searchParams } = new URL(request.url);
+  const docId = (searchParams.get("id") ?? "").trim();
+  const clientId = (searchParams.get("client_id") ?? "").trim();
+  if (!docId || !clientId) {
+    return NextResponse.json(
+      { error: "Missing id or client_id" },
+      { status: 400 },
+    );
+  }
+
+  const supabase = getServiceClient();
+  if (!supabase) {
+    // No DB → treat as success; caller's local removal still wins.
+    return NextResponse.json({ ok: true, deleted: false, reason: "service_client_unavailable" });
+  }
+
+  const { error } = await supabase
+    .from("preview_uploaded_docs")
+    .delete()
+    .eq("id", docId)
+    .eq("client_id", clientId);
+  if (error) {
+    return NextResponse.json(
+      { ok: false, error: error.message },
+      { status: 500 },
+    );
+  }
+  return NextResponse.json({ ok: true, deleted: true });
+}

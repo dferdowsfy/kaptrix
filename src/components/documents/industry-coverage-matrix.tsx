@@ -8,6 +8,7 @@ import {
   uploadFilesForCategory,
 } from "@/lib/preview/upload-file";
 import { removeUploadedDoc } from "@/lib/preview/uploaded-docs";
+import { addRemovedDocId } from "@/lib/preview/removed-docs";
 import {
   INDUSTRY_PROFILES,
   type Industry,
@@ -762,7 +763,24 @@ function RowUploads({
                   aria-label={`Remove ${d.filename}`}
                   onClick={(e) => {
                     e.stopPropagation();
+                    // Three-tier removal so the row really flips to
+                    // "Missing" and stays that way:
+                    //  1. Drop from the in-flight uploaded-docs store
+                    //     (covers files uploaded in the current session).
+                    //  2. Add to the removed-docs allowlist so the matrix
+                    //     filters it out even if it came from the
+                    //     server-side snapshot or demo seed.
+                    //  3. Best-effort DELETE against the server so the
+                    //     row doesn't reappear on next page load.
                     removeUploadedDoc(clientId, d.id);
+                    addRemovedDocId(clientId, d.id);
+                    void fetch(
+                      `/api/preview/parse?id=${encodeURIComponent(d.id)}&client_id=${encodeURIComponent(clientId)}`,
+                      { method: "DELETE" },
+                    ).catch(() => {
+                      // Server delete is best-effort; the local removed-id
+                      // store keeps the artifact filtered until refresh.
+                    });
                   }}
                   className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-100"
                 >

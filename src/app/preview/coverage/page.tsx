@@ -12,6 +12,10 @@ import {
   subscribeUploadedDocs,
   type UploadedDoc,
 } from "@/lib/preview/uploaded-docs";
+import {
+  readRemovedDocIds,
+  subscribeRemovedDocs,
+} from "@/lib/preview/removed-docs";
 import type {
   Document,
   DocumentCategory,
@@ -65,13 +69,22 @@ export default function PreviewCoveragePage() {
     () => [] as readonly UploadedDoc[],
   );
 
-  const documents = useMemo(
-    () => [
+  // Operator-removed doc IDs (kept client-side because some artifacts
+  // come from the demo seed snapshot and can't be deleted server-side).
+  const removedIds = useSyncExternalStore(
+    subscribeRemovedDocs,
+    () => readRemovedDocIds(selectedId),
+    () => [] as readonly string[],
+  );
+
+  const documents = useMemo(() => {
+    const removed = new Set(removedIds);
+    const all = [
       ...baseDocuments,
       ...uploaded.map((d) => uploadedToDocument(d, engagementId)),
-    ],
-    [baseDocuments, uploaded, engagementId],
-  );
+    ];
+    return all.filter((d) => !removed.has(d.id));
+  }, [baseDocuments, uploaded, engagementId, removedIds]);
 
   const [, setCoverageState] = useState<IndustryCoverageState | null>(null);
 
