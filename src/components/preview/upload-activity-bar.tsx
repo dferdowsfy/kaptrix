@@ -55,19 +55,13 @@ export function UploadActivityBar() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-x-0 top-0 z-50 border-b border-indigo-200 bg-indigo-50/95 backdrop-blur"
+      className="print-hide fixed bottom-4 left-4 z-40 sm:bottom-6 sm:left-6"
     >
-      <div className="h-0.5 w-full bg-indigo-100">
-        <div
-          className="h-full bg-indigo-600 transition-all duration-200"
-          style={{ width: `${Math.max(2, Math.round(totalPercent))}%` }}
-        />
-      </div>
-      <div className="mx-auto flex max-w-screen-2xl items-center gap-3 px-4 py-1.5 text-xs text-indigo-900">
+      <div className="flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-indigo-200 bg-white px-4 py-2.5 shadow-[0_0_0_1px_rgba(79,70,229,0.12),0_10px_32px_-10px_rgba(79,70,229,0.35)]">
         <svg
           viewBox="0 0 20 20"
           fill="none"
-          className="h-3.5 w-3.5 shrink-0 animate-spin text-indigo-700"
+          className="h-4 w-4 shrink-0 animate-spin text-indigo-700"
           aria-hidden
         >
           <circle
@@ -85,14 +79,24 @@ export function UploadActivityBar() {
             strokeLinecap="round"
           />
         </svg>
-        <span className="font-medium">
-          {someParsing ? "Processing" : "Uploading"} {inFlight.length} file
-          {inFlight.length === 1 ? "" : "s"}
-          {someParsing ? "" : ` · ${Math.round(totalPercent)}%`}
-        </span>
-        <span className="text-[11px] text-indigo-700/80">
-          You can keep working — this continues in the background.
-        </span>
+        <div className="min-w-0 leading-tight">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-700">
+            {someParsing ? "Processing" : "Uploading"} · live
+          </p>
+          <p className="truncate text-sm font-semibold text-slate-900">
+            {inFlight.length} file
+            {inFlight.length === 1 ? "" : "s"}
+            {someParsing ? "" : ` · ${Math.round(totalPercent)}%`}
+          </p>
+        </div>
+        {!someParsing && (
+          <div className="hidden h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-indigo-100 sm:block">
+            <div
+              className="h-full bg-indigo-600 transition-all duration-200"
+              style={{ width: `${Math.max(2, Math.round(totalPercent))}%` }}
+            />
+          </div>
+        )}
       </div>
     </div>
   );
