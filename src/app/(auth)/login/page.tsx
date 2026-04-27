@@ -37,6 +37,10 @@ function LoginForm() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [confirmationSent, setConfirmationSent] = useState(false);
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [resendStatus, setResendStatus] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
+  const [resendError, setResendError] = useState("");
   const supabaseConfigured = isSupabaseConfigured();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -67,7 +71,7 @@ function LoginForm() {
     const supabase = createClient();
 
     if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -83,9 +87,22 @@ function LoginForm() {
 
       if (error) {
         setMessage(error.message);
-      } else {
+      } else if (
+        data?.user &&
+        (!data.user.identities || data.user.identities.length === 0)
+      ) {
+        // Supabase's user-enumeration prevention returns a "successful"
+        // response with an empty `identities` array when the email is
+        // already registered. Without this branch the form would say
+        // "Check your email" even though no email was sent.
+        setMessage(
+          "An account with this email already exists. Use the Log in tab, or reset your password if you've forgotten it.",
+        );
+      } else if (data?.user || data?.session) {
         setConfirmationEmail(email);
         setConfirmationSent(true);
+      } else {
+        setMessage("Sign-up did not complete. Please try again.");
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
@@ -129,21 +146,62 @@ function LoginForm() {
           </p>
         </div>
 
-        <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-          <p className="text-xs text-white/50">
-            Not seeing it? Check your spam folder or{" "}
+        <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-left">
+          <p className="text-xs text-white/60">
+            Not seeing it? Check your spam folder, then resend the link.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={resendStatus === "sending"}
+              onClick={async () => {
+                setResendStatus("sending");
+                setResendError("");
+                const supabase = createClient();
+                const { error } = await supabase.auth.resend({
+                  type: "signup",
+                  email: confirmationEmail,
+                  options: {
+                    emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+                  },
+                });
+                if (error) {
+                  setResendStatus("error");
+                  setResendError(error.message);
+                } else {
+                  setResendStatus("sent");
+                }
+              }}
+              className="rounded-md border border-indigo-300/30 bg-indigo-500/10 px-3 py-1.5 text-xs font-medium text-indigo-200 transition hover:border-indigo-300/60 hover:bg-indigo-500/20 disabled:opacity-50"
+            >
+              {resendStatus === "sending"
+                ? "Resending…"
+                : resendStatus === "sent"
+                  ? "Resent ✓"
+                  : "Resend confirmation email"}
+            </button>
             <button
               type="button"
               onClick={() => {
                 setConfirmationSent(false);
                 setConfirmationEmail("");
                 setMessage("");
+                setResendStatus("idle");
+                setResendError("");
               }}
-              className="font-medium text-indigo-300 hover:text-indigo-200 hover:underline"
+              className="text-xs font-medium text-indigo-300 hover:text-indigo-200 hover:underline"
             >
-              try again
+              Use a different email
             </button>
-          </p>
+          </div>
+          {resendError && (
+            <p className="mt-2 text-xs text-rose-300">{resendError}</p>
+          )}
+          {resendStatus === "sent" && (
+            <p className="mt-2 text-xs text-emerald-300">
+              Confirmation email resent to {confirmationEmail}.
+            </p>
+          )}
         </div>
 
         <button
