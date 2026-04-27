@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import {
   demoDocuments,
   demoExecutiveReport,
@@ -9,10 +10,34 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
 import { usePreviewSnapshot } from "@/hooks/use-preview-data";
+import {
+  readClientKb,
+  subscribeKnowledgeBase,
+  type KnowledgeStep,
+  type KnowledgeEntry,
+} from "@/lib/preview/knowledge-base";
+
+const EMPTY_KB: Partial<Record<KnowledgeStep, KnowledgeEntry>> = {};
 
 export default function PreviewOverviewPage() {
   const { client, selectedId } = useSelectedPreviewClient();
   const { snapshot } = usePreviewSnapshot(selectedId);
+
+  // Subscribe to the in-memory KB so the composite tile reflects the
+  // SAME live number the scoring page surfaces. The scoring page promotes
+  // its score to KB on every change; reading back here keeps both tiles
+  // in sync without an extra fetch path.
+  const kb = useSyncExternalStore(
+    subscribeKnowledgeBase,
+    () => readClientKb(selectedId),
+    () => EMPTY_KB,
+  );
+  const liveComposite =
+    kb.scoring?.payload.kind === "scoring"
+      ? (kb.scoring.payload.context_aware_composite ??
+        kb.scoring.payload.composite_score ??
+        null)
+      : null;
 
   const documents = snapshot?.documents ?? demoDocuments;
   const insights = snapshot?.knowledgeInsights ?? demoKnowledgeInsights;
@@ -69,11 +94,17 @@ export default function PreviewOverviewPage() {
         <MetricCard
           label="Composite score"
           value={
-            client.composite_score !== null
-              ? client.composite_score.toFixed(1)
-              : "—"
+            liveComposite != null
+              ? liveComposite.toFixed(1)
+              : client.composite_score !== null
+                ? client.composite_score.toFixed(1)
+                : "—"
           }
-          helper="Across six dimensions"
+          helper={
+            liveComposite != null
+              ? "Live · synced with Scoring page"
+              : "Across six dimensions"
+          }
         />
         <MetricCard
           label="Recommendation"

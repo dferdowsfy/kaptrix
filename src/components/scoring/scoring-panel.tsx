@@ -266,12 +266,24 @@ export function ScoringPanel({
     [engagementId, previewMode],
   );
 
+  // Floating composite chip — appears once the operator has scrolled
+  // past the page header so the live score stays visible while editing
+  // sub-criterion sliders below. The static composite display lives in
+  // the parent's ScoreOverview card; this chip is the live mirror that
+  // reacts to manual score changes.
+  const [showFloatingComposite, setShowFloatingComposite] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onScroll = () => {
+      setShowFloatingComposite(window.scrollY > 320);
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="space-y-6">
-      {/* Composite score is now rendered once, in the AI Diligence Score
-          card of the three-card ScoreOverview at the top of the page.
-          The previous duplicate header + floating chip have been removed
-          to avoid showing the same number two or three times. */}
       {!previewMode && saving && (
         <div className="flex justify-end">
           <span className="text-xs text-gray-400">Saving…</span>
@@ -487,6 +499,48 @@ export function ScoringPanel({
         </div>
       ))}
 
+      {/* Floating composite chip — fixed bottom-left, appears after the
+          operator has scrolled past the page header. Reacts to manual
+          score changes (uses the panel's local `adjustedComposite`)
+          so the live number stays visible while editing sub-criterion
+          sliders below. */}
+      <div
+        className={`fixed bottom-6 left-6 z-40 transition-all duration-200 ${
+          showFloatingComposite
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-4 opacity-0"
+        }`}
+      >
+        <div
+          className={`flex items-center gap-3 rounded-2xl border bg-white p-3 pr-4 shadow-2xl ring-1 ring-black/5 ${
+            decision.tone === "go"
+              ? "border-emerald-200"
+              : decision.tone === "warn"
+                ? "border-amber-200"
+                : "border-rose-200"
+          }`}
+        >
+          <div
+            className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-lg font-bold tabular-nums text-white ${
+              decision.tone === "go"
+                ? "bg-emerald-600"
+                : decision.tone === "warn"
+                  ? "bg-amber-600"
+                  : "bg-rose-600"
+            }`}
+          >
+            {adjustedComposite.toFixed(1)}
+          </div>
+          <div className="leading-tight">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+              Composite · live
+            </p>
+            <p className="text-sm font-semibold text-slate-900">
+              {decision.label}
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

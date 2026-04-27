@@ -326,13 +326,52 @@ export function formatKnowledgeBaseEvidence(
         if (v && v.trim()) lines.push(`[knowledge base · Intake · ${lbl}] ${v}`);
       };
 
+      emitList("regulatory exposure", p.regulatory_exposure);
+      emitList("diligence priorities", p.diligence_priorities);
+      emitList("red flag priors", p.red_flag_priors);
+      emitVal("engagement type", p.engagement_type);
+      emitVal("buyer archetype", p.buyer_archetype);
+      emitVal("buyer industry", p.buyer_industry);
+      emitVal("target size (USD)", p.target_size_usd);
+      emitVal("investment size (USD)", p.investment_size_usd);
+      emitVal("annual run-rate AI spend (USD)", p.annual_run_rate_usd);
+      emitVal("decision horizon (days)", p.decision_horizon_days);
+      emitList("deal thesis", p.deal_thesis);
+      emitVal("deal stage", p.deal_stage);
+      emitVal("internal sponsor role", p.internal_sponsor_role);
+      emitList("dissenting voices", p.dissenting_voices);
+      emitVal("approval path", p.approval_path);
+      emitList("primary KPI", p.primary_kpi);
+      emitVal("measurable targets", p.measurable_targets);
+      emitVal("kill criteria", p.kill_criteria);
+      emitList("alternatives considered", p.alternatives_considered);
+      emitVal("alternatives detail", p.alternatives_detail);
+      emitVal("lock-in tolerance", p.lock_in_tolerance);
+      emitList("existing AI systems", p.existing_ai_systems);
+      emitVal("data platform readiness", p.data_readiness);
+      emitList("training data sources", p.training_data_sources);
+      emitVal("customer data usage rights", p.customer_data_usage_rights);
+      emitVal("IP indemnification need", p.ip_indemnification_needed);
+      emitVal("business continuity requirement", p.business_continuity_requirement);
+      emitVal("multi-region requirement", p.multi_region_requirement);
+      emitList("artifacts received", p.artifacts_received);
+      emitVal("known artifact gaps", p.gaps_already_known);
+      emitList("diligence team", p.diligence_team_composition);
+      emitVal("context notes", p.context_notes);
+      lines.push(
+        `[knowledge base · Intake · answered fields] ${p.answered_fields}`,
+      );
+
       // ──────────── Commercial Pain Validation (Phase 1) ────────────
-      // Each line carries the metadata required by the spec
+      // Emitted AFTER the legacy intake fields so when a downstream
+      // consumer (e.g. /api/positioning) caps the operator KB to a
+      // small char budget, the original regulatory / industry / deal-
+      // thesis fields needed to pick competitors survive the cut.
+      // Each line carries metadata in its prefix
       // (source_type=intake, section=commercial_pain_validation,
       // evidence_status=intake_claim, requires_artifact_support=true)
-      // encoded in the prefix so a downstream consumer or LLM can detect
-      // it without re-parsing JSON. Reports MUST NOT treat these lines
-      // as artifact-backed evidence.
+      // so reports can never confuse intake claims with artifact-backed
+      // evidence.
       const cp = p.commercial_pain_validation;
       if (cp) {
         const cpPrefix =
@@ -376,42 +415,6 @@ export function formatKnowledgeBaseEvidence(
           cp.missing_pain_evidence_notes,
         );
       }
-
-      emitList("regulatory exposure", p.regulatory_exposure);
-      emitList("diligence priorities", p.diligence_priorities);
-      emitList("red flag priors", p.red_flag_priors);
-      emitVal("engagement type", p.engagement_type);
-      emitVal("buyer archetype", p.buyer_archetype);
-      emitVal("buyer industry", p.buyer_industry);
-      emitVal("target size (USD)", p.target_size_usd);
-      emitVal("investment size (USD)", p.investment_size_usd);
-      emitVal("annual run-rate AI spend (USD)", p.annual_run_rate_usd);
-      emitVal("decision horizon (days)", p.decision_horizon_days);
-      emitList("deal thesis", p.deal_thesis);
-      emitVal("deal stage", p.deal_stage);
-      emitVal("internal sponsor role", p.internal_sponsor_role);
-      emitList("dissenting voices", p.dissenting_voices);
-      emitVal("approval path", p.approval_path);
-      emitList("primary KPI", p.primary_kpi);
-      emitVal("measurable targets", p.measurable_targets);
-      emitVal("kill criteria", p.kill_criteria);
-      emitList("alternatives considered", p.alternatives_considered);
-      emitVal("alternatives detail", p.alternatives_detail);
-      emitVal("lock-in tolerance", p.lock_in_tolerance);
-      emitList("existing AI systems", p.existing_ai_systems);
-      emitVal("data platform readiness", p.data_readiness);
-      emitList("training data sources", p.training_data_sources);
-      emitVal("customer data usage rights", p.customer_data_usage_rights);
-      emitVal("IP indemnification need", p.ip_indemnification_needed);
-      emitVal("business continuity requirement", p.business_continuity_requirement);
-      emitVal("multi-region requirement", p.multi_region_requirement);
-      emitList("artifacts received", p.artifacts_received);
-      emitVal("known artifact gaps", p.gaps_already_known);
-      emitList("diligence team", p.diligence_team_composition);
-      emitVal("context notes", p.context_notes);
-      lines.push(
-        `[knowledge base · Intake · answered fields] ${p.answered_fields}`,
-      );
     } else if (p.kind === "coverage") {
       lines.push(
         `[knowledge base · Coverage] industry=${p.industry ?? "unset"}, documents=${p.documents_total}, gaps=${p.gaps_count}`,
