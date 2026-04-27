@@ -6,7 +6,6 @@ import { ScoringPanel } from "@/components/scoring/scoring-panel";
 import { ScoreOverview } from "@/components/scoring/score-overview";
 import { DecisionSnapshotHero } from "@/components/scoring/decision-snapshot-hero";
 import { WhatMattersMost } from "@/components/scoring/what-matters-most";
-import { CoverageSnapshot } from "@/components/scoring/coverage-snapshot";
 import {
   calculateCommercialPainConfidence,
   interpretCommercialPainAndDiligence,
@@ -569,13 +568,6 @@ export default function PreviewScoringPage() {
                   / 5.0
                 </span>
               </p>
-              {headerComposite.hasContext && (
-                <p className="mt-1 text-[11px] text-slate-500">
-                  Operator {headerComposite.raw.toFixed(1)} · context Δ{" "}
-                  {headerComposite.delta >= 0 ? "+" : ""}
-                  {headerComposite.delta.toFixed(2)}
-                </p>
-              )}
               {generatedAt && (
                 <p className="mt-1 text-[11px] text-slate-500">
                   Last generated {new Date(generatedAt).toLocaleString()}
@@ -652,19 +644,6 @@ export default function PreviewScoringPage() {
         />
       )}
 
-      {/* COVERAGE SNAPSHOT — visual breakdown of where each sub-criterion
-          got its score from. Reinforces that "we're leaning on intake
-          claims" or "we have insufficient evidence" can't be missed. */}
-      {hasEngineEvidence && (
-        <CoverageSnapshot
-          total={engineOutput.sub_criteria.length}
-          artifactSupported={sourceMixCounts.artifact_supported}
-          artifactOnly={sourceMixCounts.artifact_only}
-          intakeOnly={sourceMixCounts.intake_only}
-          contradictory={sourceMixCounts.contradictory}
-          insufficient={sourceMixCounts.insufficient}
-        />
-      )}
 
       {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
         <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">

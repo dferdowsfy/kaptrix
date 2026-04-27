@@ -216,22 +216,44 @@ function evaluateSub(
   let confidence: EngineConfidence;
   const rationaleParts: string[] = [];
 
+  // Pull a clean filename out of an artifact claim when it matches the
+  // adapter's "Parsed <category> artifact provided: <filename>" shape;
+  // fall back to a trimmed claim otherwise. Used to render concise file
+  // lists in the rationale instead of repeating the full claim string.
+  const filenameFor = (claim: string): string => {
+    const m = claim.match(/^Parsed\s+\S+\s+artifact provided:\s+(.+)$/);
+    return (m?.[1] ?? claim).trim();
+  };
+  const supportingFiles = supporting.map((a) => filenameFor(a.claim));
+  const contradictingFiles = contradicting.map((a) => filenameFor(a.claim));
+  const intakeReasons = bucket.intake.map((s) => s.reason).filter(Boolean);
+
   if (hasIntake && !hasArtifact) {
     // Intake-only branch — hard-capped range, LOW confidence.
     score = clamp(BASELINE + intakeDelta, INTAKE_FLOOR, INTAKE_CEIL);
     source_mix = "intake_only";
     confidence = "LOW";
+    const reasonText =
+      intakeReasons.length > 0 ? ` Reasons: ${intakeReasons.join("; ")}.` : "";
     rationaleParts.push(
-      `Intake-only: ${bucket.intake.length} signal(s). Score bounded to [${INTAKE_FLOOR}, ${INTAKE_CEIL}].`,
+      `Score derived from ${bucket.intake.length} intake response${bucket.intake.length === 1 ? "" : "s"}; no uploaded artifact yet, so the score is bounded between ${INTAKE_FLOOR} and ${INTAKE_CEIL}.${reasonText}`,
     );
   } else if (!hasIntake && hasArtifact) {
     // Artifact-only branch.
     score = clamp(BASELINE + artifactDelta + contradictionPenalty, 0, 5);
     source_mix = contradiction_flag ? "contradictory" : "artifact_only";
     confidence = artifactConfidence(supporting.length, contradicting.length);
-    rationaleParts.push(
-      `Artifact-only: ${bucket.artifacts.length} evidence item(s).`,
-    );
+    if (contradiction_flag) {
+      rationaleParts.push(
+        `${contradicting.length} uploaded artifact${contradicting.length === 1 ? "" : "s"} contradict the available intake claims; artifact evidence takes priority. Conflicting items: ${contradictingFiles.join(", ")}.`,
+      );
+    } else {
+      const fileList =
+        supportingFiles.length > 0 ? `: ${supportingFiles.join(", ")}` : "";
+      rationaleParts.push(
+        `${supporting.length} uploaded artifact${supporting.length === 1 ? "" : "s"} support this score${fileList}.`,
+      );
+    }
   } else if (hasIntake && hasArtifact) {
     // Both present — artifacts take priority.
     if (contradiction_flag) {
@@ -239,14 +261,16 @@ function evaluateSub(
       source_mix = "contradictory";
       confidence = contradicting.length >= 2 ? "HIGH" : "MEDIUM";
       rationaleParts.push(
-        `Contradiction: ${contradicting.length} artifact(s) contradict intake. Artifact evidence takes priority.`,
+        `${contradicting.length} uploaded artifact${contradicting.length === 1 ? "" : "s"} contradict ${bucket.intake.length} intake response${bucket.intake.length === 1 ? "" : "s"}; artifact evidence takes priority. Conflicting items: ${contradictingFiles.join(", ")}.`,
       );
     } else {
       score = clamp(BASELINE + artifactDelta, 0, 5);
       source_mix = "artifact_supported";
       confidence = artifactConfidence(supporting.length, 0);
+      const fileList =
+        supportingFiles.length > 0 ? `: ${supportingFiles.join(", ")}` : "";
       rationaleParts.push(
-        `Artifact-supported: ${supporting.length} artifact(s) validate ${bucket.intake.length} intake signal(s).`,
+        `${supporting.length} uploaded artifact${supporting.length === 1 ? "" : "s"} validate ${bucket.intake.length} intake response${bucket.intake.length === 1 ? "" : "s"}${fileList}.`,
       );
     }
   } else {
@@ -256,13 +280,17 @@ function evaluateSub(
     score = BASELINE;
     source_mix = "insufficient";
     confidence = "LOW";
-    rationaleParts.push("Reviewer-only: no intake or artifact support.");
+    rationaleParts.push(
+      "No intake responses or uploaded artifacts back this sub-criterion yet.",
+    );
   }
 
   // Missing-evidence cap.
   if (!hasArtifact && score > NO_ARTIFACT_CAP) {
     score = NO_ARTIFACT_CAP;
-    rationaleParts.push(`Capped at ${NO_ARTIFACT_CAP}: high scores require artifact support.`);
+    rationaleParts.push(
+      `Score capped at ${NO_ARTIFACT_CAP} — high scores require at least one supporting uploaded artifact.`,
+    );
   }
 
   // Reviewer note (bounded, applied after caps so it can nudge within
@@ -272,7 +300,7 @@ function evaluateSub(
     score = clamp(score + d, 0, 5);
     const sign = d >= 0 ? "+" : "";
     rationaleParts.push(
-      `Reviewer adjustment ${sign}${d.toFixed(2)}: ${bucket.reviewer.rationale}`,
+      `Reviewer adjusted by ${sign}${d.toFixed(2)}: ${bucket.reviewer.rationale}`,
     );
     // Reviewer notes cannot break the "no artifact → ≤3" guardrail.
     if (!hasArtifact && score > NO_ARTIFACT_CAP) {
@@ -285,29 +313,18 @@ function evaluateSub(
   if (score >= HIGH_BAND_FLOOR && supporting.length === 0) {
     score = HIGH_BAND_FLOOR - 0.5; // demote to 3.5
     rationaleParts.push(
-      `Demoted to ${HIGH_BAND_FLOOR - 0.5}: scores ≥${HIGH_BAND_FLOOR} require at least one supporting artifact.`,
+      `Score lowered to ${HIGH_BAND_FLOOR - 0.5} — scores of ${HIGH_BAND_FLOOR} or higher require at least one supporting uploaded artifact.`,
     );
   }
 
   // Final clamp + snap.
   score = snapHalf(clamp(score, 0, 5));
 
-  // Append signal reasons (intake + artifact claims) for audit.
-  for (const sig of bucket.intake) {
-    rationaleParts.push(`[intake] ${sig.reason}`);
-  }
-  for (const a of bucket.artifacts) {
-    const signLabel =
-      a.signal === "contradicts"
-        ? "contradicts"
-        : a.signal === "supports_high"
-          ? "supports (high)"
-          : a.signal === "supports_low"
-            ? "supports (low)"
-            : "supports (mid)";
-    const loc = a.locator ? ` @ ${a.locator}` : "";
-    rationaleParts.push(`[artifact · ${signLabel}${loc}] ${a.claim}`);
-  }
+  // The per-signal dump that previously appended `[intake] …` and
+  // `[artifact · supports (high)] …` lines made the rationale unreadable.
+  // The full evidence list is still surfaced via `evidence_references`
+  // below for audit / programmatic consumers; the human-facing rationale
+  // stays as a single natural-language paragraph.
 
   return {
     name,
