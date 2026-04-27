@@ -59,7 +59,7 @@ function uploadedToDocument(
 
 export default function PreviewCoveragePage() {
   const { selectedId } = useSelectedPreviewClient();
-  const { snapshot } = usePreviewSnapshot(selectedId);
+  const { snapshot, refresh } = usePreviewSnapshot(selectedId);
   const baseDocuments = snapshot?.documents ?? demoDocuments;
   const engagementId = snapshot?.engagement.id ?? selectedId ?? "preview";
 
@@ -112,6 +112,7 @@ export default function PreviewCoveragePage() {
             uploadedDocs={uploaded}
             clientId={selectedId}
             onStateChange={setCoverageState}
+            onSnapshotRefresh={() => void refresh()}
           />
         </div>
       </div>

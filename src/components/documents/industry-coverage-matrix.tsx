@@ -33,6 +33,11 @@ interface Props {
   /** In-flight + parsed uploads for the current client. Used to render
    *  per-row progress bars inside the artifact table. */
   uploadedDocs?: readonly UploadedDoc[];
+  /** Force a parent snapshot re-fetch after a server-side mutation
+   *  (e.g. DELETE /api/preview/parse). Without this, SWR keeps the old
+   *  snapshot cached client-side and removed artifacts reappear after
+   *  the local hide list rolls over. */
+  onSnapshotRefresh?: () => void;
 }
 
 type Status = "provided" | "partial" | "missing";
@@ -44,12 +49,54 @@ function statusFor(artifact: IndustryArtifact, docs: Document[]): Status {
   return allParsed ? "provided" : "partial";
 }
 
+/**
+ * Single delete path used by every Remove button on this page so the
+ * UI and DB stay in sync.
+ *
+ *  1. Drop from the in-flight uploaded-docs store (current session).
+ *  2. Add to the local removed-ids allowlist (covers cross-session
+ *     hides until the snapshot revalidates).
+ *  3. Server DELETE — awaited and logged so a 401 / 500 is visible
+ *     in the console instead of silently leaving the row in the DB.
+ *  4. Trigger the parent snapshot refresh so SWR drops the cached
+ *     server snapshot that still contains the deleted row.
+ */
+async function deleteDocEverywhere(args: {
+  clientId: string;
+  docId: string;
+  onSnapshotRefresh?: () => void;
+}): Promise<void> {
+  const { clientId, docId, onSnapshotRefresh } = args;
+  removeUploadedDoc(clientId, docId);
+  addRemovedDocId(clientId, docId);
+  try {
+    const res = await fetch(
+      `/api/preview/parse?id=${encodeURIComponent(docId)}&client_id=${encodeURIComponent(clientId)}`,
+      { method: "DELETE" },
+    );
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      console.error(
+        `[coverage] DELETE /api/preview/parse failed (${res.status})`,
+        body,
+      );
+    }
+  } catch (err) {
+    console.error("[coverage] DELETE /api/preview/parse threw", err);
+  }
+  // Whether or not the server delete succeeded, ask the snapshot to
+  // re-fetch — the local removed-ids store keeps the row hidden in the
+  // worst case, and a successful delete produces a clean snapshot.
+  onSnapshotRefresh?.();
+}
+
 export function IndustryCoverageMatrix({
   documents,
   defaultIndustry = "legal_tech",
   onStateChange,
   clientId,
   uploadedDocs = [],
+  onSnapshotRefresh,
 }: Props) {
   const [industry, setIndustry] = useState<Industry>(defaultIndustry);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -412,7 +459,12 @@ export function IndustryCoverageMatrix({
               {heroUploads.length} file{heroUploads.length === 1 ? "" : "s"}
             </span>
           </div>
-          <RowUploads uploads={heroUploads} compact clientId={clientId} />
+          <RowUploads
+            uploads={heroUploads}
+            compact
+            clientId={clientId}
+            onSnapshotRefresh={onSnapshotRefresh}
+          />
         </div>
       )}
 
@@ -531,7 +583,12 @@ export function IndustryCoverageMatrix({
                       {inFlight ? "Uploading…" : "Upload"}
                     </button>
                   </div>
-                  <RowUploads uploads={uploads} compact clientId={clientId} />
+                  <RowUploads
+                    uploads={uploads}
+                    compact
+                    clientId={clientId}
+                    onSnapshotRefresh={onSnapshotRefresh}
+                  />
                 </li>
               );
             })}
@@ -590,6 +647,7 @@ export function IndustryCoverageMatrix({
                       <RowUploads
                         uploads={uploadsByCategory[row.artifact.category] ?? []}
                         clientId={clientId}
+                        onSnapshotRefresh={onSnapshotRefresh}
                       />
                     </td>
                     <td className="px-4 py-3">
@@ -643,9 +701,33 @@ export function IndustryCoverageMatrix({
                                 <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-gray-500">
                                   Provided documents
                                 </p>
-                                <ul className="mt-1 text-xs text-gray-600">
+                                <ul className="mt-1 space-y-1 text-xs text-gray-600">
                                   {row.docs.map((d) => (
-                                    <li key={d.id}>• {d.filename}</li>
+                                    <li
+                                      key={d.id}
+                                      className="flex items-center justify-between gap-2"
+                                    >
+                                      <span className="truncate" title={d.filename}>
+                                        • {d.filename}
+                                      </span>
+                                      {clientId && (
+                                        <button
+                                          type="button"
+                                          aria-label={`Remove ${d.filename}`}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            void deleteDocEverywhere({
+                                              clientId,
+                                              docId: d.id,
+                                              onSnapshotRefresh,
+                                            });
+                                          }}
+                                          className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-100"
+                                        >
+                                          Remove
+                                        </button>
+                                      )}
+                                    </li>
                                   ))}
                                 </ul>
                               </>
@@ -686,10 +768,12 @@ function RowUploads({
   uploads,
   compact = false,
   clientId,
+  onSnapshotRefresh,
 }: {
   uploads: UploadedDoc[];
   compact?: boolean;
   clientId?: string | null;
+  onSnapshotRefresh?: () => void;
 }) {
   if (uploads.length === 0) return null;
   // Compact mode keeps everything visible so users see the ✓ confirmation
@@ -763,23 +847,10 @@ function RowUploads({
                   aria-label={`Remove ${d.filename}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    // Three-tier removal so the row really flips to
-                    // "Missing" and stays that way:
-                    //  1. Drop from the in-flight uploaded-docs store
-                    //     (covers files uploaded in the current session).
-                    //  2. Add to the removed-docs allowlist so the matrix
-                    //     filters it out even if it came from the
-                    //     server-side snapshot or demo seed.
-                    //  3. Best-effort DELETE against the server so the
-                    //     row doesn't reappear on next page load.
-                    removeUploadedDoc(clientId, d.id);
-                    addRemovedDocId(clientId, d.id);
-                    void fetch(
-                      `/api/preview/parse?id=${encodeURIComponent(d.id)}&client_id=${encodeURIComponent(clientId)}`,
-                      { method: "DELETE" },
-                    ).catch(() => {
-                      // Server delete is best-effort; the local removed-id
-                      // store keeps the artifact filtered until refresh.
+                    void deleteDocEverywhere({
+                      clientId,
+                      docId: d.id,
+                      onSnapshotRefresh,
                     });
                   }}
                   className="inline-flex shrink-0 items-center gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-400 hover:bg-rose-100"

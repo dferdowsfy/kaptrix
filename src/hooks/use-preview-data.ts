@@ -52,7 +52,7 @@ export function usePreviewSnapshot(clientId: string | null | undefined) {
   const key = clientId
     ? `/api/preview/snapshot?client_id=${encodeURIComponent(clientId)}`
     : null;
-  const { data, error, isLoading } = useSWR<{
+  const { data, error, isLoading, mutate } = useSWR<{
     client_id: string;
     snapshot: PreviewSnapshotData;
   }>(key, fetcher, { revalidateOnFocus: false });
@@ -61,5 +61,9 @@ export function usePreviewSnapshot(clientId: string | null | undefined) {
     snapshot: data?.snapshot,
     error,
     isLoading,
+    /** Force a re-fetch — call this after a server mutation (e.g. DELETE
+     *  /api/preview/parse) so the snapshot drops the deleted artifact
+     *  instead of relying on a client-side hide list. */
+    refresh: mutate,
   };
 }
