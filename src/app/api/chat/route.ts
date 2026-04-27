@@ -22,6 +22,10 @@ import {
   type KnowledgeStep,
   type KnowledgeEntry,
 } from "@/lib/preview/kb-format";
+import {
+  getCommercialPainSummary,
+} from "@/lib/reports/context";
+import { formatCommercialPainSummaryForEvidence } from "@/lib/scoring/commercial-pain";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -54,7 +58,13 @@ STYLE & FORMAT
 
 SCOPE
 - Handle any question type: open-ended, comparative, follow-up, what-if, clarification, summary, deep-dive.
-- For out-of-scope questions (weather, unrelated trivia, personal advice), politely decline in one sentence and offer an on-topic alternative.`;
+- For out-of-scope questions (weather, unrelated trivia, personal advice), politely decline in one sentence and offer an on-topic alternative.
+
+COMMERCIAL PAIN HANDLING
+- The evidence context includes a single canonical [commercial_pain_summary] block. Read commercial pain content (problem statement, buyer persona, pain severity / frequency / cost, current alternative, customer demand evidence, AI necessity, outcome proof, buying urgency, missing evidence, contradictions) ONLY from that block.
+- Never invent commercial pain details. If the block reports STATUS: Commercial Pain Validation not yet completed, answer that explicitly and surface it as a missing-evidence finding.
+- Treat items in 'intake_only_claims' as unsupported management claims; do not present them as artifact-backed.
+- Commercial Pain Confidence and AI Diligence Score are SEPARATE axes — never merge them. When asked how Commercial Pain Confidence affected the recommendation, cite the score, band, and the combined-reading interpretation if both axes are populated.`;
 
 function buildContextFromSnapshot(
   snapshot: Awaited<ReturnType<typeof getPreviewSnapshot>>,
@@ -63,6 +73,10 @@ function buildContextFromSnapshot(
   parts.push(
     `ENGAGEMENT: target=${snapshot.engagement.target_company_name}, client=${snapshot.engagement.client_firm_name}, deal_stage=${snapshot.engagement.deal_stage}, tier=${snapshot.engagement.tier}.`,
   );
+  // Shared commercial pain summary — same canonical block reports read.
+  // Placed before evidence lines so chat can answer "is the pain real?",
+  // "is it urgent?", "what evidence is missing?" without fabricating.
+  parts.push(formatCommercialPainSummaryForEvidence(getCommercialPainSummary(snapshot)));
   snapshot.knowledgeInsights.forEach((k) => {
     parts.push(`[${k.source_document}] ${k.insight} — excerpt: ${k.excerpt}`);
   });

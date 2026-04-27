@@ -6,6 +6,12 @@ import {
   type KnowledgeStep,
   type KnowledgeEntry,
 } from "@/lib/preview/kb-format";
+import {
+  buildCommercialPainSummary,
+  formatCommercialPainSummaryForEvidence,
+  type CommercialPainSummary,
+  type CommercialPainSummaryInput,
+} from "@/lib/scoring/commercial-pain";
 
 type Snapshot = Awaited<ReturnType<typeof getPreviewSnapshot>>;
 
@@ -16,6 +22,28 @@ type Snapshot = Awaited<ReturnType<typeof getPreviewSnapshot>>;
  *
  * Truncated to `maxChars` to stay inside provider context windows.
  */
+/**
+ * Snapshots may carry a Phase-1 `commercial_pain_inputs` field once that
+ * landing happens. Until then the field is undefined and the summary is
+ * null, which surfaces "Commercial Pain Validation not yet completed" in
+ * every report.
+ */
+type SnapshotWithCommercialPain = Snapshot & {
+  commercial_pain_inputs?: CommercialPainSummaryInput | null;
+};
+
+/**
+ * Compute the shared commercial_pain_summary for a snapshot. Centralized
+ * here so reports + chat read from the same builder and never invent
+ * commercial pain content of their own.
+ */
+export function getCommercialPainSummary(
+  snapshot: Snapshot,
+): CommercialPainSummary | null {
+  const inputs = (snapshot as SnapshotWithCommercialPain).commercial_pain_inputs;
+  return buildCommercialPainSummary(inputs ?? null);
+}
+
 export function buildReportEvidenceContext(
   snapshot: Snapshot,
   opts: { maxChars?: number } = {},
@@ -29,6 +57,12 @@ export function buildReportEvidenceContext(
   parts.push(
     `ENGAGEMENT: target=${eng.target_company_name}, client=${eng.client_firm_name}, deal_stage=${eng.deal_stage}, status=${eng.status}, tier=${eng.tier}, industry=${rep.industry || "(unspecified)"}.`,
   );
+
+  // ----- Commercial Pain Summary (CANONICAL shared input) -----
+  // Every report and the chat endpoint read commercial pain content from
+  // this block. Placed near the top of the evidence so the model sees it
+  // before context-window truncation can clip it.
+  parts.push(formatCommercialPainSummaryForEvidence(getCommercialPainSummary(snapshot)));
 
   // ----- Executive report: full contents -----
   parts.push(

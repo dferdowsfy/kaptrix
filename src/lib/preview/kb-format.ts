@@ -73,12 +73,87 @@ export type KnowledgePayload =
   | ScoringPayload
   | ChatPayload;
 
+/**
+ * Commercial Pain Validation answers (Phase 1 — first intake section).
+ *
+ * Lives on IntakePayload as a sibling to the legacy intake fields so
+ * legacy engagements simply have it undefined. Reports / chat / scoring
+ * pull these as INTAKE CLAIMS (`evidence_status: "intake_claim"`,
+ * `requires_artifact_support: true`); they MUST NOT treat them as
+ * artifact-backed evidence until an uploaded artifact corroborates the
+ * answer.
+ */
+export interface CommercialPainValidationPayload {
+  problem_statement?: string;
+  buyer_persona?: string;
+  buyer_persona_notes?: string;
+  pain_severity?: string;
+  pain_frequency?: string;
+  cost_of_pain_categories?: string[];
+  cost_of_pain_notes?: string;
+  current_alternative?: string;
+  current_alternative_notes?: string;
+  status_quo_failure?: string;
+  status_quo_failure_notes?: string;
+  customer_demand_evidence?: string[];
+  customer_demand_evidence_notes?: string;
+  solution_fit?: string;
+  ai_necessity?: string;
+  ai_necessity_notes?: string;
+  promised_outcome?: string;
+  promised_outcome_notes?: string;
+  outcome_proof?: string;
+  outcome_proof_notes?: string;
+  buying_trigger?: string;
+  buying_trigger_notes?: string;
+  buying_urgency?: string;
+  missing_pain_evidence?: string;
+  missing_pain_evidence_notes?: string;
+}
+
+/**
+ * Stable list of commercial pain field keys (for iteration in the KB
+ * formatter and in tests). Mirrors the spec's field list verbatim.
+ */
+export const COMMERCIAL_PAIN_VALIDATION_FIELDS: readonly (keyof CommercialPainValidationPayload)[] = [
+  "problem_statement",
+  "buyer_persona",
+  "buyer_persona_notes",
+  "pain_severity",
+  "pain_frequency",
+  "cost_of_pain_categories",
+  "cost_of_pain_notes",
+  "current_alternative",
+  "current_alternative_notes",
+  "status_quo_failure",
+  "status_quo_failure_notes",
+  "customer_demand_evidence",
+  "customer_demand_evidence_notes",
+  "solution_fit",
+  "ai_necessity",
+  "ai_necessity_notes",
+  "promised_outcome",
+  "promised_outcome_notes",
+  "outcome_proof",
+  "outcome_proof_notes",
+  "buying_trigger",
+  "buying_trigger_notes",
+  "buying_urgency",
+  "missing_pain_evidence",
+  "missing_pain_evidence_notes",
+] as const;
+
 export interface IntakePayload {
   kind: "intake";
   answered_fields: number;
   regulatory_exposure: string[];
   diligence_priorities: string[];
   red_flag_priors: string[];
+  /**
+   * Commercial Pain Validation — first intake section. Optional so legacy
+   * engagements (created before Phase 1) load and render normally.
+   */
+  commercial_pain_validation?: CommercialPainValidationPayload;
   engagement_type?: string;
   buyer_archetype?: string;
   buyer_industry?: string;
@@ -225,6 +300,58 @@ export function formatKnowledgeBaseEvidence(
       const emitVal = (lbl: string, v: string | undefined) => {
         if (v && v.trim()) lines.push(`[knowledge base · Intake · ${lbl}] ${v}`);
       };
+
+      // ──────────── Commercial Pain Validation (Phase 1) ────────────
+      // Each line carries the metadata required by the spec
+      // (source_type=intake, section=commercial_pain_validation,
+      // evidence_status=intake_claim, requires_artifact_support=true)
+      // encoded in the prefix so a downstream consumer or LLM can detect
+      // it without re-parsing JSON. Reports MUST NOT treat these lines
+      // as artifact-backed evidence.
+      const cp = p.commercial_pain_validation;
+      if (cp) {
+        const cpPrefix =
+          "knowledge base · Intake · commercial_pain_validation · intake_claim · requires_artifact_support";
+        const cpEmitVal = (field: string, v: string | undefined) => {
+          if (v && v.trim()) lines.push(`[${cpPrefix} · ${field}] ${v}`);
+        };
+        const cpEmitList = (field: string, arr: string[] | undefined) => {
+          if (arr && arr.length)
+            lines.push(`[${cpPrefix} · ${field}] ${arr.join(", ")}`);
+        };
+        cpEmitVal("problem_statement", cp.problem_statement);
+        cpEmitVal("buyer_persona", cp.buyer_persona);
+        cpEmitVal("buyer_persona_notes", cp.buyer_persona_notes);
+        cpEmitVal("pain_severity", cp.pain_severity);
+        cpEmitVal("pain_frequency", cp.pain_frequency);
+        cpEmitList("cost_of_pain_categories", cp.cost_of_pain_categories);
+        cpEmitVal("cost_of_pain_notes", cp.cost_of_pain_notes);
+        cpEmitVal("current_alternative", cp.current_alternative);
+        cpEmitVal("current_alternative_notes", cp.current_alternative_notes);
+        cpEmitVal("status_quo_failure", cp.status_quo_failure);
+        cpEmitVal("status_quo_failure_notes", cp.status_quo_failure_notes);
+        cpEmitList("customer_demand_evidence", cp.customer_demand_evidence);
+        cpEmitVal(
+          "customer_demand_evidence_notes",
+          cp.customer_demand_evidence_notes,
+        );
+        cpEmitVal("solution_fit", cp.solution_fit);
+        cpEmitVal("ai_necessity", cp.ai_necessity);
+        cpEmitVal("ai_necessity_notes", cp.ai_necessity_notes);
+        cpEmitVal("promised_outcome", cp.promised_outcome);
+        cpEmitVal("promised_outcome_notes", cp.promised_outcome_notes);
+        cpEmitVal("outcome_proof", cp.outcome_proof);
+        cpEmitVal("outcome_proof_notes", cp.outcome_proof_notes);
+        cpEmitVal("buying_trigger", cp.buying_trigger);
+        cpEmitVal("buying_trigger_notes", cp.buying_trigger_notes);
+        cpEmitVal("buying_urgency", cp.buying_urgency);
+        cpEmitVal("missing_pain_evidence", cp.missing_pain_evidence);
+        cpEmitVal(
+          "missing_pain_evidence_notes",
+          cp.missing_pain_evidence_notes,
+        );
+      }
+
       emitList("regulatory exposure", p.regulatory_exposure);
       emitList("diligence priorities", p.diligence_priorities);
       emitList("red flag priors", p.red_flag_priors);

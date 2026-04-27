@@ -75,12 +75,83 @@ function buildIntakePayloadFromAnswers(
     Array.isArray(v) ? v.length > 0 : v !== "" && v !== null && v !== undefined,
   ).length;
 
+  // Commercial Pain Validation (Phase 1 — first intake section). Built
+  // as a nested sub-payload so legacy engagements (no answers) carry
+  // `commercial_pain_validation: undefined` and the KB skips emission.
+  // Fields containing values are surfaced as intake_claim KB chunks
+  // with `requires_artifact_support: true` metadata in the formatter.
+  const hasCommercialPainAnswers = [
+    "problem_statement",
+    "buyer_persona",
+    "buyer_persona_notes",
+    "pain_severity",
+    "pain_frequency",
+    "cost_of_pain_categories",
+    "cost_of_pain_notes",
+    "current_alternative",
+    "current_alternative_notes",
+    "status_quo_failure",
+    "status_quo_failure_notes",
+    "customer_demand_evidence",
+    "customer_demand_evidence_notes",
+    "solution_fit",
+    "ai_necessity",
+    "ai_necessity_notes",
+    "promised_outcome",
+    "promised_outcome_notes",
+    "outcome_proof",
+    "outcome_proof_notes",
+    "buying_trigger",
+    "buying_trigger_notes",
+    "buying_urgency",
+    "missing_pain_evidence",
+    "missing_pain_evidence_notes",
+  ].some((k) => {
+    const v = answers[k];
+    return Array.isArray(v) ? v.length > 0 : v !== "" && v !== null && v !== undefined;
+  });
+
+  const commercial_pain_validation = hasCommercialPainAnswers
+    ? {
+        problem_statement: asStr(answers["problem_statement"]),
+        buyer_persona: asStr(answers["buyer_persona"]),
+        buyer_persona_notes: asStr(answers["buyer_persona_notes"]),
+        pain_severity: asStr(answers["pain_severity"]),
+        pain_frequency: asStr(answers["pain_frequency"]),
+        cost_of_pain_categories: asArray(answers["cost_of_pain_categories"]),
+        cost_of_pain_notes: asStr(answers["cost_of_pain_notes"]),
+        current_alternative: asStr(answers["current_alternative"]),
+        current_alternative_notes: asStr(answers["current_alternative_notes"]),
+        status_quo_failure: asStr(answers["status_quo_failure"]),
+        status_quo_failure_notes: asStr(answers["status_quo_failure_notes"]),
+        customer_demand_evidence: asArray(answers["customer_demand_evidence"]),
+        customer_demand_evidence_notes: asStr(
+          answers["customer_demand_evidence_notes"],
+        ),
+        solution_fit: asStr(answers["solution_fit"]),
+        ai_necessity: asStr(answers["ai_necessity"]),
+        ai_necessity_notes: asStr(answers["ai_necessity_notes"]),
+        promised_outcome: asStr(answers["promised_outcome"]),
+        promised_outcome_notes: asStr(answers["promised_outcome_notes"]),
+        outcome_proof: asStr(answers["outcome_proof"]),
+        outcome_proof_notes: asStr(answers["outcome_proof_notes"]),
+        buying_trigger: asStr(answers["buying_trigger"]),
+        buying_trigger_notes: asStr(answers["buying_trigger_notes"]),
+        buying_urgency: asStr(answers["buying_urgency"]),
+        missing_pain_evidence: asStr(answers["missing_pain_evidence"]),
+        missing_pain_evidence_notes: asStr(
+          answers["missing_pain_evidence_notes"],
+        ),
+      }
+    : undefined;
+
   const payload: IntakePayload = {
     kind: "intake",
     answered_fields,
     regulatory_exposure,
     diligence_priorities,
     red_flag_priors,
+    commercial_pain_validation,
     engagement_type: asStr(answers["engagement_type"]),
     buyer_archetype: asStr(answers["buyer_archetype"]),
     buyer_industry: asStr(answers["buyer_industry"]),
