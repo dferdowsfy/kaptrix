@@ -5,6 +5,8 @@ import {
   INDUSTRY_PROFILES,
   type Industry,
 } from "@/lib/industry-requirements";
+import { getIntakeSections } from "@/lib/intake/sections";
+import { sectionToIntakeQuestions } from "@/lib/intake/sections/to-intake-questions";
 
 export interface IntakeQuestion {
   id: string;
@@ -1114,7 +1116,19 @@ export function IntakeQuestionnaire({
   const isFirstSectionRender = useRef(true);
 
   const profile = INDUSTRY_PROFILES[industry];
-  const questions = [...CORE_INTAKE_QUESTIONS, ...INDUSTRY_INTAKE_QUESTIONS[industry]];
+  // Typed sections (Phase 1: Commercial Pain Validation) render before
+  // the legacy CORE_INTAKE_QUESTIONS so they appear first in the nav.
+  // Their persistence lives in `intake_responses` / `kb_chunks` via the
+  // /api/intake/{id}/sections/{key} endpoint; the legacy answers blob
+  // still mirrors them so existing scoring/report code keeps working.
+  const typedSectionQuestions = getIntakeSections().flatMap(
+    sectionToIntakeQuestions,
+  );
+  const questions = [
+    ...typedSectionQuestions,
+    ...CORE_INTAKE_QUESTIONS,
+    ...INDUSTRY_INTAKE_QUESTIONS[industry],
+  ];
 
   const update = (id: string, value: string | number | string[]) => {
     const next = { ...answers, [id]: value };

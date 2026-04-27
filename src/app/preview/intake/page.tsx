@@ -15,6 +15,7 @@ import {
   type IntakePayload,
 } from "@/lib/preview/knowledge-base";
 import type { Industry } from "@/lib/industry-requirements";
+import { syncTypedSections } from "@/lib/intake/client";
 
 // Per-engagement local cache. Replaces the single global key that was
 // causing answers to vanish on logout and overwrite each other across
@@ -128,6 +129,7 @@ export default function PreviewIntakePage() {
   const [answers, setAnswers] = useState<PreviewAnswers>(EMPTY);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const kbTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const typedSectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Hydrate on engagement change: seed from local cache, then try to
   // pull the server copy for the signed-in user and adopt it if present.
@@ -217,6 +219,14 @@ export default function PreviewIntakePage() {
           // best-effort — don't block the UI if KB write fails
         }
       }, 400);
+
+      // Mirror typed sections (e.g. Commercial Pain Validation) into
+      // the new intake_responses + kb_chunks tables. Best-effort — the
+      // legacy save above is still authoritative for the existing UI.
+      if (typedSectionTimer.current) clearTimeout(typedSectionTimer.current);
+      typedSectionTimer.current = setTimeout(() => {
+        void syncTypedSections(selectedId, next);
+      }, 800);
     },
     [selectedId],
   );
