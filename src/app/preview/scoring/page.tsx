@@ -1,11 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { SectionHeader } from "@/components/preview/preview-shell";
 import { createClient } from "@/lib/supabase/client";
 import { ScoringPanel } from "@/components/scoring/scoring-panel";
 import { ScoreOverview } from "@/components/scoring/score-overview";
-import { calculateCommercialPainConfidence } from "@/lib/scoring/commercial-pain";
+import { DecisionSnapshotHero } from "@/components/scoring/decision-snapshot-hero";
+import { WhatMattersMost } from "@/components/scoring/what-matters-most";
+import { CoverageSnapshot } from "@/components/scoring/coverage-snapshot";
+import {
+  calculateCommercialPainConfidence,
+  interpretCommercialPainAndDiligence,
+} from "@/lib/scoring/commercial-pain";
 import { intakeAnswersToCommercialPainInputs } from "@/lib/scoring/intake-to-commercial-pain";
 import {
   demoBenchmarkCases,
@@ -415,9 +420,10 @@ export default function PreviewScoringPage() {
   const upstreamChanged =
     (scoringDirty.dirty && suggestedScores !== null) || inputsChanged;
 
-  // Header composite — surfaces the same number the ScoringPanel
-  // computes internally so the operator sees it without scrolling. Pure
-  // derivation from panelScores; no backend change.
+  // Header composite — surfaces the same numbers the ScoringPanel
+  // computes internally so the operator sees them without scrolling.
+  // Also exposes per-dimension details so the executive summary cards
+  // can derive top strengths and top risks deterministically.
   const headerComposite = useMemo(() => {
     if (panelScores.length === 0) return null;
     const composite = calculateCompositeScore(panelScores);
@@ -434,138 +440,231 @@ export default function PreviewScoringPage() {
       contextAware,
       delta: adjustment.composite_delta,
       hasContext: contextSignals.length > 0,
+      dimensions: composite.dimension_details,
     };
   }, [panelScores, contextSignals]);
 
+  // Derive Commercial Pain Confidence at the page level so it can be
+  // referenced by both the three-card overview and the Decision Snapshot
+  // hero without computing it twice. The mapper handles unmapped labels
+  // gracefully and returns null when no answers exist yet.
+  const commercialPainResult = useMemo(() => {
+    const inputs = intakeAnswersToCommercialPainInputs(
+      kb.intake?.payload.kind === "intake"
+        ? (kb.intake.payload.commercial_pain_validation as
+            | Parameters<typeof intakeAnswersToCommercialPainInputs>[0]
+            | undefined) ?? null
+        : null,
+    );
+    return calculateCommercialPainConfidence(inputs);
+  }, [kb]);
+
+  // Decision + four-quadrant interpretation for the hero card. Same
+  // calculator the ScoringPanel runs internally — single source of truth.
+  const heroDecision = useMemo(() => {
+    if (panelScores.length === 0) return null;
+    return deriveDecision({
+      dealStage: engagement.deal_stage,
+      status: engagement.status,
+      scores: panelScores,
+      analyses,
+      priorComposite: null,
+      contextAdjustment: aggregateContextAdjustment(contextSignals),
+    });
+  }, [panelScores, engagement.deal_stage, engagement.status, analyses, contextSignals]);
+
+  const heroInterpretation = useMemo(
+    () =>
+      interpretCommercialPainAndDiligence(
+        commercialPainResult,
+        headerComposite?.raw ?? null,
+      ),
+    [commercialPainResult, headerComposite],
+  );
+
+  // Source-mix counts for the Coverage Snapshot section. Derived from
+  // the deterministic engine output so counts always match scores.
+  const sourceMixCounts = useMemo(() => {
+    const counts = {
+      artifact_supported: 0,
+      artifact_only: 0,
+      intake_only: 0,
+      contradictory: 0,
+      insufficient: 0,
+    };
+    for (const s of engineOutput.sub_criteria) {
+      if (s.source_mix in counts) counts[s.source_mix as keyof typeof counts] += 1;
+    }
+    return counts;
+  }, [engineOutput]);
+
+  // Top strengths / top risks derived from dimension scores. Only real
+  // data — no LLM-invented content.
+  const topStrengthsAndRisks = useMemo(() => {
+    const dims = headerComposite?.dimensions ?? [];
+    const sorted = [...dims].sort((a, b) => b.average_score - a.average_score);
+    const strengths = sorted
+      .filter((d) => d.average_score >= 4)
+      .slice(0, 3)
+      .map((d) => `${d.name} — ${d.average_score.toFixed(1)} / 5`);
+    const risks = sorted
+      .filter((d) => d.average_score < 3.5)
+      .slice(-3)
+      .reverse()
+      .map((d) => `${d.name} — ${d.average_score.toFixed(1)} / 5`);
+    return { strengths, risks };
+  }, [headerComposite]);
+
+  // Missing evidence: insufficient sub-criteria count + commercial pain
+  // missing factors + critical red flags from pre-analysis.
+  const missingEvidenceItems = useMemo(() => {
+    const items: string[] = [];
+    if (sourceMixCounts.insufficient > 0) {
+      items.push(
+        `${sourceMixCounts.insufficient} sub-criteria with insufficient evidence`,
+      );
+    }
+    if (sourceMixCounts.intake_only > 0) {
+      items.push(
+        `${sourceMixCounts.intake_only} sub-criteria backed by intake claims only`,
+      );
+    }
+    if (sourceMixCounts.contradictory > 0) {
+      items.push(
+        `${sourceMixCounts.contradictory} sub-criteria with contradictory signals`,
+      );
+    }
+    if (commercialPainResult && commercialPainResult.missing_factors.length > 0) {
+      items.push(
+        `Commercial pain factors missing: ${commercialPainResult.missing_factors.length}`,
+      );
+    }
+    return items.slice(0, 4);
+  }, [sourceMixCounts, commercialPainResult]);
+
+  // Recommendation conditions — read from decision rationale (real
+  // operator-facing text from deriveDecision, not LLM-generated).
+  const recommendationConditions = useMemo(() => {
+    if (!heroDecision) return [];
+    return (heroDecision.rationale ?? []).slice(0, 3);
+  }, [heroDecision]);
+
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <SectionHeader
-          eyebrow="Module 3"
-          title="Scoring engine"
-          description="Interactive six-dimension scoring with benchmark pattern context. Intake, coverage, insights, and pre-analysis submissions feed directly into the composite and recommendation."
-        />
-        <div className="flex shrink-0 items-center gap-4">
-          {headerComposite && (
-            <div className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-right shadow-sm">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                {headerComposite.hasContext
-                  ? "Context-aware composite"
-                  : "Composite score"}
+    <div className="space-y-6">
+      {/* TOP HEADER — Overall AI Score on the left, Re-generate on the
+          right. Replaces the old SectionHeader + duplicate composite chip. */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Module 3 · Scoring engine
+          </p>
+          {headerComposite ? (
+            <div className="mt-2">
+              <p className="text-xs font-medium text-slate-500">
+                Overall AI Score
               </p>
-              <p className="mt-0.5 text-3xl font-bold tabular-nums leading-none text-slate-900">
+              <p className="mt-0.5 text-4xl font-bold tabular-nums leading-none text-slate-900">
                 {headerComposite.contextAware.toFixed(1)}
-                <span className="ml-1 text-sm font-normal text-slate-400">
+                <span className="ml-1 text-xl font-normal text-slate-400">
                   / 5.0
                 </span>
               </p>
               {headerComposite.hasContext && (
-                <p className="mt-1 text-[10px] text-slate-500">
-                  Operator {headerComposite.raw.toFixed(1)} · Δ{" "}
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Operator {headerComposite.raw.toFixed(1)} · context Δ{" "}
                   {headerComposite.delta >= 0 ? "+" : ""}
                   {headerComposite.delta.toFixed(2)}
                 </p>
               )}
+              {generatedAt && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Last generated {new Date(generatedAt).toLocaleString()}
+                </p>
+              )}
             </div>
+          ) : (
+            <p className="mt-2 text-sm text-slate-500">
+              Complete intake and click Generate scores to populate.
+            </p>
           )}
-          <GenerateButton
-            type="button"
-            onClick={() => void run()}
-            disabled={loading}
-            size="lg"
-            className="shrink-0"
-          >
-            {loading
-              ? "Generating scores…"
-              : suggestedScores
-                ? "Re-generate scores"
-                : "Generate scores"}
-          </GenerateButton>
         </div>
+        <GenerateButton
+          type="button"
+          onClick={() => void run()}
+          disabled={loading}
+          size="lg"
+          className="shrink-0"
+        >
+          {loading
+            ? "Generating scores…"
+            : suggestedScores
+              ? "Re-generate scores"
+              : "Generate scores"}
+        </GenerateButton>
       </div>
 
-      {/* Three-card scoring overview. Each lens reports independently:
-          Commercial Pain Confidence is a separate scoring layer (Phase 2),
-          AI Diligence Score is the existing six-dimension composite, and
-          Evidence Coverage Confidence qualifies the scores without ever
-          modifying them. Commercial pain reads from the in-memory KB
-          (auto-promoted by the intake page on every change), so the
-          score updates live as answers come in. */}
+      {/* Stale-upstream warning — kept as-is; survives the layout
+          refactor because it's actionable and time-sensitive. */}
+      {(upstreamChanged || staleUpstream.length > 0) && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <span className="font-semibold">Upstream context changed.</span>{" "}
+          {inputsChanged
+            ? "New evidence has been added since scores were generated. Click Re-generate scores to incorporate it."
+            : upstreamChanged
+              ? `${scoringDirty.reasons.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} updated — re-generate scores to rebuild from the latest evidence.`
+              : `Re-submit ${staleUpstream.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} to clear the stale flag.`}
+        </div>
+      )}
+
+      {/* DECISION SNAPSHOT — hero card with recommendation, rationale,
+          interpretation, and three axis chips. Most important block on
+          the page; everything below is supporting detail. */}
+      {heroDecision && (
+        <DecisionSnapshotHero
+          decision={heroDecision}
+          interpretation={heroInterpretation}
+          commercialPainBand={commercialPainResult?.band ?? null}
+          aiDiligenceComposite={headerComposite?.raw ?? null}
+          evidenceCoverageConfidence={null}
+        />
+      )}
+
+      {/* THREE PRIMARY SCORE CARDS — Commercial Pain (0–100, separate
+          axis), AI Diligence (0–5, six-dimension composite), and
+          Evidence Coverage (0–100%). Hide the four-quadrant interpretation
+          banner because the Decision Snapshot above already shows it. */}
       <ScoreOverview
-        commercialPain={calculateCommercialPainConfidence(
-          intakeAnswersToCommercialPainInputs(
-            kb.intake?.payload.kind === "intake"
-              ? (kb.intake.payload.commercial_pain_validation as
-                  | Parameters<typeof intakeAnswersToCommercialPainInputs>[0]
-                  | undefined) ?? null
-              : null,
-          ),
-        )}
+        commercialPain={commercialPainResult}
         aiDiligenceComposite={headerComposite?.raw ?? null}
         evidenceCoverageConfidence={null}
+        hideInterpretationBanner
       />
 
-      {/* Inputs + engine summary — sits at the top so the operator can
-          see at a glance which KB steps have been submitted, the engine
-          source-mix breakdown, and the canonical inputs hash that
-          drove the displayed composite. */}
-      <div className="space-y-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        {(upstreamChanged || staleUpstream.length > 0) && (
-          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-base text-amber-900">
-            <span className="font-semibold">Upstream context changed.</span>{" "}
-            {inputsChanged
-              ? "New evidence has been added since scores were generated. Click Re-generate scores to incorporate it."
-              : upstreamChanged
-                ? `${scoringDirty.reasons.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} updated — re-generate scores to rebuild from the latest evidence.`
-                : `Re-submit ${staleUpstream.map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ")} to clear the stale flag.`}
-          </div>
-        )}
+      {/* WHAT MATTERS MOST — four compact cards summarizing the page for
+          executive scan. All items derived from real data (dimensions,
+          decision rationale, source-mix counts, commercial pain factors). */}
+      {heroDecision && (
+        <WhatMattersMost
+          topStrengths={topStrengthsAndRisks.strengths}
+          topRisks={topStrengthsAndRisks.risks}
+          missingEvidence={missingEvidenceItems}
+          recommendationConditions={recommendationConditions}
+        />
+      )}
 
-        <div className="flex flex-wrap items-center gap-2">
-          {submittedSteps.length === 0 && missingSteps.length === 0 && (
-            <span className="text-base text-slate-500">No steps submitted yet.</span>
-          )}
-          {submittedSteps.map((s) => {
-            const stale = kb[s]?.stale === true;
-            return (
-              <span
-                key={s}
-                className={`rounded-full px-3.5 py-2 text-base font-medium ${
-                  stale
-                    ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200"
-                    : "bg-emerald-100 text-emerald-800"
-                }`}
-                title={
-                  stale
-                    ? `Stale — invalidated by ${(kb[s]?.stale_because ?? []).map((r) => KNOWLEDGE_STEP_LABELS[r]).join(", ") || "upstream change"}`
-                    : kb[s]?.summary
-                }
-              >
-                {stale ? "⚠" : "✓"} {KNOWLEDGE_STEP_LABELS[s]}
-                {stale ? " (stale)" : ""}
-              </span>
-            );
-          })}
-          {missingSteps.map((s) => (
-            <span
-              key={s}
-              className="rounded-full bg-amber-50 px-3.5 py-2 text-base font-medium text-amber-800 ring-1 ring-amber-200"
-            >
-              · {KNOWLEDGE_STEP_LABELS[s]} pending
-            </span>
-          ))}
-          {hasEngineEvidence && (
-            <span
-              className="ml-auto rounded-full bg-slate-100 px-3 py-1.5 font-mono text-xs text-slate-600 ring-1 ring-slate-200"
-              title="SHA-256 of canonical inputs. Identical hash = identical output."
-            >
-              hash {engineOutput.inputs_hash.slice(0, 10)}…
-            </span>
-          )}
-        </div>
-
-        {hasEngineEvidence && <EngineSourceMix output={engineOutput} />}
-      </div>
+      {/* COVERAGE SNAPSHOT — visual breakdown of where each sub-criterion
+          got its score from. Reinforces that "we're leaning on intake
+          claims" or "we have insufficient evidence" can't be missed. */}
+      {hasEngineEvidence && (
+        <CoverageSnapshot
+          total={engineOutput.sub_criteria.length}
+          artifactSupported={sourceMixCounts.artifact_supported}
+          artifactOnly={sourceMixCounts.artifact_only}
+          intakeOnly={sourceMixCounts.intake_only}
+          contradictory={sourceMixCounts.contradictory}
+          insufficient={sourceMixCounts.insufficient}
+        />
+      )}
 
       {!suggestedScores && !hasEngineEvidence && !(snapshot?.scores?.length) && !loading && (
         <div className="rounded-2xl border border-slate-100 bg-slate-50 py-10 text-center">

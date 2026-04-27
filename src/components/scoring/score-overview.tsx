@@ -73,23 +73,17 @@ const EVIDENCE_SOURCE_LABEL: Record<
 
 function CardShell({
   eyebrow,
-  title,
-  subtitle,
   children,
 }: {
   eyebrow: string;
-  title: string;
-  subtitle: string;
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
       <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
         {eyebrow}
       </p>
-      <h3 className="mt-1 text-base font-semibold text-slate-900">{title}</h3>
-      <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
-      <div className="mt-4 flex-1">{children}</div>
+      <div className="mt-3 flex-1">{children}</div>
     </div>
   );
 }
@@ -97,11 +91,7 @@ function CardShell({
 function CommercialPainCard({ result }: { result: CommercialPainResult | null }) {
   if (result == null) {
     return (
-      <CardShell
-        eyebrow="01 · Commercial"
-        title="Commercial Pain Confidence"
-        subtitle="Is the problem real, urgent, and worth solving?"
-      >
+      <CardShell eyebrow="Commercial Pain Confidence">
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">
           Commercial Pain Validation not yet completed.
         </div>
@@ -112,11 +102,7 @@ function CommercialPainCard({ result }: { result: CommercialPainResult | null })
   const styles = BAND_STYLES[result.band];
 
   return (
-    <CardShell
-      eyebrow="01 · Commercial"
-      title="Commercial Pain Confidence"
-      subtitle="Is the problem real, urgent, and worth solving?"
-    >
+    <CardShell eyebrow="Commercial Pain Confidence">
       <div className="flex items-baseline gap-2">
         <span className="text-4xl font-bold tabular-nums text-slate-900">
           {result.score}
@@ -135,10 +121,7 @@ function CommercialPainCard({ result }: { result: CommercialPainResult | null })
         />
       </div>
 
-      <p className="mt-4 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        Source
-      </p>
-      <p className="mt-0.5 text-xs text-slate-700">
+      <p className="mt-3 text-xs text-slate-500">
         {EVIDENCE_SOURCE_LABEL[result.evidence_source]}
       </p>
 
@@ -147,12 +130,15 @@ function CommercialPainCard({ result }: { result: CommercialPainResult | null })
           <p className="mt-4 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
             Key drivers
           </p>
-          <ul className="mt-1 space-y-0.5 text-xs text-slate-700">
+          <ul className="mt-1.5 space-y-1 text-xs text-slate-700">
             {result.top_drivers.map((d) => (
-              <li key={d.factor} className="flex items-baseline justify-between">
+              <li
+                key={d.factor}
+                className="flex items-baseline justify-between"
+              >
                 <span>{d.label}</span>
-                <span className="ml-2 tabular-nums text-slate-500">
-                  +{d.weighted.toFixed(0)} pts
+                <span className="ml-2 font-semibold tabular-nums text-emerald-700">
+                  +{d.weighted.toFixed(0)}
                 </span>
               </li>
             ))}
@@ -208,11 +194,7 @@ function bandFor0to5(score: number): { label: string; chip: string; bar: string 
 function AiDiligenceCard({ composite }: { composite: number | null }) {
   if (composite == null) {
     return (
-      <CardShell
-        eyebrow="02 · Technical"
-        title="AI Diligence Score"
-        subtitle="Is the AI capability credible, scalable, governable, and defensible?"
-      >
+      <CardShell eyebrow="AI Diligence Score">
         <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">
           Not yet scored.
         </div>
@@ -223,11 +205,7 @@ function AiDiligenceCard({ composite }: { composite: number | null }) {
   const styles = bandFor0to5(composite);
 
   return (
-    <CardShell
-      eyebrow="02 · Technical"
-      title="AI Diligence Score"
-      subtitle="Is the AI capability credible, scalable, governable, and defensible?"
-    >
+    <CardShell eyebrow="AI Diligence Score">
       <div className="flex items-baseline gap-2">
         <span className="text-4xl font-bold tabular-nums text-slate-900">
           {composite.toFixed(1)}
@@ -245,8 +223,8 @@ function AiDiligenceCard({ composite }: { composite: number | null }) {
           style={{ width: `${(composite / 5) * 100}%` }}
         />
       </div>
-      <p className="mt-4 text-xs text-slate-500">
-        Six-dimension weighted composite — see the full breakdown below.
+      <p className="mt-3 text-xs text-slate-500">
+        6-dimension weighted composite
       </p>
     </CardShell>
   );
@@ -259,14 +237,19 @@ function EvidenceCoverageCard({
 }) {
   if (confidence == null) {
     return (
-      <CardShell
-        eyebrow="03 · Evidence"
-        title="Evidence Coverage Confidence"
-        subtitle="How much of the conclusion is artifact-backed versus intake-claimed?"
-      >
-        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 px-3 py-4 text-sm text-slate-500">
-          Evidence confidence has not been computed yet.
+      <CardShell eyebrow="Evidence Coverage Confidence">
+        <div className="flex items-baseline gap-2">
+          <span className="text-2xl font-semibold text-amber-600">Pending</span>
+          <span
+            className="ml-auto rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200"
+          >
+            Pending
+          </span>
         </div>
+        <p className="mt-3 text-xs text-slate-500">Not yet computed</p>
+        <p className="mt-3 text-xs text-slate-700">
+          Evidence validation has not been completed yet.
+        </p>
       </CardShell>
     );
   }
@@ -292,11 +275,7 @@ function EvidenceCoverageCard({
           : "bg-rose-500";
 
   return (
-    <CardShell
-      eyebrow="03 · Evidence"
-      title="Evidence Coverage Confidence"
-      subtitle="How much of the conclusion is artifact-backed versus intake-claimed?"
-    >
+    <CardShell eyebrow="Evidence Coverage Confidence">
       <div className="flex items-baseline gap-2">
         <span className="text-4xl font-bold tabular-nums text-slate-900">
           {pct}
@@ -314,19 +293,26 @@ function EvidenceCoverageCard({
           style={{ width: `${pct}%` }}
         />
       </div>
-      <p className="mt-4 text-xs text-slate-500">
-        Coverage, source quality, recency, and consistency — qualifies the
-        scores above without ever modifying them.
+      <p className="mt-3 text-xs text-slate-500">
+        Coverage, source quality, recency, consistency
       </p>
     </CardShell>
   );
+}
+
+interface ScoreOverviewProps extends Props {
+  /** When true, the four-quadrant interpretation banner is omitted —
+   *  used by the new Decision Snapshot Hero so the verdict isn't shown
+   *  twice on the same page. */
+  hideInterpretationBanner?: boolean;
 }
 
 export function ScoreOverview({
   commercialPain,
   aiDiligenceComposite,
   evidenceCoverageConfidence,
-}: Props) {
+  hideInterpretationBanner = false,
+}: ScoreOverviewProps) {
   const interpretation = interpretCommercialPainAndDiligence(
     commercialPain,
     aiDiligenceComposite,
@@ -340,7 +326,7 @@ export function ScoreOverview({
         <EvidenceCoverageCard confidence={evidenceCoverageConfidence} />
       </div>
 
-      {interpretation && (
+      {!hideInterpretationBanner && interpretation && (
         <div
           className={`rounded-xl border-2 px-5 py-4 ${TONE_STYLES[interpretation.tone]}`}
         >

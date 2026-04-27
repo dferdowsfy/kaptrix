@@ -1,10 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
 import { ScoringPanel } from "@/components/scoring/scoring-panel";
 import { ScoreOverview } from "@/components/scoring/score-overview";
-import { calculateCompositeScore } from "@/lib/scoring/calculator";
-import { calculateCommercialPainConfidence } from "@/lib/scoring/commercial-pain";
+import { DecisionSnapshotHero } from "@/components/scoring/decision-snapshot-hero";
+import { WhatMattersMost } from "@/components/scoring/what-matters-most";
+import {
+  calculateCompositeScore,
+  deriveDecision,
+} from "@/lib/scoring/calculator";
+import {
+  calculateCommercialPainConfidence,
+  interpretCommercialPainAndDiligence,
+} from "@/lib/scoring/commercial-pain";
 import { intakeAnswersToCommercialPainInputs } from "@/lib/scoring/intake-to-commercial-pain";
-import type { Score, BenchmarkCase, PatternMatch } from "@/lib/types";
+import type {
+  Score,
+  BenchmarkCase,
+  PatternMatch,
+  PreAnalysis,
+} from "@/lib/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -26,6 +39,8 @@ export default async function ScoringPage({ params }: Props) {
     { data: patternMatches },
     { data: benchmarks },
     { data: evidenceConfidence },
+    { data: engagement },
+    { data: analysesData },
     intakeAnswersRow,
   ] = await Promise.all([
     supabase.from("scores").select("*").eq("engagement_id", id).order("dimension"),
@@ -40,6 +55,12 @@ export default async function ScoringPage({ params }: Props) {
       .select("composite")
       .eq("engagement_id", id)
       .maybeSingle(),
+    supabase
+      .from("engagements")
+      .select("deal_stage, status")
+      .eq("id", id)
+      .maybeSingle(),
+    supabase.from("pre_analyses").select("*").eq("engagement_id", id),
     user
       ? supabase
           .from("user_workspace_state")
@@ -52,17 +73,15 @@ export default async function ScoringPage({ params }: Props) {
   ]);
 
   const scoresList = (scores as Score[]) ?? [];
+  const analyses = (analysesData as PreAnalysis[]) ?? [];
 
-  // The AI Diligence Score composite for the overview header. Calculator
-  // returns a neutral 2.5 for empty scores; treat that as "not scored yet"
-  // so the card shows the empty state instead of a misleading midpoint.
-  const aiDiligenceComposite =
-    scoresList.length > 0 ? calculateCompositeScore(scoresList).composite_score : null;
+  // Composite + per-dimension details. Calculator returns a neutral 2.5
+  // for empty scores; treat that as "not scored yet" so the card shows
+  // the empty state instead of a misleading midpoint.
+  const compositeResult =
+    scoresList.length > 0 ? calculateCompositeScore(scoresList) : null;
+  const aiDiligenceComposite = compositeResult?.composite_score ?? null;
 
-  // Commercial Pain Confidence — read the intake answers, map display
-  // labels to scoring enums, and let the scoring service handle the
-  // "no answers yet" → null path. This is the same scoring engine the
-  // preview page uses; both surfaces stay in sync.
   const intakeAnswers =
     (intakeAnswersRow.data as { state: Record<string, unknown> } | null)?.state ?? null;
   const commercialPain = calculateCommercialPainConfidence(
@@ -74,6 +93,55 @@ export default async function ScoringPage({ params }: Props) {
   const evidenceCoverageConfidence =
     (evidenceConfidence as { composite: number } | null)?.composite ?? null;
 
+  // Decision + interpretation for the hero card. Same calculator the
+  // ScoringPanel uses internally — single source of truth.
+  const decision =
+    scoresList.length > 0 && engagement
+      ? deriveDecision({
+          dealStage: (engagement as { deal_stage: string }).deal_stage as Parameters<
+            typeof deriveDecision
+          >[0]["dealStage"],
+          status: (engagement as { status: string }).status as Parameters<
+            typeof deriveDecision
+          >[0]["status"],
+          scores: scoresList,
+          analyses,
+          priorComposite: null,
+          contextAdjustment: null,
+        })
+      : null;
+  const interpretation = interpretCommercialPainAndDiligence(
+    commercialPain,
+    aiDiligenceComposite,
+  );
+
+  // Top strengths / risks from real dimension scores only. Empty when
+  // nothing in the right band — the WhatMattersMost component renders
+  // a clean fallback.
+  const dims = compositeResult?.dimension_details ?? [];
+  const sorted = [...dims].sort((a, b) => b.average_score - a.average_score);
+  const topStrengths = sorted
+    .filter((d) => d.average_score >= 4)
+    .slice(0, 3)
+    .map((d) => `${d.name} — ${d.average_score.toFixed(1)} / 5`);
+  const topRisks = sorted
+    .filter((d) => d.average_score < 3.5)
+    .slice(-3)
+    .reverse()
+    .map((d) => `${d.name} — ${d.average_score.toFixed(1)} / 5`);
+
+  const missingEvidence: string[] = [];
+  if (commercialPain && commercialPain.missing_factors.length > 0) {
+    missingEvidence.push(
+      `Commercial pain factors missing: ${commercialPain.missing_factors.length}`,
+    );
+  }
+  if (evidenceCoverageConfidence == null) {
+    missingEvidence.push("Evidence Coverage Confidence not yet computed");
+  }
+
+  const recommendationConditions = (decision?.rationale ?? []).slice(0, 3);
+
   return (
     <div className="space-y-6">
       <div>
@@ -84,11 +152,31 @@ export default async function ScoringPage({ params }: Props) {
         </p>
       </div>
 
+      {decision && (
+        <DecisionSnapshotHero
+          decision={decision}
+          interpretation={interpretation}
+          commercialPainBand={commercialPain?.band ?? null}
+          aiDiligenceComposite={aiDiligenceComposite}
+          evidenceCoverageConfidence={evidenceCoverageConfidence}
+        />
+      )}
+
       <ScoreOverview
         commercialPain={commercialPain}
         aiDiligenceComposite={aiDiligenceComposite}
         evidenceCoverageConfidence={evidenceCoverageConfidence}
+        hideInterpretationBanner={decision != null}
       />
+
+      {decision && (
+        <WhatMattersMost
+          topStrengths={topStrengths}
+          topRisks={topRisks}
+          missingEvidence={missingEvidence}
+          recommendationConditions={recommendationConditions}
+        />
+      )}
 
       <ScoringPanel
         engagementId={id}
