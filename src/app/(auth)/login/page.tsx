@@ -85,6 +85,20 @@ function LoginForm() {
         },
       });
 
+      // Surface the raw response shape to the console so a customer
+      // hitting "I never got the email" can paste the diagnostic to us
+      // without exposing their password. Identifying fields only.
+      console.info("[kaptrix] signUp response shape", {
+        has_user: !!data?.user,
+        has_session: !!data?.session,
+        identities_count: data?.user?.identities?.length ?? null,
+        email_confirmed_at: data?.user?.email_confirmed_at ?? null,
+        confirmation_sent_at:
+          (data?.user as { confirmation_sent_at?: string } | undefined)
+            ?.confirmation_sent_at ?? null,
+        error: error?.message ?? null,
+      });
+
       if (error) {
         setMessage(error.message);
       } else if (
@@ -98,7 +112,14 @@ function LoginForm() {
         setMessage(
           "An account with this email already exists. Use the Log in tab, or reset your password if you've forgotten it.",
         );
-      } else if (data?.user || data?.session) {
+      } else if (data?.session) {
+        // Email confirmations are DISABLED in this Supabase project — a
+        // session was issued immediately and no confirmation email will
+        // be sent. Send the user straight into the app instead of
+        // making them wait for a non-existent email.
+        router.push("/app");
+        return;
+      } else if (data?.user) {
         setConfirmationEmail(email);
         setConfirmationSent(true);
       } else {
