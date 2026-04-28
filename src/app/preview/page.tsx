@@ -9,7 +9,6 @@ import type { PreviewClientSummary } from "@/lib/preview-clients";
 import { formatDate } from "@/lib/utils";
 import { INDUSTRY_OPTIONS, type Industry } from "@/lib/industry-requirements";
 import { setClientIndustry } from "@/lib/preview-intake";
-import { CategoryDiligenceSection } from "@/components/category/category-diligence-section";
 
 export default function PreviewHomePage() {
   const { selectedId, setSelectedId } = useSelectedPreviewClient();
@@ -35,12 +34,6 @@ export default function PreviewHomePage() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* AI Category Diligence — renders only when the signed-in user has
-          the `category_home` page permission. Placed above the target
-          roster so the pathway is immediately discoverable to enabled
-          users without shifting the existing layout for everyone else. */}
-      <CategoryDiligenceSection />
-
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <SectionHeader
           eyebrow="Home"

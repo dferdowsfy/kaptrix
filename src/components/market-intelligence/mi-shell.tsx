@@ -37,21 +37,21 @@ export function MiShell({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-fuchsia-50/20 to-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900">
       {/* Header */}
-      <div className="border-b bg-gradient-to-r from-slate-950 via-fuchsia-950 to-violet-950 text-white">
+      <div className="border-b border-white/10 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 text-white shadow-sm">
         <div className="mx-auto max-w-7xl px-4 py-5 sm:px-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Link
                   href="/preview"
-                  className="text-[11px] font-semibold uppercase tracking-[0.3em] text-fuchsia-300 hover:text-fuchsia-200 transition"
+                  className="text-[11px] font-semibold uppercase tracking-[0.3em] text-indigo-300 hover:text-indigo-200 transition"
                 >
                   ← Home
                 </Link>
-                <span className="text-fuchsia-800">·</span>
-                <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-fuchsia-400">
+                <span className="text-indigo-700">·</span>
+                <span className="text-[11px] font-semibold uppercase tracking-[0.3em] text-indigo-300">
                   AI Category Diligence
                 </span>
               </div>
@@ -65,7 +65,7 @@ export function MiShell({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-3">
-              <span className="rounded-full border border-fuchsia-700 bg-fuchsia-900/50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-fuchsia-200">
+              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white ring-1 ring-white/20">
                 {status}
               </span>
             </div>
@@ -74,7 +74,7 @@ export function MiShell({
       </div>
 
       {/* Tab bar */}
-      <div className="sticky top-0 z-10 border-b border-fuchsia-100 bg-white/90 backdrop-blur">
+      <div className="sticky top-0 z-10 border-b bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <nav className="-mb-px flex gap-0 overflow-x-auto" aria-label="MI tabs">
             {MI_TABS.map((tab) => {
@@ -86,8 +86,8 @@ export function MiShell({
                   className={[
                     "flex shrink-0 items-center border-b-2 px-4 py-3.5 text-sm font-medium transition",
                     active
-                      ? "border-fuchsia-600 text-fuchsia-700"
-                      : "border-transparent text-slate-500 hover:border-fuchsia-300 hover:text-slate-700",
+                      ? "border-indigo-600 text-indigo-700"
+                      : "border-transparent text-slate-500 hover:border-indigo-300 hover:text-slate-700",
                   ].join(" ")}
                 >
                   {tab.label}

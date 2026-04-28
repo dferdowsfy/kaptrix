@@ -286,9 +286,13 @@ export async function getPreviewClients(
 
   await seedIfEmpty();
 
+  // Exclude category engagements — those have their own home section
+  // (`<CategoryDiligenceSection />`) and must not appear in the target
+  // client roster.
   const engagementsQuery = supabase
     .from("engagements")
     .select("*")
+    .neq("subject_kind", "category")
     .order("created_at", { ascending: false });
 
   // Scope real engagements to this owner unless caller explicitly opts in
