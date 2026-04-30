@@ -337,74 +337,80 @@ button {
 ==================================================================== */
 
 .hero-arc-backdrop {
-  /* Sit beneath all hero content. Z-0 in the local stacking context;
-     the hero's children get z-10 / relative so they remain on top.
-     High base opacity — the arcs are the brand visual, not a faint
-     watermark. The white-hot cores in the SVG keep them from feeling
-     gamey at full strength. */
-  opacity: 0.95;
+  opacity: 1;
 }
 @media (max-width: 1024px) {
-  .hero-arc-backdrop { opacity: 0.75; }
+  .hero-arc-backdrop { opacity: 0.85; }
 }
 @media (max-width: 640px) {
-  /* On phones, scale the SVG further off-canvas so only the
-     bottom-right corner glow remains. */
-  .hero-arc-backdrop { opacity: 0.55; }
-  .hero-arc-svg { transform: translate(20%, 20%) scale(1.05); }
+  .hero-arc-backdrop { opacity: 0.6; }
+  .hero-arc-svg { transform: translate(18%, 16%) scale(1.05); }
 }
 
-/* Each arc layer breathes — opacity shimmer, different durations so
-   they're never in phase. The arcs are bright at baseline; the
-   shimmer takes the brightness up another notch. */
-.hero-arc-line {
-  animation-name: hero-arc-shimmer;
+/* Chase light — the brilliant white segment that sweeps along each
+   arc. Implemented as stroke-dasharray with a fast-moving dashoffset.
+   The dasharray is "visible run + huge gap" so only ONE bright
+   segment exists on the path at a time; the dashoffset animation
+   walks that segment from end to end, then loops.
+
+   Pause length between sweeps: each cycle ends with the visible
+   segment off the path, so the arc dims for ~1s before the next
+   sweep starts. That's the "shooting star, then arc fades" beat the
+   user is asking for. */
+.hero-arc-chase {
+  stroke-dasharray: 200 1600;
+  stroke-dashoffset: 1800;
+  animation: hero-arc-chase-flow linear infinite;
+}
+.hero-arc-chase-1 { animation-duration: 6s; animation-delay: 0s; }
+.hero-arc-chase-2 { animation-duration: 8.5s; animation-delay: 1.2s; }
+.hero-arc-chase-3 { animation-duration: 7.4s; animation-delay: 3.4s; }
+@keyframes hero-arc-chase-flow {
+  0%   { stroke-dashoffset: 1800; }
+  85%  { stroke-dashoffset: -200; }
+  100% { stroke-dashoffset: -200; }  /* hold off-path so the arc dims */
+}
+
+/* Comet tail — a shorter, brighter dash that sits just behind the
+   animated head. Same path, same total cycle length, different dash
+   shape so it reads as the trail right behind the head circle. */
+.hero-arc-tail {
+  stroke-dasharray: 60 1740;
+  stroke-dashoffset: 1800;
+  animation: hero-arc-tail-flow linear infinite;
+}
+.hero-arc-tail-1 { animation-duration: 6s; animation-delay: 0s; }
+.hero-arc-tail-2 { animation-duration: 8.5s; animation-delay: 1.2s; }
+@keyframes hero-arc-tail-flow {
+  0%   { stroke-dashoffset: 1800; }
+  85%  { stroke-dashoffset: -60; }
+  100% { stroke-dashoffset: -60; }
+}
+
+/* Stardust — independent twinkle. Four cadences so the cluster never
+   pulses in lockstep. */
+.hero-arc-spark {
+  animation-name: hero-arc-spark-twinkle;
   animation-iteration-count: infinite;
   animation-timing-function: ease-in-out;
   transform-origin: center;
   transform-box: fill-box;
+  opacity: 0;
 }
-.hero-arc-line-1 { animation-duration: 7s; animation-delay: 0s; }
-.hero-arc-line-2 { animation-duration: 9s; animation-delay: 1.2s; }
-.hero-arc-line-3 { animation-duration: 11s; animation-delay: 2.6s; }
-@keyframes hero-arc-shimmer {
-  0%, 100% { opacity: 0.85; }
-  50%      { opacity: 1; }
-}
-
-/* The crawling trail simulates a packet of light drifting along the
-   middle arc. Faster + more visible than before. */
-.hero-arc-trail {
-  stroke-dasharray: 120 1080;
-  stroke-dashoffset: 0;
-  animation: hero-arc-trail-flow 9s linear infinite;
-}
-@keyframes hero-arc-trail-flow {
-  from { stroke-dashoffset: 0; }
-  to   { stroke-dashoffset: -1200; }
-}
-
-/* Particle dots — pulse with both opacity and scale. Three different
-   timings so the cluster never beats in lockstep. */
-.hero-arc-particle {
-  animation-name: hero-arc-particle-pulse;
-  animation-iteration-count: infinite;
-  animation-timing-function: ease-in-out;
-  transform-origin: center;
-  transform-box: fill-box;
-}
-.hero-arc-particle-1 { animation-duration: 3.2s; }
-.hero-arc-particle-2 { animation-duration: 4.4s; }
-.hero-arc-particle-3 { animation-duration: 5.6s; }
-@keyframes hero-arc-particle-pulse {
-  0%, 100% { opacity: 0.55; transform: scale(0.85); }
-  50%      { opacity: 1;    transform: scale(1.5); }
+.hero-arc-spark-1 { animation-duration: 3s; }
+.hero-arc-spark-2 { animation-duration: 4.4s; }
+.hero-arc-spark-3 { animation-duration: 5.6s; }
+.hero-arc-spark-4 { animation-duration: 7.2s; }
+@keyframes hero-arc-spark-twinkle {
+  0%, 100% { opacity: 0.15; transform: scale(0.7); }
+  50%      { opacity: 1;    transform: scale(1.6); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-arc-line,
-  .hero-arc-trail,
-  .hero-arc-particle {
+  .hero-arc-chase,
+  .hero-arc-tail,
+  .hero-arc-spark,
+  .hero-arc-backdrop circle[r] animateMotion {
     animation: none;
   }
 }
