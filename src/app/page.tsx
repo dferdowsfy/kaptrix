@@ -5,6 +5,7 @@ import { Reveal } from "@/components/home/reveal";
 import { PublicHeader } from "@/components/home/public-header";
 import { PlatformShowcase } from "@/components/home/platform-showcase";
 import { ScrollToTop } from "@/components/home/scroll-to-top";
+import { HeroArcBackdrop } from "@/components/landing/hero-arc-backdrop";
 
 export const metadata: Metadata = {
   title: "KAPTRIX | Don't write a check on AI you can't defend",
@@ -160,7 +161,12 @@ export default function HomePage() {
           aria-hidden
           className="pointer-events-none absolute -left-24 bottom-0 h-[18rem] w-[18rem] rounded-full bg-sky-500/10 blur-[100px]"
         />
-        <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-28 sm:pt-32 lg:pb-28">
+        {/* Animated evidence-line arc anchored to the lower-right.
+            Sits at z-0 behind the hero content (which is z-10 via
+            `relative` below) so the headline + bullets + CTAs stay
+            highly readable while the backdrop drifts. */}
+        <HeroArcBackdrop />
+        <div className="relative z-10 mx-auto max-w-6xl px-6 pb-20 pt-28 sm:pt-32 lg:pb-28">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
               AI diligence, rebuilt for capital decisions

@@ -330,3 +330,76 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .kx-fade-in { animation: none; }
 }
+
+/* ====================================================================
+   Hero arc backdrop — animated evidence-line arcs anchored to the
+   lower-right of the landing hero. Subtle, slow, low opacity.
+==================================================================== */
+
+.hero-arc-backdrop {
+  /* Sit beneath all hero content. Z-0 in the local stacking context;
+     the hero's children get z-10 / relative so they remain on top. */
+  opacity: 0.42;
+}
+@media (max-width: 1024px) {
+  .hero-arc-backdrop { opacity: 0.32; }
+}
+@media (max-width: 640px) {
+  /* On phones drop almost the whole arc — only the soft glow disc
+     remains visible from the bottom-right corner. */
+  .hero-arc-backdrop { opacity: 0.18; }
+  .hero-arc-svg { transform: translate(20%, 20%) scale(1.05); }
+}
+
+/* Slow opacity shimmer on each arc layer. Different durations + delays
+   so they breathe out of phase. */
+.hero-arc-line {
+  animation-name: hero-arc-shimmer;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+}
+.hero-arc-line-1 { animation-duration: 9s; animation-delay: 0s; }
+.hero-arc-line-2 { animation-duration: 11s; animation-delay: 1.4s; }
+.hero-arc-line-3 { animation-duration: 13s; animation-delay: 2.8s; }
+@keyframes hero-arc-shimmer {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.95; }
+}
+
+/* The crawling trail uses stroke-dasharray + a moving dashoffset to
+   simulate a packet drifting along the path. dasharray = visible run +
+   gap; dashoffset crawls negatively for forward motion. */
+.hero-arc-trail {
+  stroke-dasharray: 80 1100;
+  stroke-dashoffset: 0;
+  animation: hero-arc-trail-flow 14s linear infinite;
+}
+@keyframes hero-arc-trail-flow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -1180; }
+}
+
+/* Particle dots — gentle pulse + tiny radius scale. Each dot inherits
+   one of three timings via class so they don't pulse in lockstep. */
+.hero-arc-particle {
+  animation-name: hero-arc-particle-pulse;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+.hero-arc-particle-1 { animation-duration: 4.5s; }
+.hero-arc-particle-2 { animation-duration: 5.8s; }
+.hero-arc-particle-3 { animation-duration: 6.7s; }
+@keyframes hero-arc-particle-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50%      { opacity: 0.95; transform: scale(1.4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-arc-line,
+  .hero-arc-trail,
+  .hero-arc-particle {
+    animation: none;
+  }
+}
