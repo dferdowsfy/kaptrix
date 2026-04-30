@@ -33,97 +33,160 @@ export function HeroArcBackdrop() {
         className="hero-arc-svg absolute -right-12 -bottom-32 h-[140%] w-[80%] max-w-[1100px] sm:right-0 sm:-bottom-24 sm:w-[68%] lg:w-[56%]"
       >
         <defs>
-          <filter id="hero-arc-glow" x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="6" result="blur" />
+          {/* Strong bloom for the arcs — wide blur radius so the violet
+              halo really feels like glowing light, not just a thicker
+              stroke. */}
+          <filter id="hero-arc-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="10" result="bigBlur" />
+            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="smallBlur" />
             <feMerge>
-              <feMergeNode in="blur" />
+              <feMergeNode in="bigBlur" />
+              <feMergeNode in="smallBlur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
-          <filter id="hero-arc-soft-glow" x="-30%" y="-30%" width="160%" height="160%">
-            <feGaussianBlur stdDeviation="14" />
+          {/* Bright white-hot core glow for the inner stroke. */}
+          <filter id="hero-arc-core-glow" x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="2" />
           </filter>
+          {/* Soft violet bloom disc in the corner. */}
+          <filter id="hero-arc-soft-glow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="22" />
+          </filter>
+          <radialGradient id="hero-arc-disc" cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0%" stopColor="#C4B5FD" stopOpacity="0.6" />
+            <stop offset="40%" stopColor="#8B5CF6" stopOpacity="0.45" />
+            <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
+          </radialGradient>
           <linearGradient id="hero-arc-stroke-1" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#A855F7" stopOpacity="0" />
-            <stop offset="35%" stopColor="#A855F7" stopOpacity="0.85" />
-            <stop offset="70%" stopColor="#6B5BFF" stopOpacity="0.7" />
+            <stop offset="0%" stopColor="#C4B5FD" stopOpacity="0" />
+            <stop offset="20%" stopColor="#A855F7" stopOpacity="1" />
+            <stop offset="55%" stopColor="#8B5CF6" stopOpacity="1" />
+            <stop offset="85%" stopColor="#6B5BFF" stopOpacity="0.9" />
             <stop offset="100%" stopColor="#4F46E5" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="hero-arc-stroke-2" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#7C3AED" stopOpacity="0" />
-            <stop offset="50%" stopColor="#8B5CF6" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#A855F7" stopOpacity="0" />
+            <stop offset="0%" stopColor="#A78BFA" stopOpacity="0" />
+            <stop offset="40%" stopColor="#A855F7" stopOpacity="0.95" />
+            <stop offset="80%" stopColor="#8B5CF6" stopOpacity="0.8" />
+            <stop offset="100%" stopColor="#6366F1" stopOpacity="0" />
           </linearGradient>
-          <linearGradient id="hero-arc-stroke-3" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#6366F1" stopOpacity="0" />
-            <stop offset="50%" stopColor="#A78BFA" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#C4B5FD" stopOpacity="0" />
+          {/* White-hot core gradient — sits inside the violet stroke
+              so each line reads as glowing light, not flat color. */}
+          <linearGradient id="hero-arc-core" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0" />
+            <stop offset="35%" stopColor="#FFFFFF" stopOpacity="0.95" />
+            <stop offset="70%" stopColor="#EDE9FE" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#FFFFFF" stopOpacity="0" />
+          </linearGradient>
+          {/* Bright trail color — a moving white-hot streak. */}
+          <linearGradient id="hero-arc-trail-gradient" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0" />
+            <stop offset="50%" stopColor="#FFFFFF" stopOpacity="1" />
+            <stop offset="100%" stopColor="#A78BFA" stopOpacity="0" />
           </linearGradient>
         </defs>
 
-        {/* Soft glow disc behind the arcs — gives the lower-right corner
-            its violet bloom without competing with the hero content. */}
+        {/* Soft violet bloom disc — bigger, brighter, anchors the
+            corner glow you see in the brand visual. */}
         <circle
           cx="1100"
           cy="780"
-          r="420"
-          fill="#7C3AED"
-          opacity="0.18"
+          r="500"
+          fill="url(#hero-arc-disc)"
           filter="url(#hero-arc-soft-glow)"
         />
 
-        {/* Layer 1 — outermost arc, broad and faint. */}
-        <path
-          className="hero-arc-line hero-arc-line-1"
-          d="M 1180 820 Q 980 540 760 280 Q 580 80 380 -40"
-          stroke="url(#hero-arc-stroke-1)"
-          strokeWidth="1.4"
-          fill="none"
-          filter="url(#hero-arc-glow)"
-        />
+        {/* ARCS — each is rendered TWICE: a wide violet halo
+            (filter='glow') underneath, then a thin white-hot core on
+            top. That's what makes them read as glowing light beams,
+            not flat lines. */}
+
+        {/* Layer 1 — outermost arc, broad sweep. */}
+        <g className="hero-arc-line hero-arc-line-1">
+          <path
+            d="M 1180 820 Q 980 540 760 280 Q 580 80 380 -40"
+            stroke="url(#hero-arc-stroke-1)"
+            strokeWidth="3.5"
+            fill="none"
+            filter="url(#hero-arc-glow)"
+          />
+          <path
+            d="M 1180 820 Q 980 540 760 280 Q 580 80 380 -40"
+            stroke="url(#hero-arc-core)"
+            strokeWidth="1.3"
+            fill="none"
+            filter="url(#hero-arc-core-glow)"
+          />
+        </g>
 
         {/* Layer 2 — middle arc, the brightest line. */}
-        <path
-          className="hero-arc-line hero-arc-line-2"
-          d="M 1200 720 Q 1020 500 820 320 Q 640 160 460 60"
-          stroke="url(#hero-arc-stroke-1)"
-          strokeWidth="1.8"
-          fill="none"
-          filter="url(#hero-arc-glow)"
-        />
+        <g className="hero-arc-line hero-arc-line-2">
+          <path
+            d="M 1200 720 Q 1020 500 820 320 Q 640 160 460 60"
+            stroke="url(#hero-arc-stroke-1)"
+            strokeWidth="4"
+            fill="none"
+            filter="url(#hero-arc-glow)"
+          />
+          <path
+            d="M 1200 720 Q 1020 500 820 320 Q 640 160 460 60"
+            stroke="url(#hero-arc-core)"
+            strokeWidth="1.6"
+            fill="none"
+            filter="url(#hero-arc-core-glow)"
+          />
+        </g>
 
         {/* Layer 3 — innermost arc, tighter curl. */}
-        <path
-          className="hero-arc-line hero-arc-line-3"
-          d="M 1170 640 Q 1060 460 920 320 Q 780 200 640 140"
-          stroke="url(#hero-arc-stroke-2)"
-          strokeWidth="1.2"
-          fill="none"
-          filter="url(#hero-arc-glow)"
-        />
+        <g className="hero-arc-line hero-arc-line-3">
+          <path
+            d="M 1170 640 Q 1060 460 920 320 Q 780 200 640 140"
+            stroke="url(#hero-arc-stroke-2)"
+            strokeWidth="3"
+            fill="none"
+            filter="url(#hero-arc-glow)"
+          />
+          <path
+            d="M 1170 640 Q 1060 460 920 320 Q 780 200 640 140"
+            stroke="url(#hero-arc-core)"
+            strokeWidth="1.1"
+            fill="none"
+            filter="url(#hero-arc-core-glow)"
+          />
+        </g>
 
-        {/* Trail layer 4 — short crawling dash that drifts along the
-            middle arc to give a sense of data movement. */}
+        {/* Trail — bright white packet that drifts forward along the
+            middle arc. The dashoffset animation gives it motion; the
+            stroke gradient gives it the comet-tail fade. */}
         <path
           className="hero-arc-trail"
           d="M 1200 720 Q 1020 500 820 320 Q 640 160 460 60"
-          stroke="url(#hero-arc-stroke-3)"
-          strokeWidth="2.4"
+          stroke="url(#hero-arc-trail-gradient)"
+          strokeWidth="3.2"
           fill="none"
           strokeLinecap="round"
+          filter="url(#hero-arc-core-glow)"
         />
 
-        {/* Particle dots distributed along the arcs. */}
+        {/* Particle dots — each rendered twice: a violet halo + a
+            white-hot core on top. Pulses out of phase. */}
         {PARTICLES.map((p, i) => (
-          <circle
+          <g
             key={i}
             className={`hero-arc-particle hero-arc-particle-${(i % 3) + 1}`}
-            cx={p.x}
-            cy={p.y}
-            r={p.r}
-            fill="#C4B5FD"
             style={{ animationDelay: `${p.delay}s` }}
-          />
+          >
+            <circle
+              cx={p.x}
+              cy={p.y}
+              r={p.r * 3}
+              fill="#A855F7"
+              opacity="0.6"
+              filter="url(#hero-arc-core-glow)"
+            />
+            <circle cx={p.x} cy={p.y} r={p.r} fill="#FFFFFF" />
+          </g>
         ))}
       </svg>
     </div>
