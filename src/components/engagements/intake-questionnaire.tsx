@@ -1482,16 +1482,26 @@ type Answers = Record<string, string | number | string[]>;
 interface Props {
   /** Industry profile is locked at client creation — treated as a
    *  required, read-only prop here. Swapping mid-engagement would
-   *  invalidate industry-specific intake answers and scoring weights. */
-  industry: Industry;
+   *  invalidate industry-specific intake answers and scoring weights.
+   *  Optional when `questions` is supplied directly (e.g. category
+   *  intake which doesn't have an industry concept). */
+  industry?: Industry;
   initialAnswers?: Answers;
   onChange?: (answers: Answers) => void;
+  /** When provided, overrides the default core+industry questions
+   *  array. Used by the category-diligence intake flow. */
+  questions?: IntakeQuestion[];
+  /** Optional eyebrow/title overrides for the read-only header at the
+   *  top of the questionnaire. Defaults are tuned for target intake. */
+  industryDisplayName?: string;
 }
 
 export function IntakeQuestionnaire({
   industry,
   initialAnswers = {},
   onChange,
+  questions: questionsOverride,
+  industryDisplayName,
 }: Props) {
   const [answers, setAnswers] = useState<Answers>(initialAnswers);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -1499,8 +1509,14 @@ export function IntakeQuestionnaire({
   const sectionTopRef = useRef<HTMLDivElement | null>(null);
   const isFirstSectionRender = useRef(true);
 
-  const profile = INDUSTRY_PROFILES[industry];
-  const questions = [...CORE_INTAKE_QUESTIONS, ...INDUSTRY_INTAKE_QUESTIONS[industry]];
+  // Profile is only used for the read-only "industry tags" header on
+  // the target intake. Category intake passes `questions` directly and
+  // skips the industry concept; we fall back to legal_tech for the
+  // profile lookup since it's never read in that case.
+  const profile = INDUSTRY_PROFILES[industry ?? "legal_tech"];
+  const questions =
+    questionsOverride ??
+    [...CORE_INTAKE_QUESTIONS, ...INDUSTRY_INTAKE_QUESTIONS[industry ?? "legal_tech"]];
 
   const update = (id: string, value: string | number | string[]) => {
     const next = { ...answers, [id]: value };
@@ -1559,10 +1575,12 @@ export function IntakeQuestionnaire({
       {/* Compact top summary bar */}
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          {/* Profile (locked) */}
+          {/* Profile (locked) — only relevant for the target intake.
+              Category intake supplies questions directly and uses
+              industryDisplayName to label the lock chip if needed. */}
           <div
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[13px] font-semibold text-slate-900"
-            title="Industry profile is locked at client creation."
+            title="Engagement profile is locked at creation."
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -1577,11 +1595,13 @@ export function IntakeQuestionnaire({
                 clipRule="evenodd"
               />
             </svg>
-            <span>{profile.label}</span>
+            <span>{industryDisplayName ?? profile.label}</span>
           </div>
 
-          {/* Risks — compact inline pills */}
-          {profile.typical_risks.length > 0 && (
+          {/* Risks — compact inline pills. Hidden in category mode
+              because typical_risks is industry-specific and doesn't
+              apply when the operator supplies their own questions. */}
+          {!questionsOverride && profile.typical_risks.length > 0 && (
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               {profile.typical_risks.slice(0, 3).map((risk) => (
                 <span

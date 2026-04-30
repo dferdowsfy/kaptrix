@@ -1,296 +1,195 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { IntakeQuestionnaire } from "@/components/engagements/intake-questionnaire";
+import { CATEGORY_INTAKE_QUESTIONS } from "@/lib/category-intake/questions";
+import { calculateCategoryDiligenceConfidence } from "@/lib/category-intake/scoring";
 
-interface IntakeQuestion {
-  id: string;
-  category: string;
-  question: string;
-  answer?: string;
-  is_editable: boolean;
-  guidance_note?: string;
+type Answers = Record<string, string | number | string[]>;
+
+const EMPTY: Answers = {};
+
+function localKey(engagementId: string): string {
+  return `kaptrix.category.intake.answers.v1:${engagementId}`;
 }
 
-interface IntakeSet {
-  id: string;
-  status: "draft" | "confirmed";
-  questions: IntakeQuestion[];
-  generated_at: string | null;
-  confirmed_at: string | null;
-  generated_by_model: string | null;
+function readLocal(engagementId: string | null | undefined): Answers {
+  if (!engagementId || typeof window === "undefined") return EMPTY;
+  try {
+    const raw = window.localStorage.getItem(localKey(engagementId));
+    return raw ? (JSON.parse(raw) as Answers) : EMPTY;
+  } catch {
+    return EMPTY;
+  }
+}
+
+function writeLocal(engagementId: string, answers: Answers): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(localKey(engagementId), JSON.stringify(answers));
+  } catch {
+    /* ignore quota */
+  }
 }
 
 export default function CategoryIntakePage() {
   const params = useParams<{ id: string }>();
   const engagementId = params.id;
 
-  const [intake, setIntake] = useState<IntakeSet | null>(null);
+  const [hydrateToken, setHydrateToken] = useState(0);
+  const [answers, setAnswers] = useState<Answers>(EMPTY);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [editedAnswers, setEditedAnswers] = useState<Record<string, string>>({});
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const load = useCallback(async () => {
+  // Hydrate on mount: pull server answers, fall back to localStorage so
+  // the operator never loses an in-flight answer when re-routing.
+  const hydrate = useCallback(async () => {
+    if (!engagementId) return;
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/market-intelligence/${engagementId}/intake`,
+        `/api/category/intake-answers?engagement_id=${encodeURIComponent(engagementId)}`,
       );
+      let serverAnswers: Answers = EMPTY;
       if (res.ok) {
-        const data = (await res.json()) as IntakeSet | null;
-        if (data) {
-          setIntake(data);
-          const answers: Record<string, string> = {};
-          for (const q of data.questions ?? []) {
-            answers[q.id] = q.answer ?? "";
-          }
-          setEditedAnswers(answers);
+        const body = (await res.json()) as { answers?: Answers };
+        if (body.answers && typeof body.answers === "object") {
+          serverAnswers = body.answers;
         }
       }
+      const local = readLocal(engagementId);
+      const merged = Object.keys(serverAnswers).length > 0 ? serverAnswers : local;
+      setAnswers(merged);
+      writeLocal(engagementId, merged);
+      setHydrateToken((t) => t + 1);
     } finally {
       setLoading(false);
     }
   }, [engagementId]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void hydrate();
+  }, [hydrate]);
 
-  async function generate() {
-    setGenerating(true);
-    setError(null);
-    try {
-      const res = await fetch(
-        `/api/market-intelligence/${engagementId}/intake/generate`,
-        { method: "POST" },
-      );
-      const body = (await res.json()) as { error?: string } | IntakeSet;
-      if (!res.ok || "error" in body) {
-        setError((body as { error: string }).error ?? "Generation failed");
-      } else {
-        setIntake(body as IntakeSet);
-        const answers: Record<string, string> = {};
-        for (const q of (body as IntakeSet).questions ?? []) {
-          answers[q.id] = q.answer ?? "";
-        }
-        setEditedAnswers(answers);
-      }
-    } finally {
-      setGenerating(false);
-    }
-  }
-
-  async function saveAnswers() {
-    if (!intake) return;
-    setSaving(true);
-    try {
-      const updatedQuestions = intake.questions.map((q) => ({
-        ...q,
-        answer: editedAnswers[q.id] ?? q.answer,
-      }));
-      const res = await fetch(
-        `/api/market-intelligence/${engagementId}/intake`,
-        {
+  const onChange = useCallback(
+    (next: Answers) => {
+      if (!engagementId) return;
+      setAnswers(next);
+      writeLocal(engagementId, next);
+      // Debounced server save — same 600ms cadence as target intake.
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => {
+        void fetch("/api/category/intake-answers", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ questions: updatedQuestions }),
-        },
-      );
-      if (res.ok) {
-        await load();
+          body: JSON.stringify({ engagement_id: engagementId, answers: next }),
+          keepalive: true,
+        }).catch(() => {
+          /* network blip — local copy still has it */
+        });
+      }, 600);
+    },
+    [engagementId],
+  );
+
+  // Last-chance flush before tab close.
+  useEffect(() => {
+    if (!engagementId) return;
+    const handler = () => {
+      try {
+        const blob = new Blob(
+          [JSON.stringify({ engagement_id: engagementId, answers })],
+          { type: "application/json" },
+        );
+        navigator.sendBeacon?.("/api/category/intake-answers", blob);
+      } catch {
+        /* best-effort */
       }
-    } finally {
-      setSaving(false);
-    }
-  }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [engagementId, answers]);
 
-  async function confirm() {
-    if (!intake) return;
-    setConfirming(true);
-    try {
-      const res = await fetch(
-        `/api/market-intelligence/${engagementId}/intake`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "confirm" }),
-        },
-      );
-      if (res.ok) {
-        await load();
-      }
-    } finally {
-      setConfirming(false);
-    }
-  }
+  const score = calculateCategoryDiligenceConfidence(answers);
 
-  // Group questions by category.
-  const byCategory: Record<string, IntakeQuestion[]> = {};
-  for (const q of intake?.questions ?? []) {
-    if (!byCategory[q.category]) byCategory[q.category] = [];
-    byCategory[q.category].push(q);
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-sm">
+        Loading category intake…
+      </div>
+    );
   }
-
-  const isConfirmed = intake?.status === "confirmed";
-  const answeredCount = (intake?.questions ?? []).filter(
-    (q) => editedAnswers[q.id]?.trim(),
-  ).length;
-  const totalCount = intake?.questions.length ?? 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">Intake Questions</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            LLM-generated questions to surface key assumptions in the thesis.
-            Answer them to improve assumption extraction and scoring.
-          </p>
-        </div>
-        <div className="flex shrink-0 flex-wrap gap-2">
-          {intake && !isConfirmed && (
-            <>
-              <button
-                type="button"
-                onClick={() => void saveAnswers()}
-                disabled={saving}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save Answers"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirm()}
-                disabled={confirming || answeredCount === 0}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {confirming ? "Confirming…" : "Confirm Intake"}
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={() => void generate()}
-            disabled={generating}
-            className="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-fuchsia-500 disabled:opacity-50"
-          >
-            {generating
-              ? "Generating…"
-              : intake
-              ? "Re-generate"
-              : "Generate Questions"}
-          </button>
-        </div>
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-indigo-600">
+          AI Category Diligence
+        </p>
+        <h2 className="mt-1 text-xl font-semibold text-slate-900 sm:text-2xl">
+          Category intake
+        </h2>
+        <p className="mt-2 max-w-3xl text-sm text-slate-600">
+          Answer the structured questions on the left. Every answer is a
+          multiple-choice option that maps to the deterministic Category
+          Diligence Confidence score (0–100, shown below). Free-form text
+          is intentionally avoided — it makes scoring drift and reports
+          unreliable.
+        </p>
+
+        {/* Live score chip — same shape as Commercial Pain Confidence on
+            the target pathway. Disappears until at least one categorical
+            answer is entered. */}
+        {score && (
+          <div className="mt-4 inline-flex items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/70 px-4 py-2.5">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-700">
+                Category Diligence Confidence
+              </p>
+              <div className="mt-0.5 flex items-baseline gap-2">
+                <span className="text-2xl font-bold tabular-nums text-slate-900">
+                  {score.score}
+                </span>
+                <span className="text-xs text-slate-500">/ 100</span>
+                <span
+                  className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                    score.band === "strong"
+                      ? "bg-emerald-100 text-emerald-800"
+                      : score.band === "moderate"
+                        ? "bg-amber-100 text-amber-800"
+                        : score.band === "weak"
+                          ? "bg-orange-100 text-orange-800"
+                          : "bg-rose-100 text-rose-800"
+                  }`}
+                >
+                  {score.band_label}
+                </span>
+              </div>
+            </div>
+            {score.top_drivers.length > 0 && (
+              <div className="ml-2 hidden text-xs text-slate-700 sm:block">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                  Top drivers
+                </p>
+                <p className="mt-0.5">
+                  {score.top_drivers
+                    .map((d) => `${d.label} +${d.weighted.toFixed(0)}`)
+                    .join(" · ")}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
-          {error}
-        </div>
-      )}
-
-      {isConfirmed && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Intake confirmed. Re-generate to start a fresh round of questions.
-        </div>
-      )}
-
-      {loading ? (
-        <div className="py-12 text-center text-sm text-slate-500">
-          Loading intake…
-        </div>
-      ) : !intake ? (
-        <div className="rounded-2xl border-2 border-dashed border-fuchsia-200 bg-white/60 px-5 py-16 text-center">
-          <p className="text-sm text-slate-600">
-            No intake questions yet. Click{" "}
-            <strong>Generate Questions</strong> to create adaptive questions
-            from the thesis.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {/* Progress bar */}
-          <div className="flex items-center gap-3 text-sm text-slate-600">
-            <div className="h-2 flex-1 rounded-full bg-slate-100">
-              <div
-                className="h-full rounded-full bg-fuchsia-500 transition-all"
-                style={{
-                  width: totalCount > 0 ? `${(answeredCount / totalCount) * 100}%` : "0%",
-                }}
-              />
-            </div>
-            <span className="shrink-0 font-medium">
-              {answeredCount}/{totalCount} answered
-            </span>
-          </div>
-
-          {Object.entries(byCategory).map(([category, questions]) => (
-            <div key={category} className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3">
-                <span className="rounded-full bg-fuchsia-50 px-2.5 py-0.5 text-xs font-semibold text-fuchsia-700 ring-1 ring-fuchsia-200">
-                  {category}
-                </span>
-                <span className="text-xs text-slate-400">
-                  {questions.filter((q) => editedAnswers[q.id]?.trim()).length}/{questions.length}
-                </span>
-              </div>
-              <div className="divide-y divide-slate-50">
-                {questions.map((q, idx) => (
-                  <div key={q.id} className="px-5 py-4">
-                    <label className="block text-sm font-medium text-slate-700">
-                      {idx + 1}. {q.question}
-                    </label>
-                    {q.guidance_note && (
-                      <p className="mt-1 text-xs text-slate-400">
-                        {q.guidance_note}
-                      </p>
-                    )}
-                    <textarea
-                      rows={2}
-                      disabled={isConfirmed || !q.is_editable}
-                      value={editedAnswers[q.id] ?? ""}
-                      onChange={(e) =>
-                        setEditedAnswers((prev) => ({
-                          ...prev,
-                          [q.id]: e.target.value,
-                        }))
-                      }
-                      placeholder={
-                        isConfirmed ? "(locked)" : "Your answer…"
-                      }
-                      className="mt-2 block w-full resize-none rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-fuchsia-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-fuchsia-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-
-          {!isConfirmed && (
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => void saveAnswers()}
-                disabled={saving}
-                className="rounded-lg border border-slate-200 bg-white px-5 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Save Answers"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void confirm()}
-                disabled={confirming || answeredCount === 0}
-                className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:opacity-50"
-              >
-                {confirming ? "Confirming…" : "Confirm Intake"}
-              </button>
-            </div>
-          )}
-        </div>
-      )}
+      <IntakeQuestionnaire
+        key={hydrateToken}
+        questions={CATEGORY_INTAKE_QUESTIONS}
+        initialAnswers={answers}
+        onChange={onChange}
+        industryDisplayName="AI Category Diligence"
+      />
     </div>
   );
 }
