@@ -588,3 +588,44 @@ export const INDUSTRY_OPTIONS = Object.values(INDUSTRY_PROFILES).map((p) => ({
   label: p.label,
   tagline: p.tagline,
 }));
+
+const INDUSTRY_KEYS = Object.keys(INDUSTRY_PROFILES) as Industry[];
+
+/**
+ * Parse a free-form industry value into the canonical Industry key.
+ *
+ * Real engagement rows store the canonical key (e.g. `"financial_services"`)
+ * because the DB enum from migration 00023 enforces it. The bundled
+ * preview-client seeds, however, use display labels like `"Legal Tech"`
+ * or `"Healthcare AI"` so the home roster cards read nicely. Both forms
+ * have to round-trip back to a canonical key when we look up the
+ * industry-specific intake section, otherwise every engagement falls
+ * through to the legal-tech default.
+ */
+export function toIndustryKey(value: string | null | undefined): Industry | null {
+  if (!value) return null;
+  const lower = value.trim().toLowerCase();
+  if (!lower) return null;
+
+  // Exact canonical match (e.g. "financial_services").
+  const direct = INDUSTRY_KEYS.find((k) => k === lower);
+  if (direct) return direct;
+
+  // Display label match (e.g. "Legal Tech" → "legal_tech").
+  const normalized = lower.replace(/[\s/\-&]+/g, "_").replace(/_+/g, "_");
+  const fromLabel = INDUSTRY_KEYS.find((k) => k === normalized);
+  if (fromLabel) return fromLabel;
+
+  // Loose aliases for legacy seed strings ("Healthcare AI", "Industrial AI",
+  // etc.) so we don't have to mass-rewrite the demo fixtures.
+  if (lower.includes("legal")) return "legal_tech";
+  if (lower.includes("financial") || lower.includes("fintech")) return "financial_services";
+  if (lower.includes("health") || lower.includes("life science")) return "healthcare";
+  if (lower.includes("industrial") || lower.includes("iot") || lower.includes("manufactur")) return "industrial_iot";
+  if (lower.includes("retail") || lower.includes("ecommerce") || lower.includes("e-commerce")) return "retail_ecommerce";
+  if (lower.includes("insurance") || lower.includes("insurtech")) return "insurance";
+  if (lower.includes("government") || lower.includes("defense") || lower.includes("public sector")) return "government_defense";
+  if (lower.includes("saas") || lower.includes("enterprise")) return "saas_enterprise";
+
+  return null;
+}

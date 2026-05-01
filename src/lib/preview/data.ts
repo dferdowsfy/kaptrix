@@ -17,6 +17,10 @@ import {
   PREVIEW_CLIENTS,
   type PreviewClientSummary,
 } from "@/lib/preview-clients";
+import {
+  INDUSTRY_PROFILES,
+  toIndustryKey,
+} from "@/lib/industry-requirements";
 import { calculateCompositeScore } from "@/lib/scoring/calculator";
 import type {
   KnowledgeEntry,
@@ -456,11 +460,16 @@ export async function getPreviewClients(
   const realClients: PreviewClientSummary[] = realEngagements
     .map((e) => {
       const scoringSummary = knowledgeBaseByEngagement.get(e.id);
+      // Industry is the canonical key on the engagement row (enforced by
+      // migration 00023). Surface it on the summary so the intake form
+      // can swap its industry-specific section, and format the display
+      // label off the same source so the home card stays readable.
+      const industryKey = toIndustryKey(e.industry ?? null);
       return {
       id: e.id,
       target: e.target_company_name,
       client: e.client_firm_name,
-      industry: "",
+      industry: industryKey ? INDUSTRY_PROFILES[industryKey].label : "",
       deal_stage: e.deal_stage,
       status: e.status,
       status_label: engagementStatusLabel(e.status),

@@ -14,7 +14,7 @@ import {
   submitToKnowledgeBase,
   type IntakePayload,
 } from "@/lib/preview/knowledge-base";
-import type { Industry } from "@/lib/industry-requirements";
+import { toIndustryKey, type Industry } from "@/lib/industry-requirements";
 
 // Per-engagement local cache. Replaces the single global key that was
 // causing answers to vanish on logout and overwrite each other across
@@ -189,9 +189,20 @@ function buildIntakePayloadFromAnswers(
 }
 
 export default function PreviewIntakePage() {
-  const { selectedId } = useSelectedPreviewClient();
+  const { selectedId, client } = useSelectedPreviewClient();
+  // Resolve the engagement's industry in priority order:
+  //   1. The loaded client summary (server source of truth — real
+  //      engagements carry their canonical industry through `data.ts`,
+  //      seed clients carry display labels that `toIndustryKey` parses).
+  //   2. localStorage (set at client-creation time on this device).
+  //   3. legal_tech as a last-resort default for the bundled demo fixture.
+  // This is what makes the industry-specific intake section (e.g.
+  // "Financial Services Depth", "Healthcare Depth") follow the engagement
+  // instead of always falling back to "Legal Tech Depth".
   const industry: Industry =
-    (selectedId ? getClientIndustry(selectedId) : null) ?? "legal_tech";
+    toIndustryKey(client?.industry) ??
+    (selectedId ? getClientIndustry(selectedId) : null) ??
+    "legal_tech";
 
   // `hydrateToken` flips whenever we load a fresh set of answers for the
   // current engagement so the questionnaire remounts with new initial data.
