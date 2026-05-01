@@ -402,6 +402,7 @@ button {
 }
 .hero-arc-shimmer-1 { animation-duration: 6s; }
 .hero-arc-shimmer-2 { animation-duration: 8s; animation-delay: 1.5s; }
+.hero-arc-shimmer-3 { animation-duration: 10s; animation-delay: 3s; }
 @keyframes hero-arc-shimmer-pulse {
   0%, 100% { opacity: 0.55; }
   50%      { opacity: 1; }

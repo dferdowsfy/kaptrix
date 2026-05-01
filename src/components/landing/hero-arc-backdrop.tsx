@@ -58,31 +58,55 @@ const COMETS: Particle[] = Array.from({ length: 4 }, (_, i) => ({
   baseOpacity: 0.95,
 }));
 
-// Stationary stardust around the arc — pure twinkle, no motion.
+// Stationary stardust scattered along the new circular arcs. Positions
+// roughly track the visible portion of a sphere whose center sits at
+// (1300, 1000) — i.e. just past the lower-right corner of the viewBox.
 const STARDUST: { x: number; y: number; r: number; delay: number }[] = [
-  { x: 1080, y: 600, r: 1.2, delay: 0 },
-  { x: 990, y: 500, r: 0.9, delay: 0.6 },
-  { x: 900, y: 420, r: 1.4, delay: 1.4 },
-  { x: 820, y: 340, r: 1.0, delay: 0.3 },
-  { x: 740, y: 260, r: 1.1, delay: 1.1 },
-  { x: 660, y: 200, r: 0.8, delay: 1.8 },
-  { x: 1130, y: 700, r: 0.9, delay: 2.0 },
-  { x: 1020, y: 580, r: 1.0, delay: 0.5 },
-  { x: 940, y: 460, r: 1.2, delay: 1.6 },
-  { x: 880, y: 390, r: 0.9, delay: 0.2 },
-  { x: 780, y: 300, r: 1.0, delay: 1.3 },
-  { x: 1140, y: 340, r: 1.1, delay: 0.4 },
-  { x: 1080, y: 240, r: 0.8, delay: 1.7 },
-  { x: 970, y: 180, r: 0.9, delay: 2.4 },
-  { x: 850, y: 140, r: 1.0, delay: 0.8 },
-  { x: 1050, y: 420, r: 1.2, delay: 1.0 },
+  // Along the inner arc (r=720)
+  { x: 700, y: 750, r: 1.1, delay: 0 },
+  { x: 800, y: 670, r: 0.9, delay: 0.6 },
+  { x: 920, y: 560, r: 1.3, delay: 1.4 },
+  { x: 1020, y: 440, r: 1.0, delay: 0.3 },
+  { x: 1100, y: 360, r: 1.1, delay: 1.1 },
+  // Along the main arc (r=900)
+  { x: 520, y: 760, r: 0.8, delay: 1.8 },
+  { x: 640, y: 640, r: 0.9, delay: 2.0 },
+  { x: 760, y: 500, r: 1.0, delay: 0.5 },
+  { x: 880, y: 380, r: 1.2, delay: 1.6 },
+  { x: 1000, y: 260, r: 0.9, delay: 0.2 },
+  { x: 1120, y: 160, r: 1.0, delay: 1.3 },
+  // Along the outer arc (r=1080)
+  { x: 360, y: 760, r: 1.1, delay: 0.4 },
+  { x: 500, y: 600, r: 0.8, delay: 1.7 },
+  { x: 660, y: 420, r: 0.9, delay: 2.4 },
+  { x: 800, y: 240, r: 1.0, delay: 0.8 },
+  { x: 920, y: 80, r: 1.2, delay: 1.0 },
 ];
 
-// The primary motion path — sweeps from the lower-right corner up to
-// the upper-right, with a gentle curl through the upper-center area.
-const ARC_PATH = "M 1180 760 Q 700 580 760 320 Q 880 80 1100 -40";
-// A faint inner secondary arc for depth.
-const ARC_PATH_INNER = "M 1160 660 Q 820 540 880 360 Q 960 200 1090 100";
+// CIRCULAR ARC GEOMETRY
+//
+// All three arcs are slices of concentric circles whose center sits at
+// approximately (1300, 1000) — just past the lower-right corner of the
+// 1200 × 800 viewBox. That's what makes the visible portion of each
+// curve read as the edge of a globe rising into the frame, rather than
+// an abstract bezier swoop.
+//
+// SVG arc syntax:  M <start>  A rx ry rotation large-arc sweep <end>
+//   - rx == ry == radius (true circle, no eccentricity)
+//   - rotation 0
+//   - large-arc 0 (we want the SHORT arc between the endpoints)
+//   - sweep 1 (clockwise in SVG y-down)
+//
+// Endpoints are picked where each circle exits the viewBox: the bottom
+// edge (y=800) on the lower-left side, and either the right edge (for
+// the inner curl) or the top edge (for the outer arc) on the upper end.
+//
+// Outer arc:  r=1080.  bottom (238, 800) → top (892, 0)
+// Main arc:   r=900.   bottom (423, 800) → right (1200, 106)
+// Inner arc:  r=720.   bottom (609, 800) → right (1200, 287)
+const ARC_PATH = "M 423 800 A 900 900 0 0 1 1200 106";
+const ARC_PATH_INNER = "M 609 800 A 720 720 0 0 1 1200 287";
+const ARC_PATH_OUTER = "M 238 800 A 1080 1080 0 0 1 892 0";
 
 export function HeroArcBackdrop() {
   return (
@@ -126,31 +150,60 @@ export function HeroArcBackdrop() {
           </linearGradient>
 
           {/* Reusable path geometry that the particle <animateMotion>
-              elements reference via <mpath>. */}
+              elements reference via <mpath>. All three arcs are slices
+              of concentric circles centered at ~(1300, 1000), just
+              past the lower-right corner of the viewBox. */}
           <path id="hpa-path" d={ARC_PATH} />
           <path id="hpa-path-inner" d={ARC_PATH_INNER} />
+          <path id="hpa-path-outer" d={ARC_PATH_OUTER} />
         </defs>
 
-        {/* ─────── Layer 1: violet origin bloom ─────── */}
+        {/* ─────── Layer 1: violet origin bloom ───────
+            Anchored at the implicit globe center (1300, 1000) — just
+            past the bottom-right corner of the viewBox — so the soft
+            glow radiates outward from "behind" the globe edge. The
+            top hemisphere of this bloom bleeds back into the visible
+            area of the hero. */}
         <circle
-          cx="1140"
-          cy="780"
-          r="500"
+          cx="1300"
+          cy="1000"
+          r="620"
           fill="url(#hpa-origin-disc)"
           filter="url(#hpa-origin-bloom)"
         />
 
-        {/* ─────── Layer 2: the base arc itself ───────
-            Two strokes — a wide blurred halo underneath, then the
-            crisp gradient line on top — give the curve a glowing-light
-            quality so the path is always visible (subtly) even between
-            particle waves. */}
+        {/* ─────── Layer 2: three concentric circular arcs ───────
+            Each arc renders TWICE: a wide blurred halo at low opacity
+            for the glow, then a thin crisp line on top. Three different
+            radii (1080 / 900 / 720) create the orbital-shell layering
+            the user asked for. */}
+
+        {/* Outer arc (r=1080) — faintest, gives the globe its
+            outermost orbit/shell. */}
+        <use
+          href="#hpa-path-outer"
+          stroke="url(#hpa-arc-gradient)"
+          strokeWidth="2.4"
+          fill="none"
+          opacity="0.25"
+          filter="url(#hpa-bloom)"
+        />
+        <use
+          href="#hpa-path-outer"
+          className="hero-arc-shimmer hero-arc-shimmer-3"
+          stroke="url(#hpa-arc-gradient)"
+          strokeWidth="0.7"
+          fill="none"
+          opacity="0.45"
+        />
+
+        {/* Main arc (r=900) — the brightest, primary visible curve. */}
         <use
           href="#hpa-path"
           stroke="url(#hpa-arc-gradient)"
           strokeWidth="6"
           fill="none"
-          opacity="0.35"
+          opacity="0.4"
           filter="url(#hpa-bloom)"
         />
         <use
@@ -160,12 +213,15 @@ export function HeroArcBackdrop() {
           strokeWidth="1.4"
           fill="none"
         />
+
+        {/* Inner arc (r=720) — tightest curl, hugs closer to the
+            globe origin, half the prominence of the main arc. */}
         <use
           href="#hpa-path-inner"
           stroke="url(#hpa-arc-gradient)"
           strokeWidth="3"
           fill="none"
-          opacity="0.18"
+          opacity="0.22"
           filter="url(#hpa-bloom)"
         />
         <use
@@ -174,7 +230,7 @@ export function HeroArcBackdrop() {
           stroke="url(#hpa-arc-gradient)"
           strokeWidth="0.9"
           fill="none"
-          opacity="0.5"
+          opacity="0.55"
         />
 
         {/* ─────── Layer 3: the particle stream ───────
@@ -185,28 +241,50 @@ export function HeroArcBackdrop() {
         <g
           style={{ mixBlendMode: "screen" } as React.CSSProperties}
         >
-          {PARTICLES.map((p, i) => (
-            <g key={`p-${i}`} className="hero-arc-particle-wrap" style={{
-              animationDelay: `${p.delay}s`,
-              animationDuration: `${p.duration}s`,
-              opacity: p.baseOpacity,
-            } as React.CSSProperties}>
-              <circle
-                r={p.radius}
-                fill="#FFFFFF"
-                filter="url(#hpa-glow)"
+          {PARTICLES.map((p, i) => {
+            // Distribute particles across three orbital shells so they
+            // collectively read as a globe in motion: most ride the
+            // primary arc, a smaller share each ride the inner and
+            // outer arcs at correspondingly different speeds.
+            const shellPick = i % 6;
+            const shellPath =
+              shellPick === 0
+                ? "#hpa-path-inner"
+                : shellPick === 1
+                  ? "#hpa-path-outer"
+                  : "#hpa-path";
+            // Scale duration so all shells trace their arc at a similar
+            // visual cadence even though arc lengths differ. Inner is
+            // shorter ~80%, outer ~115%.
+            const shellDuration =
+              shellPath === "#hpa-path-inner"
+                ? p.duration * 0.85
+                : shellPath === "#hpa-path-outer"
+                  ? p.duration * 1.15
+                  : p.duration;
+            return (
+              <g
+                key={`p-${i}`}
+                className="hero-arc-particle-wrap"
+                style={{
+                  animationDelay: `${p.delay}s`,
+                  animationDuration: `${shellDuration}s`,
+                  opacity: p.baseOpacity,
+                } as React.CSSProperties}
               >
-                <animateMotion
-                  dur={`${p.duration}s`}
-                  begin={`${p.delay}s`}
-                  repeatCount="indefinite"
-                  rotate="auto"
-                >
-                  <mpath href="#hpa-path" />
-                </animateMotion>
-              </circle>
-            </g>
-          ))}
+                <circle r={p.radius} fill="#FFFFFF" filter="url(#hpa-glow)">
+                  <animateMotion
+                    dur={`${shellDuration}s`}
+                    begin={`${p.delay}s`}
+                    repeatCount="indefinite"
+                    rotate="auto"
+                  >
+                    <mpath href={shellPath} />
+                  </animateMotion>
+                </circle>
+              </g>
+            );
+          })}
 
           {/* ─────── Layer 4: brighter comets ───────
               Larger, longer-trail, brighter — these are the "lookers"
