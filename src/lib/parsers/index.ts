@@ -4,6 +4,8 @@ import {
 } from "@/lib/env";
 import { visionExtract } from "@/lib/llm/vision";
 
+const MAX_DECOMPRESSED_BYTES = 200 * 1024 * 1024; // 200 MB
+
 export async function parsePdf(buffer: Buffer): Promise<string> {
   // pdf-parse v1.x is the Node-compatible line. v2.x pulls pdfjs-dist v5
   // which requires browser DOM globals (DOMMatrix) that don't exist in
@@ -61,15 +63,24 @@ export async function parseDocument(
 async function parseDocx(buffer: Buffer): Promise<string> {
   const mammoth = await import("mammoth");
   const result = await mammoth.extractRawText({ buffer });
+  if (result.value.length > MAX_DECOMPRESSED_BYTES) {
+    throw new Error("Decompressed document exceeds size limit");
+  }
   return result.value;
 }
 
 async function parseXlsx(buffer: Buffer): Promise<string> {
   const XLSX = await import("xlsx");
   const workbook = XLSX.read(buffer, { type: "buffer" });
+  let totalChars = 0;
   const sheets = workbook.SheetNames.map((name) => {
     const sheet = workbook.Sheets[name];
-    return `--- Sheet: ${name} ---\n${XLSX.utils.sheet_to_csv(sheet)}`;
+    const csv = XLSX.utils.sheet_to_csv(sheet);
+    totalChars += csv.length;
+    if (totalChars > MAX_DECOMPRESSED_BYTES) {
+      throw new Error("Decompressed spreadsheet exceeds size limit");
+    }
+    return `--- Sheet: ${name} ---\n${csv}`;
   });
   return sheets.join("\n\n");
 }
@@ -92,6 +103,11 @@ async function parsePptx(buffer: Buffer): Promise<string> {
   const { default: JSZip } = await import("jszip");
   const zip = await JSZip.loadAsync(buffer);
 
+  const entryCount = Object.keys(zip.files).length;
+  if (entryCount > 10_000) {
+    throw new Error("PPTX contains too many entries");
+  }
+
   const slideFiles = Object.keys(zip.files)
     .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
     .sort((a, b) => slideIndex(a) - slideIndex(b));
@@ -100,16 +116,25 @@ async function parsePptx(buffer: Buffer): Promise<string> {
     throw new Error("PPTX contained no slide parts");
   }
 
+  let totalBytes = 0;
   const sections: string[] = [];
   for (const slidePath of slideFiles) {
     const idx = slideIndex(slidePath);
     const xml = await zip.files[slidePath].async("string");
+    totalBytes += xml.length;
+    if (totalBytes > MAX_DECOMPRESSED_BYTES) {
+      throw new Error("Decompressed presentation exceeds size limit");
+    }
     const bodyText = extractPptxText(xml);
 
     const notesPath = `ppt/notesSlides/notesSlide${idx}.xml`;
     let notesText = "";
     if (zip.files[notesPath]) {
       const notesXml = await zip.files[notesPath].async("string");
+      totalBytes += notesXml.length;
+      if (totalBytes > MAX_DECOMPRESSED_BYTES) {
+        throw new Error("Decompressed presentation exceeds size limit");
+      }
       notesText = extractPptxText(notesXml);
     }
 

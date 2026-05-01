@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAuth, assertEngagementAccess, requireRole, authErrorResponse } from "@/lib/security/authz";
 import { logAuditEvent } from "@/lib/audit/logger";
 import {
   ADJUSTMENT_BOUNDS,
@@ -30,13 +30,16 @@ export async function POST(
   context: { params: Promise<{ id: string }> },
 ) {
   const { id } = await context.params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  let ctx;
+  try {
+    ctx = await requireAuth();
+    requireRole(ctx, ["operator", "admin"]);
+  } catch (err) {
+    return authErrorResponse(err);
   }
+
+  const supabase = ctx.supabase;
 
   const body = (await request.json()) as DecideAdjustmentInput;
   if (!body || (body.decision !== "approve" && body.decision !== "reject")) {
@@ -58,6 +61,12 @@ export async function POST(
     );
   }
 
+  try {
+    await assertEngagementAccess(ctx, proposal.engagement_id);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
   if (proposal.status !== "proposed") {
     return NextResponse.json(
       { error: `Proposal already ${proposal.status}` },
@@ -72,7 +81,7 @@ export async function POST(
     .from("adjustment_proposals")
     .update({
       status: newStatus,
-      decided_by: user.id,
+      decided_by: ctx.userId,
       decided_at: new Date().toISOString(),
     })
     .eq("id", id);
@@ -175,7 +184,7 @@ export async function POST(
 
     const { error: writeErr } = await supabase
       .from("scores")
-      .update({ score_0_to_5: newScoreSnapped, updated_by: user.id })
+      .update({ score_0_to_5: newScoreSnapped, updated_by: ctx.userId })
       .eq("id", scoreRow.id);
     if (writeErr) {
       return NextResponse.json({ error: writeErr.message }, { status: 500 });
@@ -193,7 +202,7 @@ export async function POST(
       adjustment_proposal_id: id,
       prior_rationale: scoreRow.operator_rationale ?? null,
       new_rationale: scoreRow.operator_rationale ?? null,
-      changed_by: user.id,
+      changed_by: ctx.userId,
     });
   }
 

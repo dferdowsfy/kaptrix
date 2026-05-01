@@ -166,16 +166,11 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(req: Request) {
-  // Anonymous callers may still use the public /preview demo. But if the
-  // caller IS authenticated, respect admin-hidden tabs as a server-side
-  // authorization check too.
   try {
     const authCtx = await requireAuth();
     assertPreviewTabVisible(authCtx, "positioning");
   } catch (err) {
-    if (!(err instanceof AuthError) || err.status !== 401) {
-      return authErrorResponse(err);
-    }
+    return authErrorResponse(err);
   }
 
   const useOpenRouter = isOpenRouterConfigured();
@@ -239,19 +234,18 @@ export async function POST(req: Request) {
 
   const operatorKb = (body.knowledge_base ?? "").slice(0, 2000);
 
-  // Gate every outbound piece through the LLM policy layer.
-  // Self-hosted stays on our infra, so tier is "internal_only".
   const { gateInference } = await import("@/lib/security/llm-policy");
+  const actualProvider = useOpenRouter ? "openrouter" as const : "self_hosted" as const;
   const model = getSelfHostedLlmModel();
   const [evDecision, kbDecision] = await Promise.all([
     gateInference({
-      provider: "self_hosted",
+      provider: actualProvider,
       model,
       tier: "internal_only",
       content: evidence,
     }),
     gateInference({
-      provider: "self_hosted",
+      provider: actualProvider,
       model,
       tier: "internal_only",
       content: operatorKb,

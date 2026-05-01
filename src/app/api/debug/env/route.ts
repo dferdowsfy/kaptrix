@@ -1,13 +1,19 @@
 import { NextResponse } from "next/server";
 import { getOpenRouterEnvDebugInfo } from "@/lib/env";
+import { requireAuth, requireAdmin, authErrorResponse } from "@/lib/security/authz";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const isProd = process.env.NODE_ENV === "production";
+  try {
+    const ctx = await requireAuth();
+    requireAdmin(ctx);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
 
-  // Keep this endpoint non-public in production.
+  const isProd = process.env.NODE_ENV === "production";
   if (isProd) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

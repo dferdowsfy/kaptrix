@@ -10,6 +10,7 @@
 
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import type { KnowledgeStep, KnowledgeEntry } from "@/lib/preview/knowledge-base";
 
 export const runtime = "nodejs";
@@ -75,20 +76,19 @@ export async function PUT(req: Request) {
     );
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json(
-      { error: "Not authenticated", authenticated: false },
-      { status: 401 },
-    );
+  let ctx;
+  try {
+    ctx = await requireAuth();
+    await assertEngagementAccess(ctx, engagementId);
+  } catch (err) {
+    return authErrorResponse(err);
   }
+
+  const supabase = ctx.supabase;
 
   const { error } = await supabase.from("user_workspace_state").upsert(
     {
-      user_id: user.id,
+      user_id: ctx.userId,
       engagement_id: engagementId,
       kind: KIND,
       state: entries,

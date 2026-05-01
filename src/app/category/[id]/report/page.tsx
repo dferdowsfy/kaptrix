@@ -150,13 +150,22 @@ export default function CategoryReportPage() {
     return "text-slate-400";
   }
 
-  // Render markdown as HTML (simple, no dependencies).
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   function markdownToHtml(md: string): string {
-    return md
+    const escaped = escapeHtml(md);
+    return escaped
       .replace(/^## (.+)$/gm, "<h2 class=\"text-xl font-bold mt-6 mb-2\">$1</h2>")
       .replace(/^### (.+)$/gm, "<h3 class=\"text-lg font-semibold mt-4 mb-1\">$1</h3>")
       .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-      .replace(/^> (.+)$/gm, "<blockquote class=\"border-l-4 border-fuchsia-400 pl-4 italic text-slate-600\">$1</blockquote>")
+      .replace(/^&gt; (.+)$/gm, "<blockquote class=\"border-l-4 border-fuchsia-400 pl-4 italic text-slate-600\">$1</blockquote>")
       .replace(/^---$/gm, "<hr class=\"my-6 border-slate-200\" />")
       .replace(/\n/g, "<br />");
   }

@@ -1,20 +1,31 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { createClient } from "@/lib/supabase/server";
+import { requireAuth, requireRole, authErrorResponse } from "@/lib/security/authz";
+import { logAuditEvent } from "@/lib/audit/logger";
 
 const FROM_ADDRESS = "Kaptrix <hello@kaptrix.com>";
 
 export async function POST(request: Request) {
-  // --- Auth ---
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let ctx;
+  try {
+    ctx = await requireAuth();
+    requireRole(ctx, ["operator", "admin"]);
+  } catch (err) {
+    return authErrorResponse(err);
   }
+
+  const user = { id: ctx.userId, email: ctx.email, user_metadata: {} as Record<string, unknown> };
+
+  try {
+    const { data: profile } = await ctx.supabase
+      .from("users")
+      .select("full_name")
+      .eq("id", ctx.userId)
+      .maybeSingle();
+    if (profile?.full_name) {
+      user.user_metadata = { full_name: profile.full_name };
+    }
+  } catch { /* non-critical */ }
 
   // --- Input ---
   let body: {
@@ -88,6 +99,12 @@ export async function POST(request: Request) {
         { status: 502 },
       );
     }
+
+    await logAuditEvent({
+      action: "report.send",
+      entity: "report",
+      metadata: { to, subject: reportTitle },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

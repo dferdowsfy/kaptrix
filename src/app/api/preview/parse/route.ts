@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseDocument } from "@/lib/parsers";
 import { UPLOAD_LIMITS } from "@/lib/constants";
 import { validateUpload } from "@/lib/security/upload-validator";
-import { requireAuth, authErrorResponse } from "@/lib/security/authz";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import { getServiceClient } from "@/lib/supabase/service";
 import {
   classifyDocument,
@@ -24,8 +24,9 @@ export const maxDuration = 300;
  * best-effort — parse never fails just because the DB write failed.
  */
 export async function POST(request: NextRequest) {
+  let ctx;
   try {
-    await requireAuth();
+    ctx = await requireAuth();
   } catch (err) {
     return authErrorResponse(err);
   }
@@ -36,10 +37,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Missing file" }, { status: 400 });
   }
 
-  // Optional persistence metadata. When all three are present we write
-  // the parsed text into Supabase so the chat assistant + scoring +
-  // report engines can retrieve it server-side.
   const clientId = (formData.get("client_id") as string | null)?.trim() || null;
+
+  if (clientId) {
+    try {
+      await assertEngagementAccess(ctx, clientId);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
+  }
   const docId = (formData.get("doc_id") as string | null)?.trim() || null;
   const category =
     (formData.get("category") as string | null)?.trim() || "other";
@@ -203,8 +209,9 @@ export async function POST(request: NextRequest) {
  * so the client's optimistic local removal isn't undone by a 404.
  */
 export async function DELETE(request: NextRequest) {
+  let ctx;
   try {
-    await requireAuth();
+    ctx = await requireAuth();
   } catch (err) {
     return authErrorResponse(err);
   }
@@ -217,6 +224,12 @@ export async function DELETE(request: NextRequest) {
       { error: "Missing id or client_id" },
       { status: 400 },
     );
+  }
+
+  try {
+    await assertEngagementAccess(ctx, clientId);
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const supabase = getServiceClient();

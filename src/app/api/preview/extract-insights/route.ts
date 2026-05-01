@@ -15,7 +15,7 @@ import {
 } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
 import { openRouterChat, getOpenRouterModel } from "@/lib/llm/openrouter";
-import { requireAuth, authErrorResponse } from "@/lib/security/authz";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import { getServiceClient } from "@/lib/supabase/service";
 import type { KnowledgeInsight } from "@/components/documents/knowledge-insights-panel";
 
@@ -214,6 +214,14 @@ export async function POST(request: NextRequest) {
     body = (await request.json()) as ExtractBody;
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (body.client_id) {
+    try {
+      await assertEngagementAccess(authCtx, body.client_id);
+    } catch (err) {
+      return authErrorResponse(err);
+    }
   }
 
   let filename: string;

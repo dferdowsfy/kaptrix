@@ -34,6 +34,18 @@ export async function POST(
   const svc = getServiceClient();
   if (!svc) return NextResponse.json({ error: "DB unavailable" }, { status: 503 });
 
+  const [{ data: evRow }, { data: asmRow }] = await Promise.all([
+    svc.from("mi_evidence_items").select("engagement_id").eq("id", evidenceId).maybeSingle(),
+    svc.from("mi_thesis_assumptions").select("engagement_id").eq("id", body.assumption_id).maybeSingle(),
+  ]);
+
+  if (!evRow || evRow.engagement_id !== engagementId) {
+    return NextResponse.json({ error: "Evidence does not belong to this engagement" }, { status: 403 });
+  }
+  if (!asmRow || asmRow.engagement_id !== engagementId) {
+    return NextResponse.json({ error: "Assumption does not belong to this engagement" }, { status: 403 });
+  }
+
   // Upsert: update link_type if already linked.
   const { data, error } = await svc
     .from("mi_evidence_assumption_links")

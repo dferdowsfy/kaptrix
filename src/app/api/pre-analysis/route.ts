@@ -1,18 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import { logAuditEvent } from "@/lib/audit/logger";
 
 // Pre-analysis API — triggers AI pre-analysis for an engagement
 // Phase 1: plumbing only — Google Gemini API calls will be wired in Module 2
 
 export async function POST(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let ctx;
+  try {
+    ctx = await requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const { engagement_id } = await request.json();
@@ -23,6 +21,14 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+
+  try {
+    await assertEngagementAccess(ctx, engagement_id);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const supabase = ctx.supabase;
 
   // Get all parsed documents for this engagement
   const { data: documents } = await supabase

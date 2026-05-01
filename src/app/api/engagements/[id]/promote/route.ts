@@ -11,7 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/service";
-import { requireAuth, authErrorResponse } from "@/lib/security/authz";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import { logAuditEvent } from "@/lib/audit/logger";
 import type { EngagementTier, DealStage } from "@/lib/types";
 
@@ -41,6 +41,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   let ctx;
   try {
     ctx = await requireAuth();
+    await assertEngagementAccess(ctx, sourceId);
   } catch (err) {
     return authErrorResponse(err);
   }

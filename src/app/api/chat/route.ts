@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 import { llmChat } from "@/lib/llm/client";
 import {
   getSelfHostedLlmModelForTask,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/llm/openrouter";
 import { getServiceClient } from "@/lib/supabase/service";
 import { getPreviewSnapshot } from "@/lib/preview/data";
+import { DEFAULT_PREVIEW_CLIENT_ID } from "@/lib/preview-clients";
 import { createClient as createServerSupabase } from "@/lib/supabase/server";
 import {
   getUserPlanContext,
@@ -26,6 +28,8 @@ import {
   getCommercialPainSummary,
 } from "@/lib/reports/context";
 import { formatCommercialPainSummaryForEvidence } from "@/lib/scoring/commercial-pain";
+
+const DEMO_CLIENT_IDS = new Set([DEFAULT_PREVIEW_CLIENT_ID]);
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -273,7 +277,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing question" }, { status: 400 });
   }
 
-  // Tier enforcement (signed-in users only — anonymous demo chat is ungated).
+  const clientId = (body.client_id ?? "").trim() || null;
+  const isDemoClient = !clientId || DEMO_CLIENT_IDS.has(clientId);
+
   let authedUserId: string | null = null;
   try {
     const supabase = await createServerSupabase();
@@ -298,11 +304,14 @@ export async function POST(req: Request) {
       }
     }
   } catch {
-    // Ignore — fall through to anonymous path.
+    // Ignore — fall through to anonymous path for demo only.
   }
 
-  const sessionId = (body.session_id ?? "").trim() || `anon-${Date.now()}`;
-  const clientId = (body.client_id ?? "").trim() || null;
+  if (!isDemoClient && !authedUserId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const sessionId = (body.session_id ?? "").trim() || `session-${randomUUID()}`;
 
   // Build context. Unlike the previous implementation, we MERGE the
   // caller-supplied evidence with the Supabase snapshot instead of
@@ -476,6 +485,17 @@ export async function GET(req: Request) {
   if (!sessionId) {
     return NextResponse.json({ messages: [] });
   }
+
+  try {
+    const supabase = await createServerSupabase();
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+  } catch {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const supabase = getServiceClient();
   if (!supabase) return NextResponse.json({ messages: [] });
 

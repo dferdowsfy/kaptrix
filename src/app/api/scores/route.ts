@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import { logAuditEvent } from "@/lib/audit/logger";
 import type { UpdateScoreInput } from "@/lib/types";
 
+const SCORE_ALLOWED_FIELDS = new Set([
+  "score_0_to_5",
+  "operator_rationale",
+  "evidence_citations",
+  "criterion_id",
+]);
+
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
+  let ctx;
+  try {
+    ctx = await requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
   const engagementId = request.nextUrl.searchParams.get("engagement_id");
 
   if (!engagementId) {
@@ -14,7 +28,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data, error } = await supabase
+  try {
+    await assertEngagementAccess(ctx, engagementId);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const { data, error } = await ctx.supabase
     .from("scores")
     .select("*")
     .eq("engagement_id", engagementId)
@@ -28,13 +48,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let ctx;
+  try {
+    ctx = await requireAuth();
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const body = await request.json();
@@ -42,9 +60,16 @@ export async function PUT(request: NextRequest) {
     engagement_id,
     dimension,
     sub_criterion,
-    ...scoreData
+    ...rawScoreData
   }: { engagement_id: string; dimension: string; sub_criterion: string } & UpdateScoreInput =
     body;
+
+  const scoreData: Record<string, unknown> = {};
+  for (const key of Object.keys(rawScoreData)) {
+    if (SCORE_ALLOWED_FIELDS.has(key)) {
+      scoreData[key] = (rawScoreData as Record<string, unknown>)[key];
+    }
+  }
 
   if (!engagement_id || !dimension || !sub_criterion) {
     return NextResponse.json(
@@ -53,8 +78,16 @@ export async function PUT(request: NextRequest) {
     );
   }
 
+  try {
+    await assertEngagementAccess(ctx, engagement_id);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const supabase = ctx.supabase;
+
   // Validate rationale length
-  if (!scoreData.operator_rationale || scoreData.operator_rationale.length < 20) {
+  if (!scoreData.operator_rationale || (scoreData.operator_rationale as string).length < 20) {
     return NextResponse.json(
       { error: "Operator rationale must be at least 20 characters" },
       { status: 400 },
@@ -88,7 +121,7 @@ export async function PUT(request: NextRequest) {
         dimension,
         sub_criterion,
         ...scoreData,
-        updated_by: user.id,
+        updated_by: ctx.userId,
         ...(subjectKind ? { subject_kind: subjectKind } : {}),
       },
       { onConflict: "engagement_id,dimension,sub_criterion" },
@@ -101,7 +134,7 @@ export async function PUT(request: NextRequest) {
   }
 
   const priorValue = prior?.score_0_to_5 ?? null;
-  const newValue = scoreData.score_0_to_5;
+  const newValue = scoreData.score_0_to_5 as number;
   const delta = priorValue === null ? 0 : Math.round((newValue - priorValue) * 100) / 100;
 
   // Append-only history. Failures here are logged but do not fail the write —
@@ -117,8 +150,8 @@ export async function PUT(request: NextRequest) {
     change_source: "operator",
     adjustment_proposal_id: null,
     prior_rationale: prior?.operator_rationale ?? null,
-    new_rationale: scoreData.operator_rationale,
-    changed_by: user.id,
+    new_rationale: scoreData.operator_rationale as string,
+    changed_by: ctx.userId,
   });
   if (historyError) {
     console.error("score_history insert failed", historyError);

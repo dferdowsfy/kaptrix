@@ -1,8 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/service";
-import { requireAuth, authErrorResponse } from "@/lib/security/authz";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import { logAuditEvent } from "@/lib/audit/logger";
+
+const PATCH_ALLOWED_FIELDS = new Set([
+  "target_company_name",
+  "client_firm_name",
+  "deal_stage",
+  "status",
+  "tier",
+  "industry",
+  "delivery_deadline",
+  "sensitivity_level",
+  "subject_label",
+  "notes",
+]);
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -10,8 +23,16 @@ interface RouteParams {
 
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data, error } = await supabase
+
+  let ctx;
+  try {
+    ctx = await requireAuth();
+    await assertEngagementAccess(ctx, id);
+  } catch (err) {
+    return authErrorResponse(err);
+  }
+
+  const { data, error } = await ctx.supabase
     .from("engagements")
     .select("*")
     .eq("id", id)
@@ -25,20 +46,31 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   const { id } = await params;
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  let ctx;
+  try {
+    ctx = await requireAuth();
+    await assertEngagementAccess(ctx, id);
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const body = await request.json();
 
-  const { data, error } = await supabase
+  const sanitized: Record<string, unknown> = {};
+  for (const key of Object.keys(body)) {
+    if (PATCH_ALLOWED_FIELDS.has(key)) {
+      sanitized[key] = body[key];
+    }
+  }
+
+  if (Object.keys(sanitized).length === 0) {
+    return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+  }
+
+  const { data, error } = await ctx.supabase
     .from("engagements")
-    .update(body)
+    .update(sanitized)
     .eq("id", id)
     .select()
     .single();
@@ -52,7 +84,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     entity: "engagement",
     entity_id: id,
     engagement_id: id,
-    metadata: { updated_fields: Object.keys(body) },
+    metadata: { updated_fields: Object.keys(sanitized) },
   });
 
   return NextResponse.json(data);

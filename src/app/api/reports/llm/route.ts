@@ -9,7 +9,7 @@ import {
   buildUpdateSystemPrompt,
   type AdvancedReportId,
 } from "@/lib/reports/advanced-reports";
-import { requireAuth } from "@/lib/security/authz";
+import { requireAuth, assertEngagementAccess, authErrorResponse } from "@/lib/security/authz";
 import {
   getUserPlanContext,
   checkReportLimit,
@@ -57,11 +57,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Tier enforcement: require auth + check monthly report limit.
   let userId: string | null = null;
+  let authCtx: Awaited<ReturnType<typeof requireAuth>>;
   try {
-    const authCtx = await requireAuth();
+    authCtx = await requireAuth();
     assertPreviewTabVisible(authCtx, "report");
+    await assertEngagementAccess(authCtx, clientId);
     userId = authCtx.userId;
     const plan = await getUserPlanContext(authCtx.userId);
     if (plan) {
@@ -89,9 +90,8 @@ export async function POST(req: Request) {
         );
       }
     }
-  } catch {
-    // Unauthenticated callers cannot generate reports.
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  } catch (err) {
+    return authErrorResponse(err);
   }
 
   const useOpenRouter = isOpenRouterConfigured();

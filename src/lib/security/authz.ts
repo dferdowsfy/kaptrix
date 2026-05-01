@@ -15,7 +15,7 @@ import {
   type PreviewTabId,
 } from "@/lib/preview-access";
 
-export type AppRole = "admin" | "operator" | "analyst" | "reviewer" | "client_viewer";
+export type AppRole = "admin" | "operator" | "analyst" | "reviewer" | "client_viewer" | "pending";
 
 export interface AuthContext {
   supabase: SupabaseClient;
@@ -32,10 +32,9 @@ export interface AuthContext {
  * designated admin never gets locked out if the role column hasn't been
  * backfilled yet. Override with env `ADMIN_EMAILS` (comma-separated).
  */
-const DEFAULT_ADMIN_EMAILS = ["dferdows@gmail.com"];
 export function getAdminEmails(): string[] {
   const raw = process.env.ADMIN_EMAILS;
-  if (!raw) return DEFAULT_ADMIN_EMAILS;
+  if (!raw) return [];
   return raw
     .split(",")
     .map((e) => e.trim().toLowerCase())
@@ -86,6 +85,14 @@ export async function requireAuth(): Promise<AuthContext> {
     ? true
     : (profile?.approved ?? false);
 
+  if (!effectiveApproved) {
+    throw new AuthError(403, "pending_approval", "Account pending admin approval");
+  }
+
+  if (effectiveRole === "pending") {
+    throw new AuthError(403, "pending_role", "Account pending admin approval");
+  }
+
   return {
     supabase,
     userId: user.id,
@@ -127,17 +134,15 @@ export function assertPreviewTabVisible(
 }
 
 /**
- * Verify the caller can access the given engagement. Elevated roles
- * (admin/operator) see all engagements today — this matches the existing
- * RLS. We still perform the lookup so:
- *   1. The engagement actually exists (otherwise 404).
- *   2. client_viewer is constrained to their own engagement.
- *   3. We have a consistent place to add tighter per-operator scoping later.
+ * Verify the caller can access the given engagement.
+ *   - Admins see all.
+ *   - Operators see only engagements assigned to them.
+ *   - client_viewer sees only engagements where their email matches client_contact_email.
  */
 export async function assertEngagementAccess(
   ctx: AuthContext,
   engagementId: string,
-): Promise<{ id: string; client_contact_email: string | null }> {
+): Promise<{ id: string; client_contact_email: string | null; assigned_operator_id: string | null }> {
   if (!engagementId) {
     throw new AuthError(400, "missing_engagement", "Missing engagement_id");
   }
@@ -149,11 +154,14 @@ export async function assertEngagementAccess(
     .maybeSingle();
 
   if (error || !data) {
-    // RLS may legitimately hide it — return 404 either way to avoid enumeration.
     throw new AuthError(404, "engagement_not_found", "Engagement not found");
   }
 
-  if (ctx.role === "admin" || ctx.role === "operator") {
+  if (ctx.role === "admin") {
+    return data;
+  }
+
+  if (ctx.role === "operator" && data.assigned_operator_id === ctx.userId) {
     return data;
   }
 
