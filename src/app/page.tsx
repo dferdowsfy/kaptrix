@@ -6,6 +6,7 @@ import { PublicHeader } from "@/components/home/public-header";
 import { PlatformShowcase } from "@/components/home/platform-showcase";
 import { ScrollToTop } from "@/components/home/scroll-to-top";
 import { HeroArcBackdrop } from "@/components/landing/hero-arc-backdrop";
+import { ScrollPlayVideo } from "@/components/landing/scroll-play-video";
 
 export const metadata: Metadata = {
   title: "KAPTRIX | Don't write a check on AI you can't defend",
@@ -239,6 +240,42 @@ export default function HomePage() {
               </span>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ====================================================================
+          1.5 PLATFORM DEMO REEL
+          Sits between the hero CTA strip and the cost-of-wrong section so
+          it's the first thing visitors see after the headline — extends
+          the hero's dark palette so the transition feels intentional and
+          doesn't fight the CTAs above it.
+      ==================================================================== */}
+      <section className="relative overflow-hidden bg-[#070815] py-16 sm:py-20 lg:py-24">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -left-32 top-1/2 h-[24rem] w-[24rem] -translate-y-1/2 rounded-full bg-indigo-500/10 blur-[100px]"
+        />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-32 top-1/2 h-[24rem] w-[24rem] -translate-y-1/2 rounded-full bg-fuchsia-500/10 blur-[100px]"
+        />
+        <div className="relative mx-auto max-w-5xl px-6">
+          <Reveal>
+            <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
+              See it in motion
+            </p>
+            <h2 className="mt-4 text-center text-3xl font-light tracking-tight text-white sm:text-4xl lg:text-5xl">
+              The platform,{" "}
+              <span className="bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">
+                end to end.
+              </span>
+            </h2>
+          </Reveal>
+          <Reveal delay={120}>
+            <div className="mt-10 sm:mt-12">
+              <ScrollPlayVideo />
+            </div>
+          </Reveal>
         </div>
       </section>
 
