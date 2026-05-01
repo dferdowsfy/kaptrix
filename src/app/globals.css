@@ -340,77 +340,85 @@ button {
   opacity: 1;
 }
 @media (max-width: 1024px) {
-  .hero-arc-backdrop { opacity: 0.85; }
+  .hero-arc-backdrop { opacity: 0.9; }
+  /* Fewer particles on tablet — hide every other one. */
+  .hero-arc-backdrop .hero-arc-particle-wrap:nth-child(odd) {
+    display: none;
+  }
 }
 @media (max-width: 640px) {
-  .hero-arc-backdrop { opacity: 0.6; }
-  .hero-arc-svg { transform: translate(18%, 16%) scale(1.05); }
+  /* On phones, scale the arc further off-canvas so only the corner
+     bloom shows; the eye gets a faint glow rather than a busy field. */
+  .hero-arc-backdrop { opacity: 0.55; }
+  .hero-arc-svg { transform: translate(20%, 18%) scale(1.05); }
 }
 
-/* Chase light — the brilliant white segment that sweeps along each
-   arc. Implemented as stroke-dasharray with a fast-moving dashoffset.
-   The dasharray is "visible run + huge gap" so only ONE bright
-   segment exists on the path at a time; the dashoffset animation
-   walks that segment from end to end, then loops.
-
-   Pause length between sweeps: each cycle ends with the visible
-   segment off the path, so the arc dims for ~1s before the next
-   sweep starts. That's the "shooting star, then arc fades" beat the
-   user is asking for. */
-.hero-arc-chase {
-  stroke-dasharray: 200 1600;
-  stroke-dashoffset: 1800;
-  animation: hero-arc-chase-flow linear infinite;
+/* Per-particle fade envelope. Each <g class="hero-arc-particle-wrap">
+   has its own animation-delay and animation-duration set inline (so
+   the timing stays in sync with its <animateMotion>). The keyframes
+   here drive the "appear → bright → fade" envelope while the particle
+   travels the path. The 0% / 100% steps at zero opacity are what
+   produce the trailing dust effect — a particle is invisible at the
+   start of its cycle, ramps up as it traverses, then fades out before
+   the loop restarts. Multiplied by the inline base opacity, brighter
+   particles peak brighter and dimmer ones stay restrained. */
+.hero-arc-particle-wrap {
+  animation-name: hero-arc-particle-envelope;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
 }
-.hero-arc-chase-1 { animation-duration: 6s; animation-delay: 0s; }
-.hero-arc-chase-2 { animation-duration: 8.5s; animation-delay: 1.2s; }
-.hero-arc-chase-3 { animation-duration: 7.4s; animation-delay: 3.4s; }
-@keyframes hero-arc-chase-flow {
-  0%   { stroke-dashoffset: 1800; }
-  85%  { stroke-dashoffset: -200; }
-  100% { stroke-dashoffset: -200; }  /* hold off-path so the arc dims */
+@keyframes hero-arc-particle-envelope {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  70%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
-/* Comet tail — a shorter, brighter dash that sits just behind the
-   animated head. Same path, same total cycle length, different dash
-   shape so it reads as the trail right behind the head circle. */
-.hero-arc-tail {
-  stroke-dasharray: 60 1740;
-  stroke-dashoffset: 1800;
-  animation: hero-arc-tail-flow linear infinite;
+/* Subtle pulse on the base arc strokes so the underlying curve
+   breathes between particle sweeps. Two slightly different cadences
+   for the outer/inner arcs. */
+.hero-arc-shimmer {
+  animation-name: hero-arc-shimmer-pulse;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease-in-out;
 }
-.hero-arc-tail-1 { animation-duration: 6s; animation-delay: 0s; }
-.hero-arc-tail-2 { animation-duration: 8.5s; animation-delay: 1.2s; }
-@keyframes hero-arc-tail-flow {
-  0%   { stroke-dashoffset: 1800; }
-  85%  { stroke-dashoffset: -60; }
-  100% { stroke-dashoffset: -60; }
+.hero-arc-shimmer-1 { animation-duration: 6s; }
+.hero-arc-shimmer-2 { animation-duration: 8s; animation-delay: 1.5s; }
+@keyframes hero-arc-shimmer-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
 }
 
-/* Stardust — independent twinkle. Four cadences so the cluster never
+/* Stationary stardust twinkle. Four cadences so the cluster never
    pulses in lockstep. */
-.hero-arc-spark {
-  animation-name: hero-arc-spark-twinkle;
+.hero-arc-stardust {
+  animation-name: hero-arc-stardust-twinkle;
   animation-iteration-count: infinite;
   animation-timing-function: ease-in-out;
   transform-origin: center;
   transform-box: fill-box;
   opacity: 0;
 }
-.hero-arc-spark-1 { animation-duration: 3s; }
-.hero-arc-spark-2 { animation-duration: 4.4s; }
-.hero-arc-spark-3 { animation-duration: 5.6s; }
-.hero-arc-spark-4 { animation-duration: 7.2s; }
-@keyframes hero-arc-spark-twinkle {
-  0%, 100% { opacity: 0.15; transform: scale(0.7); }
-  50%      { opacity: 1;    transform: scale(1.6); }
+.hero-arc-stardust-1 { animation-duration: 3s; }
+.hero-arc-stardust-2 { animation-duration: 4.4s; }
+.hero-arc-stardust-3 { animation-duration: 5.6s; }
+.hero-arc-stardust-4 { animation-duration: 7.2s; }
+@keyframes hero-arc-stardust-twinkle {
+  0%, 100% { opacity: 0.1; transform: scale(0.7); }
+  50%      { opacity: 0.85; transform: scale(1.4); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .hero-arc-chase,
-  .hero-arc-tail,
-  .hero-arc-spark,
-  .hero-arc-backdrop circle[r] animateMotion {
+  .hero-arc-particle-wrap,
+  .hero-arc-shimmer,
+  .hero-arc-stardust {
     animation: none;
+  }
+  /* Disable SVG <animateMotion> when reduced motion is preferred. */
+  .hero-arc-backdrop animateMotion {
+    /* Inline animateMotion can't be paused via CSS in all browsers;
+       the recommended fallback is to set the parent visibility off
+       on the moving children. */
+    display: none;
   }
 }
