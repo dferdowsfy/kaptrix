@@ -202,19 +202,6 @@ function NewClientForm({ onCreated }: { onCreated: () => void }) {
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-slate-700">Engagement Tier</label>
-          <select
-            value={form.tier}
-            onChange={(e) => update("tier", e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          >
-            <option value="signal_scan">Signal Scan ($2,500)</option>
-            <option value="standard">Standard ($12,500)</option>
-            <option value="deep">Deep Diligence ($35,000)</option>
-            <option value="retained">Retained ($120,000/yr)</option>
-          </select>
-        </div>
-        <div>
           <label className="block text-sm font-medium text-slate-700">Delivery Deadline</label>
           <input
             type="date"
