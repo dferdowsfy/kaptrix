@@ -93,7 +93,7 @@ export function HeroArcBackdrop() {
       <svg
         viewBox="0 0 1200 800"
         preserveAspectRatio="xMaxYMid meet"
-        className="hero-arc-svg absolute -right-12 -bottom-32 h-[140%] w-[80%] max-w-[1100px] sm:right-0 sm:-bottom-24 sm:w-[68%] lg:w-[56%]"
+        className="hero-arc-svg absolute -right-6 -bottom-6 h-auto w-[88%] max-w-[420px] sm:-right-12 sm:-bottom-24 sm:h-[140%] sm:w-[68%] sm:max-w-[1100px] lg:w-[56%]"
       >
         <defs>
           {/* Wide bloom — the soft halo around bright sources. */}

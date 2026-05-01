@@ -339,18 +339,36 @@ button {
 .hero-arc-backdrop {
   opacity: 1;
 }
-@media (max-width: 1024px) {
+
+/* Tablet: ~641–1024px. Keep ~25 of the 50 particles by hiding odd
+   children. Particle stream stays full-density inside its smaller
+   render box. */
+@media (max-width: 1024px) and (min-width: 641px) {
   .hero-arc-backdrop { opacity: 0.9; }
-  /* Fewer particles on tablet — hide every other one. */
   .hero-arc-backdrop .hero-arc-particle-wrap:nth-child(odd) {
     display: none;
   }
 }
+
+/* Mobile: ≤640px. The SVG is anchored to the bottom-right corner via
+   the component's tailwind classes (no translate hack here). Keep the
+   density readable at phone scale by hiding 3 of every 4 particles
+   (~12 remain). Boost opacity so the smaller render still has
+   presence. */
 @media (max-width: 640px) {
-  /* On phones, scale the arc further off-canvas so only the corner
-     bloom shows; the eye gets a faint glow rather than a busy field. */
-  .hero-arc-backdrop { opacity: 0.55; }
-  .hero-arc-svg { transform: translate(20%, 18%) scale(1.05); }
+  .hero-arc-backdrop { opacity: 0.95; }
+  .hero-arc-backdrop .hero-arc-particle-wrap {
+    display: none;
+  }
+  .hero-arc-backdrop .hero-arc-particle-wrap:nth-child(4n+1) {
+    display: inline;
+  }
+  /* Stardust thins out too — keep every 3rd so the corner doesn't
+     feel too busy at phone width. */
+  .hero-arc-backdrop .hero-arc-stardust:nth-child(3n+2),
+  .hero-arc-backdrop .hero-arc-stardust:nth-child(3n+3) {
+    display: none;
+  }
 }
 
 /* Per-particle fade envelope. Each <g class="hero-arc-particle-wrap">
