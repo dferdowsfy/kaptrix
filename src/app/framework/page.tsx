@@ -95,21 +95,21 @@ export default function FrameworkPage() {
               The Framework
             </p>
             <h1 className="mt-6 max-w-4xl text-5xl font-light leading-[1.05] tracking-tight sm:text-6xl lg:text-[5.25rem] kx-fade-in">
-              How Kaptrix scores{" "}
+              How Kaptrix reads{" "}
               <span className="bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">
-                AI companies.
+                a company.
               </span>
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-8 text-slate-100 sm:text-xl">
               Evidence over claims. Structure over vibes.
             </p>
             <p className="mt-6 max-w-3xl text-base leading-8 text-slate-300 sm:text-lg">
-              Most AI evaluations lean on demos, founder charisma, and scattered
-              documentation. The result is inconsistent calls and expensive
-              surprises. Kaptrix replaces that with a structured, repeatable
-              framework that separates what is proven from what is claimed, and
-              turns the gap between the two into the central object of the
-              review.
+              Most company evaluations lean on demos, founder charisma, and
+              scattered documentation. The result is inconsistent calls and
+              expensive surprises. Kaptrix replaces that with a structured,
+              repeatable framework that separates what is proven from what is
+              claimed, and turns the gap between the two into the central
+              object of the read.
             </p>
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
@@ -117,7 +117,7 @@ export default function FrameworkPage() {
                 href="/contact"
                 className="inline-flex items-center justify-center rounded-md bg-white px-6 py-3 text-base font-medium text-[#0B0B1A] transition hover:bg-[#F9FAFB]"
               >
-                Start a diligence engagement
+                Get a Kaptrix Quick Read
               </Link>
               <a
                 href="#dimensions"
@@ -304,16 +304,16 @@ export default function FrameworkPage() {
                     Built for
                   </p>
                   <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight sm:text-5xl">
-                    Capital allocators evaluating{" "}
-                    <span className="text-slate-400">AI-heavy software.</span>
+                    Teams that need to{" "}
+                    <span className="text-slate-400">understand a company quickly.</span>
                   </h2>
                 </div>
                 <ul className="space-y-3">
                   {[
-                    "Private equity",
-                    "Growth equity",
-                    "Family offices",
-                    "Corporate development teams",
+                    "Small investment teams",
+                    "Advisors evaluating companies",
+                    "Operators preparing for review",
+                    "Firms running compliance workflows",
                   ].map((b) => (
                     <li
                       key={b}
@@ -347,9 +347,8 @@ export default function FrameworkPage() {
                   </span>
                 </h2>
                 <p className="mt-6 text-base leading-7 text-slate-300 sm:text-lg">
-                  Kaptrix is an AI diligence platform. The full scoring
-                  methodology, including sub-criteria and decision thresholds,
-                  is available under NDA.
+                  The full scoring methodology — including sub-criteria and
+                  decision thresholds — is available under NDA.
                 </p>
                 <div className="mt-10 flex flex-wrap gap-3">
                   <Link
@@ -362,7 +361,7 @@ export default function FrameworkPage() {
                     href="/sample-report"
                     className="inline-flex items-center justify-center rounded-md border border-white/25 bg-transparent px-6 py-3 text-base font-medium text-white transition hover:bg-white/5"
                   >
-                    See a sample report
+                    See a sample read
                   </Link>
                 </div>
               </div>
@@ -380,7 +379,7 @@ export default function FrameworkPage() {
             <span className="text-sm font-semibold uppercase tracking-[0.32em] text-white">
               Kaptrix
             </span>
-            <p>© {new Date().getFullYear()} Kaptrix · AI Diligence Platform</p>
+            <p>© {new Date().getFullYear()} Kaptrix · A clear read on a company</p>
             <div className="flex items-center gap-6">
               <Link
                 href="/how-it-works"

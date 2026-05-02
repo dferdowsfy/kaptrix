@@ -197,9 +197,9 @@ export default function CategoryReportPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900">Category Diligence Memo</h2>
+          <h2 className="text-xl font-bold text-slate-900">Category Read</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Full AI-generated diligence memo across {MI_REPORT_SECTIONS.length} sections.
+            Full structured read across {MI_REPORT_SECTIONS.length} sections.
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -209,7 +209,7 @@ export default function CategoryReportPage() {
               onClick={() => setFullscreen(true)}
               className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
-              View Full Report
+              View Full Read
             </button>
           )}
           <button
@@ -218,7 +218,7 @@ export default function CategoryReportPage() {
             disabled={generating}
             className="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-fuchsia-500 disabled:opacity-50"
           >
-            {generating ? "Generating…" : report ? "Re-generate" : "Generate Report"}
+            {generating ? "Creating…" : report ? "Re-create" : "Create Read"}
           </button>
         </div>
       </div>
@@ -257,11 +257,11 @@ export default function CategoryReportPage() {
       </div>
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-slate-500">Loading report…</div>
+        <div className="py-12 text-center text-sm text-slate-500">Loading read…</div>
       ) : !report ? (
         <div className="rounded-2xl border-2 border-dashed border-fuchsia-200 py-16 text-center">
           <p className="text-sm text-slate-500 mb-3">
-            No report generated yet. Complete intake, evidence, insights, and
+            No read created yet. Complete intake, evidence, insights, and
             scoring first for the best output.
           </p>
           <button
@@ -270,7 +270,7 @@ export default function CategoryReportPage() {
             disabled={generating}
             className="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-500"
           >
-            Generate Report
+            Create Read
           </button>
         </div>
       ) : (
@@ -285,7 +285,7 @@ export default function CategoryReportPage() {
               onClick={() => setFullscreen(true)}
               className="rounded-lg bg-fuchsia-600 px-4 py-2 text-sm font-semibold text-white hover:bg-fuchsia-500"
             >
-              Open Full Report →
+              Open Full Read →
             </button>
           </div>
           {activeSection && (

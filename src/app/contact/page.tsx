@@ -5,7 +5,7 @@ import { Logo } from "@/components/home/logo";
 
 export const metadata: Metadata = {
   title: "Contact, Kaptrix",
-  description: "Discuss an engagement with Kaptrix.",
+  description: "Get in touch with Kaptrix.",
 };
 
 const CONTACT_EMAIL = "hello@kaptrix.com";
@@ -17,7 +17,7 @@ export default async function ContactPage({
 }) {
   const params = (await searchParams) ?? {};
   const intent = params.intent;
-  const subject = intent === "sample" ? "Sample report request" : "Engagement inquiry";
+  const subject = intent === "sample" ? "Sample read request" : "Kaptrix Quick Read inquiry";
   const mailto = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 
   return (
@@ -30,13 +30,13 @@ export default async function ContactPage({
         </p>
         <h1 className="mt-4 text-4xl font-normal leading-[1.1] tracking-tight sm:text-5xl">
           {intent === "sample"
-            ? "Request a sample report."
-            : "Discuss an engagement."}
+            ? "Request a sample read."
+            : "Get a Kaptrix Quick Read."}
         </h1>
         <p className="mt-6 max-w-xl text-base leading-7 text-slate-600">
           {intent === "sample"
-            ? "Tell us your firm and the kind of deal you're looking at. We'll send a redacted sample of a Master Diligence Report and IC memo."
-            : "Tell us about the deal, sector, stage, timeline. We'll respond within one business day with next steps and a proposed scope."}
+            ? "Tell us a bit about the kind of company you'd like to evaluate. We'll send a redacted sample read so you can see what Kaptrix produces."
+            : "Tell us about the company, your timeline, and what you're trying to understand. We'll respond within one business day with next steps."}
         </p>
 
         <div className="mt-10 rounded-md border border-[#E5E7EB] bg-[#FAFAFA] p-6 text-sm leading-6 text-slate-700">

@@ -5,7 +5,7 @@ import { PublicHeader } from "@/components/home/public-header";
 export const metadata: Metadata = {
   title: "How Kaptrix Works",
   description:
-    "The evaluation layer for AI-driven businesses. Structured scoring, evidence-driven adjustments, and a live reasoning surface that holds up under IC scrutiny.",
+    "How Kaptrix turns messy company data into a clear, structured, evidence-backed read on a company — in hours, not weeks.",
 };
 
 export default function HowItWorksPage() {
@@ -52,15 +52,15 @@ function Hero() {
           How Kaptrix Works
         </p>
         <h1 className="mt-4 text-4xl font-bold tracking-tight sm:text-6xl">
-          The evaluation layer for{" "}
+          A fast, structured read{" "}
           <span className="bg-gradient-to-r from-indigo-300 to-fuchsia-300 bg-clip-text text-transparent">
-            AI-driven businesses.
+            on a company.
           </span>
         </h1>
         <p className="mt-8 max-w-2xl text-base leading-8 text-slate-300 sm:text-lg">
-          Kaptrix is an AI system assessment and decision engine. It evaluates
-          whether an AI-driven product is credible, durable, and
-          investment-worthy based on evidence, not narrative.
+          Kaptrix turns messy company data into a clear view of risks, gaps,
+          and opportunities — in hours, not weeks. Every conclusion is tied to
+          evidence, every read ends in clear next steps.
         </p>
         <div className="mt-10 flex flex-wrap gap-3">
           <Link
@@ -109,14 +109,13 @@ function ProblemSection() {
   ];
 
   return (
-    <Section id="problem" eyebrow="The problem" title="AI diligence has a structural blind spot.">
+    <Section id="problem" eyebrow="The problem" title="Most company evaluations start from fragmented data.">
       <Lede>
-        Diligence on AI-driven businesses has a structural
-        problem: the thing being evaluated is often the thing least visible in
-        a data room. Demos perform. Decks assert. Founders narrate. The
-        underlying system, models, dependencies, data posture, controls,
-        failure modes, sits behind a layer of interpretation that traditional
-        diligence was not designed to penetrate.
+        Most teams evaluate companies using fragmented data — documents,
+        decks, spreadsheets, and assumptions. It takes days or weeks to
+        understand what&apos;s real, what&apos;s missing, and where the risks
+        are. The underlying picture is often the thing least visible in
+        what gets shared first.
       </Lede>
       <div className="mt-10 grid gap-4 sm:grid-cols-2">
         {failures.map((f) => (
@@ -144,9 +143,9 @@ function ProblemSection() {
       </div>
       <Pullquote>
         Kaptrix is built for the moment after that gap becomes visible. It
-        gives investment teams a structured, evidence-backed view of whether
-        an AI system is real, durable, and worth the capital, and a live
-        reasoning surface to interrogate that view as new information arrives.
+        gives teams a structured, evidence-backed view of whether a company
+        is what it claims to be — and a way to interrogate that view as new
+        information arrives.
       </Pullquote>
     </Section>
   );
@@ -211,7 +210,7 @@ function CoreIdeaSection() {
     <Section
       id="core-idea"
       eyebrow="The core idea"
-      title="Most AI evaluation tools do one of two things."
+      title="Most evaluation tools do one of two things."
     >
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <ContrastCard
@@ -230,11 +229,11 @@ function CoreIdeaSection() {
         <p className="mt-3 text-base leading-8 text-slate-800">
           A rubric-driven scoring engine runs underneath a live reasoning
           layer, with a strict separation between what the operator decides
-          and what the AI contributes. The scoring logic is fixed and
-          inspectable. The AI layer is bounded and auditable. Together they
-          produce something that is both fast and defensible, a combination
-          traditional diligence and first-generation AI tools have not
-          delivered.
+          and what the system contributes. The scoring logic is fixed and
+          inspectable. The reasoning layer is bounded and auditable. Together
+          they produce something that is both fast and defensible — a
+          combination traditional reviews and first-generation evaluation
+          tools have not delivered.
         </p>
       </div>
     </Section>
@@ -494,7 +493,7 @@ function ConfidenceSection() {
       </div>
 
       <p className="mt-8 max-w-3xl text-sm leading-7 text-slate-600">
-        Investment committees need to be able to tell these two states apart.
+        Decision-makers need to be able to tell these two states apart.
         Kaptrix makes that distinction visible, explicit, and reviewable.
       </p>
     </Section>
@@ -519,7 +518,7 @@ function ScrutinySection() {
       title="Every output can be walked backwards to its source."
     >
       <Lede>
-        When an LP, an investment committee, or a legal team asks{" "}
+        When a partner, a board, or a legal team asks{" "}
         <em>how did you arrive at this view</em>, the answer needs to be
         traceable.
       </Lede>
@@ -556,16 +555,16 @@ function DifferentiatorsSection() {
     >
       <div className="mt-8 grid gap-5 md:grid-cols-2">
         <ApproachCard
-          label="Manual diligence"
+          label="Manual review"
           rows={[
             "Defensible but slow",
-            "Inconsistent across deals",
-            "Dependent on whichever partner is most technical",
-            "Scales poorly, every evaluation starts from zero",
+            "Inconsistent across companies",
+            "Dependent on whichever person knows the space",
+            "Scales poorly — every review starts from zero",
           ]}
         />
         <ApproachCard
-          label="First-gen AI analysis tools"
+          label="First-gen analysis tools"
           rows={[
             "Fast but shallow",
             "Summarize without structure",
@@ -584,7 +583,7 @@ function DifferentiatorsSection() {
             "Automated evidence extraction",
             "Rubric-driven scoring logic",
             "Full auditability",
-            "Continuous reasoning that stays live throughout diligence",
+            "Continuous reasoning that stays live throughout the read",
           ].map((r) => (
             <div key={r} className="flex items-start gap-3">
               <CheckGlyph color="emerald" />
@@ -593,8 +592,8 @@ function DifferentiatorsSection() {
           ))}
         </div>
         <p className="mt-5 text-sm leading-7 text-slate-700">
-          Faster than traditional diligence, more structured than ad hoc
-          review, more defensible than pure AI output.
+          Faster than a manual review, more structured than ad hoc analysis,
+          more defensible than a black-box summary.
         </p>
       </div>
     </Section>
@@ -609,12 +608,12 @@ function BoundariesSection() {
   const items = [
     {
       title: "Does not predict financial performance",
-      body: "Evaluates the AI system itself, not the business built around it.",
+      body: "Gives you a structured read on the company — not a forecast.",
     },
     {
-      title: "Does not replace full technical or legal diligence",
+      title: "Does not replace full legal or technical review",
       body:
-        "Compresses the fragmented parts of AI-specific evaluation into a structured layer the rest of diligence can build on.",
+        "Turns scattered information into a structured layer the rest of the review can build on.",
     },
     {
       title: "Does not operate as a black-box autonomous evaluator",
@@ -690,11 +689,11 @@ function DeliverablesSection() {
     {
       title: "Live reasoning surface",
       body:
-        "Continues to answer questions during diligence, at IC, and after close.",
+        "Continues to answer questions during the read, in review meetings, and afterwards.",
     },
   ];
   return (
-    <Section id="deliverables" eyebrow="What you get" title="When diligence concludes.">
+    <Section id="deliverables" eyebrow="What you get" title="When the read is ready.">
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((it, idx) => (
           <div
@@ -721,8 +720,8 @@ function ShiftSection() {
   return (
     <Section id="shift" eyebrow="The shift" title="Small on the surface. Large in practice.">
       <p className="mt-4 max-w-3xl text-base leading-8 text-slate-700">
-        Kaptrix moves the central question of AI diligence from one with no
-        defensible answer to one that does.
+        Kaptrix moves the central question of evaluating a company from one
+        with no defensible answer to one that does.
       </p>
 
       <div className="mt-10 grid gap-5 md:grid-cols-2">
@@ -740,8 +739,8 @@ function ShiftSection() {
 
       <p className="mt-8 max-w-3xl text-sm leading-7 text-slate-600">
         Kaptrix is built to answer the second question in real time, with full
-        context, and with logic you can defend, in front of an investment
-        committee, a board, or an LP.
+        context, and with logic you can defend in front of a partner, a
+        board, or anyone else who asks.
       </p>
     </Section>
   );
@@ -766,11 +765,12 @@ function CallToAction() {
         has to hold up.
       </h2>
       <p className="mt-4 max-w-2xl text-indigo-100">
-        Pre-investment evaluation of AI-driven targets. Acquisition diligence.
-        Validation of vendor AI claims. Assessment of internal AI initiatives
-        where governance and capital exposure intersect. Most valuable when
-        decisions must be made quickly, information is incomplete or biased,
-        and claims need to be pressure-tested against evidence.
+        Use Kaptrix anywhere you need a clear, structured read on a company:
+        evaluating a potential investment, advising a client, preparing your
+        own company for review, or running a consistent compliance workflow.
+        Most valuable when decisions must be made quickly, information is
+        incomplete or biased, and claims need to be pressure-tested against
+        evidence.
       </p>
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
@@ -788,7 +788,7 @@ function Footer() {
   return (
     <footer className="border-t bg-white">
       <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-3 px-6 py-8 text-xs text-slate-500 sm:flex-row sm:items-center">
-        <p>© {new Date().getFullYear()} Kaptrix. Independent AI product diligence.</p>
+        <p>© {new Date().getFullYear()} Kaptrix. A fast, structured read on a company.</p>
         <div className="flex gap-4">
           <Link href="/app" className="hover:text-slate-800">
             Platform

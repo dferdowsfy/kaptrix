@@ -54,8 +54,8 @@ export default function PreviewReportPage() {
           {staleSteps
             .map((s) => KNOWLEDGE_STEP_LABELS[s])
             .join(", ")}{" "}
-          were invalidated by upstream changes. Reports generated now will exclude
-          stale stages. Recompute them first for a complete deliverable.
+          were invalidated by upstream changes. Reads created now will exclude
+          stale stages. Recompute them first for a complete read.
         </div>
       )}
       {/* On-demand reports live at the top so they are immediately
@@ -66,13 +66,13 @@ export default function PreviewReportPage() {
       >
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
           <SectionHeader
-            eyebrow="On-demand reports"
-            title="Generate a deliverable"
-            description="Pick any report below — the assistant synthesizes it from the current knowledge base and exports to PDF or Word."
+            eyebrow="Quick Reads"
+            title="Create a read"
+            description="Pick any read below — Kaptrix turns the company's documents into a clear, structured view you can review, share, or export."
           />
           <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-700 shadow-sm ring-1 ring-indigo-200">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
-            {reports.length} reports available
+            {reports.length} reads available
           </span>
         </div>
         <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -90,9 +90,9 @@ export default function PreviewReportPage() {
 
       <section id="saved-reports" className="print-hide">
         <SectionHeader
-          eyebrow="Your history"
-          title="Saved reports"
-          description="Every report you have generated, with the date and time it was produced. Reports sync across your browsers and devices once you are signed in."
+          eyebrow="Your Company Reads"
+          title="Your Company Reads"
+          description="All your created company reads — ready to view, share, or export. Reads sync across your browsers and devices once you are signed in."
         />
         <div className="mt-5">
           <SavedReportsList />

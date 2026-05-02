@@ -24,9 +24,9 @@ export default async function ReportPage({ params }: Props) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Report</h2>
+          <h2 className="text-xl font-bold text-gray-900">Read</h2>
           <p className="mt-1 text-sm text-gray-500">
-            Generate and manage the branded diligence report.
+            Create and manage the branded company read.
           </p>
         </div>
         <form action="/api/reports/generate" method="POST">
@@ -35,7 +35,7 @@ export default async function ReportPage({ params }: Props) {
             type="submit"
             className="rounded-md bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-gray-800"
           >
-            Generate Report
+            Create Read
           </button>
         </form>
       </div>

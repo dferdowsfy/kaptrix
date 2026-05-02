@@ -641,38 +641,38 @@ const COVERAGE_SECTIONS: AdvancedReportSection[] = [
 export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
   {
     id: "master_diligence",
-    title: "Master AI Diligence Report",
-    tagline: "IC-grade, evidence-backed diligence",
+    title: "Company Readiness Report",
+    tagline: "A complete, structured view of the company",
     description:
-      "Dense 10-section institutional-grade report covering architecture reality, data advantage, vendor risk, failure modes, governance stress tests, score decomposition, and investment impact.",
+      "A complete, structured view of the company — covering risks, gaps, capabilities, and areas that need attention before moving forward.",
     accent: "from-indigo-600 via-indigo-500 to-violet-500",
-    eyebrow: "Diligence · Master",
+    eyebrow: "Read · Company",
     systemPrompt: MASTER_PROMPT,
     userPromptIntro:
-      "Produce the Master AI Diligence Report for the target company below.",
+      "Produce the Company Readiness Report for the target company below.",
     sections: MASTER_SECTIONS,
   },
   {
     id: "ic_memo",
-    title: "Executive Summary / IC Memo",
-    tagline: "Decision document for the Investment Committee",
+    title: "Executive Decision Brief",
+    tagline: "Key strengths, key risks, what matters most",
     description:
-      "Sharp partner-style memo with final recommendation, non-obvious insight, 3 critical strengths, 3 critical risks, deal-killers, 2x levers, and deal implications for valuation, scalability, and exit.",
+      "A clear, concise summary of the company — key strengths, key risks, and what matters most for decision-making.",
     accent: "from-slate-900 via-slate-800 to-indigo-800",
-    eyebrow: "IC · Memo",
+    eyebrow: "Read · Brief",
     systemPrompt: IC_MEMO_PROMPT,
     userPromptIntro:
-      "Write the Investment Committee memo for the target company below.",
+      "Write the Executive Decision Brief for the target company below.",
     sections: IC_MEMO_SECTIONS,
   },
   {
     id: "risk_register",
     title: "Technical Risk Register",
-    tagline: "Operator-grade, testable risks",
+    tagline: "Top risks across systems, data, and operations",
     description:
-      "Top 10-15 concrete technical risks — each tied to a specific system behavior or missing control — with trigger, evidence, severity, likelihood, business impact, actionable mitigation, and residual risk.",
+      "Top risks across systems, data, and operations — each with impact, likelihood, and what needs to be addressed.",
     accent: "from-rose-600 via-rose-500 to-amber-500",
-    eyebrow: "Risk · Register",
+    eyebrow: "Read · Risks",
     systemPrompt: RISK_REGISTER_PROMPT,
     userPromptIntro:
       "Produce the Technical Risk Register for the target company below.",
@@ -680,41 +680,41 @@ export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
   },
   {
     id: "competitive_posture",
-    title: "Competitive Posture Report",
-    tagline: "Durable or replaceable — decided, not described",
+    title: "Market & Capability Overview",
+    tagline: "Where the company stands",
     description:
-      "Capability-first competitive read. Places the target against realistic archetypes, calls where it wins and loses structurally, names the hidden weakness, and stress-tests the position under foundation-model and incumbent-distribution futures.",
+      "Where the company stands — what it does well, where it falls behind, and what could impact its position.",
     accent: "from-amber-600 via-orange-500 to-rose-500",
-    eyebrow: "Market · Posture",
+    eyebrow: "Read · Market",
     systemPrompt: COMPETITIVE_PROMPT,
     userPromptIntro:
-      "Produce the Competitive Posture Report for the target company below.",
+      "Produce the Market & Capability Overview for the target company below.",
     sections: COMPETITIVE_SECTIONS,
   },
   {
     id: "value_creation",
-    title: "Value Creation / 100-Day Plan",
-    tagline: "Post-investment execution playbook",
+    title: "Action Plan (30/60/90 Days)",
+    tagline: "Clear next steps to improve the company",
     description:
-      "Top 7 ranked actions tied to identified risks and opportunities, with value-leverage and cost-reduction picks, risk-reduction moves, a 30/60/90 execution plan with owners, and measurable metric outcomes.",
+      "Clear next steps to improve the company — prioritized actions tied to risk reduction and opportunity.",
     accent: "from-emerald-600 via-emerald-500 to-lime-500",
-    eyebrow: "Plan · 100 Days",
+    eyebrow: "Read · Plan",
     systemPrompt: VALUE_CREATION_PROMPT,
     userPromptIntro:
-      "Produce the Value Creation / 100-Day execution plan for the target company below.",
+      "Produce the Action Plan (30/60/90 Days) for the target company below.",
     sections: VALUE_CREATION_SECTIONS,
   },
   {
     id: "evidence_coverage",
-    title: "Evidence / Artifact Coverage Report",
-    tagline: "Critical audit of the diligence itself",
+    title: "Evidence Confidence Report",
+    tagline: "What's supported and what's still unclear",
     description:
-      "Self-critical audit of evidence quality: artifact inventory, coverage by dimension, 0-100% confidence scoring, unsupported conclusions, critical gaps, and an overall reliability verdict.",
+      "Shows what's supported by real data — and where information is missing or unclear.",
     accent: "from-slate-700 via-slate-600 to-slate-500",
-    eyebrow: "Evidence · Coverage",
+    eyebrow: "Read · Evidence",
     systemPrompt: COVERAGE_PROMPT,
     userPromptIntro:
-      "Produce the Evidence / Artifact Coverage Report for the target company below.",
+      "Produce the Evidence Confidence Report for the target company below.",
     sections: COVERAGE_SECTIONS,
   },
 ];
