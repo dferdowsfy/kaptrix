@@ -9,66 +9,67 @@ import { HeroArcBackdrop } from "@/components/landing/hero-arc-backdrop";
 import { ScrollPlayVideo } from "@/components/landing/scroll-play-video";
 
 export const metadata: Metadata = {
-  title: "KAPTRIX | Don't write a check on AI you can't defend",
+  title:
+    "Kaptrix | A fast, evidence-backed read on a company before you commit",
   description:
-    "Evidence-backed AI diligence for investors and operators. Score what's real, expose contradictions, produce decision-grade outputs before capital moves.",
+    "Kaptrix turns messy company data into a clear view of risks, gaps, and opportunities — in hours, not weeks.",
 };
 
 // ---------------------------------------------------------------------------
-// Visual system (unchanged): Stripe / Linear restraint.
+// Visual system: Stripe / Linear restraint.
 // Primary CTA #0B0B1A · Secondary white/border · Accent indigo #6B5BFF.
 // ---------------------------------------------------------------------------
 
 const HERO_PROOF = [
-  "Every score traced to a specific source passage.",
-  "Contradictions across decks, contracts, and code flagged automatically.",
-  "IC-ready outputs defensible at committee — and eighteen months later.",
+  "Key risks and gaps surfaced clearly.",
+  "Every conclusion tied back to specific evidence.",
+  "Clear next steps you can act on this week.",
 ];
 
 const COST_OF_WRONG = [
-  "Overpay for a wrapper priced like a platform.",
-  "Undisclosed vendor and model dependencies surface post-close.",
-  "Narrative scored as capability; the cliff appears in quarter three.",
-  "A thesis you can't defend when LPs, the board, or the exit committee asks how the call got made.",
+  "You burn weeks reconciling decks, contracts, and spreadsheets that disagree.",
+  "Important risks stay buried until you're already deep in the process.",
+  "A confident narrative gets mistaken for a real, working capability.",
+  "You can't clearly explain how the call was made when someone asks later.",
 ];
 
 const HOW_IT_WORKS = [
   {
     id: "01",
-    step: "Intake",
-    line: "Ingest the full room — CIMs, contracts, code artifacts, customer calls, model specs.",
+    step: "Upload",
+    line: "Drop in the company's documents — pitch decks, financials, contracts, product materials, anything you have.",
   },
   {
     id: "02",
-    step: "Scoring",
-    line: "Apply a fixed rubric to the dimensions that break AI companies — every score tied to evidence.",
+    step: "Structure",
+    line: "Kaptrix organizes it against a consistent framework so you can see strengths, gaps, and risks side by side.",
   },
   {
     id: "03",
-    step: "Outputs",
-    line: "Ship an IC memo, risk register, and execution plan with a full audit trail from artifact to decision.",
+    step: "Read",
+    line: "Get a clear, structured view of the company you can review, share, or hand to your team.",
   },
 ];
 
 const SNAPSHOTS = [
   {
-    kicker: "Layer 01",
-    title: "Intake & context",
-    description: "Scope the deal. Lock the thesis. Set the questions that matter.",
+    kicker: "Step 01",
+    title: "Upload",
+    description: "Bring the documents you already have. Kaptrix takes it from there.",
     href: "/demo/intake",
     accent: "from-slate-700/40 via-slate-700/20 to-transparent",
   },
   {
-    kicker: "Layer 02",
-    title: "Scoring layer",
-    description: "Structured dimensions. Every claim traced to evidence.",
+    kicker: "Step 02",
+    title: "Structure",
+    description: "A consistent view of the company — risks, gaps, and capabilities in one place.",
     href: "/demo/scoring",
     accent: "from-slate-700/40 via-slate-700/20 to-transparent",
   },
   {
-    kicker: "Layer 03",
-    title: "Report layer",
-    description: "Committee-ready outputs. Full audit trail from artifact to decision.",
+    kicker: "Step 03",
+    title: "Read",
+    description: "A clear company read you can review, share, or export.",
     href: "/demo/report",
     accent: "from-slate-700/40 via-slate-700/20 to-transparent",
   },
@@ -76,63 +77,68 @@ const SNAPSHOTS = [
 
 const DELIVERABLES = [
   {
-    name: "AI Diligence Report",
-    what: "Ten-section master report: architecture, data, evals, team, moat, vendor risk, scaling, compliance, commercial posture.",
-    why: "The document the partner reads on the train. It has to survive scrutiny.",
+    name: "Company Readiness Report",
+    what: "A complete, structured view of the company — covering risks, gaps, capabilities, and areas that need attention before moving forward.",
+    why: "The single document that tells you, end to end, what's real and what needs more work.",
   },
   {
-    name: "Investment Committee Memo",
-    what: "Recommendation, thesis, key risks, mitigations, and decision rationale — condensed to IC format.",
-    why: "A clear call, not a summary. Dissent is grounded in the same facts.",
+    name: "Executive Decision Brief",
+    what: "A clear, concise summary of the company — key strengths, key risks, and what matters most for decision-making.",
+    why: "What you read first. Built so anyone on the team can get aligned in minutes.",
   },
   {
     name: "Technical Risk Register",
-    what: "Ranked register of technical, model, data, vendor, and operational risks with severity, triggers, and owners.",
-    why: "The handoff to the post-close team so nothing drops in the first 90 days.",
+    what: "Top risks across systems, data, and operations — each with impact, likelihood, and what needs to be addressed.",
+    why: "A practical list of what could go wrong and what to do about it.",
   },
   {
-    name: "Competitive Posture",
-    what: "Where the company leads, where it's exposed, and what happens when the next model release lands.",
-    why: "Tells you whether the moat is real or a six-month lead dressed up as one.",
+    name: "Market & Capability Overview",
+    what: "Where the company stands — what it does well, where it falls behind, and what could impact its position.",
+    why: "Tells you whether the strengths are durable or just a moment in time.",
   },
   {
-    name: "Value Creation & Execution Plan",
-    what: "Sequenced 100-day plan: what to fix, scale, restructure, or kill — owner-tagged, tied to thesis levers.",
-    why: "The gap between a good thesis and a good return is execution. This is where that gap closes.",
+    name: "Action Plan (30/60/90 Days)",
+    what: "Clear next steps to improve the company — prioritized actions tied to risk reduction and opportunity.",
+    why: "A read isn't useful if it stops at observation. This is what to actually do.",
+  },
+  {
+    name: "Evidence Confidence Report",
+    what: "Shows what's supported by real data — and where information is missing or unclear.",
+    why: "Tells you which parts of the read you can lean on and which still need more proof.",
   },
 ];
 
 const DIFFERENTIATION = [
-  "Evidence or nothing — no score exists without a source passage behind it.",
-  "Tuned to AI failure modes — data drift, eval gaps, prompt fragility, vendor lock, silent degradation.",
-  "Contradiction-native — the gap between deck, contract, and code is the product, not an afterthought.",
-  "Reproducible — the same rubric applied the same way across every deal in the pipeline.",
-  "Compounding — your private knowledge base gets sharper with every engagement you run through it.",
+  "Evidence-backed — every conclusion ties to a specific source.",
+  "Structured — the same clear framework applied to every company.",
+  "Fast — a real read in hours, not weeks.",
+  "Honest — gaps and unknowns are surfaced, not hidden.",
+  "Practical — every read ends in clear next steps you can act on.",
 ];
 
 const EXECUTION_BULLETS = [
-  "Sequenced 100-day plan with owners, dependencies, and success criteria.",
-  "Architecture and data-layer remediation targeted at the fragility diligence surfaced.",
-  "Eval, observability, and model-governance scaffolding — instrumented before it breaks.",
-  "Vendor and model hardening: reduce lock-in, add fallbacks, renegotiate before leverage shifts.",
+  "A 30/60/90-day plan with owners, dependencies, and what success looks like.",
+  "Top risks to address first, with the specific work needed to close them.",
+  "Quick wins surfaced alongside longer-term improvements.",
+  "Everything tied back to the evidence so the team knows the why.",
 ];
 
 const MOAT_BULLETS = [
-  "Every artifact, adjustment, and rationale folds into your private index — nothing is discarded.",
-  "Patterns across architectures and failure modes carry from deal to deal.",
-  "Institutional memory survives team turnover and market cycles.",
-  "The tenth engagement is materially sharper — and harder to match — than the first.",
+  "Every company you upload becomes part of your private library.",
+  "Patterns and lessons carry from one read to the next.",
+  "Knowledge stays with the team, even as people change.",
+  "The tenth read is sharper than the first — without extra effort.",
 ];
 
 const MARQUEE = [
   "Evidence-backed",
-  "Decision-grade",
-  "Contradiction-aware",
-  "Audit-trailed",
-  "Execution-ready",
-  "Compounds per deal",
-  "Vendor-risk mapped",
-  "IC-ready",
+  "Structured",
+  "Fast",
+  "Clear",
+  "Practical",
+  "Outcome-focused",
+  "Risk-aware",
+  "Decision-ready",
 ];
 
 const BTN_PRIMARY =
@@ -162,27 +168,22 @@ export default function HomePage() {
           aria-hidden
           className="pointer-events-none absolute -left-24 bottom-0 h-[18rem] w-[18rem] rounded-full bg-sky-500/10 blur-[100px]"
         />
-        {/* Animated evidence-line arc anchored to the lower-right.
-            Sits at z-0 behind the hero content (which is z-10 via
-            `relative` below) so the headline + bullets + CTAs stay
-            highly readable while the backdrop drifts. */}
         <HeroArcBackdrop />
         <div className="relative z-10 mx-auto max-w-6xl px-6 pb-20 pt-28 sm:pt-32 lg:pb-28">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
-              AI diligence, rebuilt for capital decisions
+              A clear read on a company, fast
             </p>
             <h1 className="mt-6 max-w-4xl text-5xl font-light leading-[1.05] tracking-tight sm:text-6xl lg:text-[5.25rem] kx-fade-in">
-              Don&apos;t write a check on
+              Get a fast, evidence-backed read
               <br />
               <span className="bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">
-                AI you can&apos;t defend.
+                on a company before you commit.
               </span>
             </h1>
             <p className="mt-8 max-w-2xl text-lg leading-8 text-slate-100 sm:text-xl">
-              Kaptrix pressure-tests AI companies before capital moves —
-              scoring what&apos;s real, exposing what contradicts, and
-              producing the decision-grade package your IC can stand behind.
+              Kaptrix turns messy company data into a clear view of risks,
+              gaps, and opportunities — in hours, not weeks.
             </p>
 
             <ul className="mt-8 space-y-2.5">
@@ -202,10 +203,10 @@ export default function HomePage() {
 
             <div className="mt-10 flex flex-wrap items-center gap-3">
               <Link href="/contact" className={BTN_PRIMARY_ON_DARK}>
-                Start a diligence engagement
+                Get a Kaptrix Quick Read
               </Link>
               <Link href="/sample-report" className={BTN_SECONDARY_ON_DARK}>
-                See a sample report
+                See a sample read
               </Link>
               <Link
                 href="/demo"
@@ -245,10 +246,6 @@ export default function HomePage() {
 
       {/* ====================================================================
           1.5 PLATFORM DEMO REEL
-          Sits between the hero CTA strip and the cost-of-wrong section so
-          it's the first thing visitors see after the headline — extends
-          the hero's dark palette so the transition feels intentional and
-          doesn't fight the CTAs above it.
       ==================================================================== */}
       <section className="relative overflow-hidden bg-[#070815] py-16 sm:py-20 lg:py-24">
         <div
@@ -265,9 +262,9 @@ export default function HomePage() {
               See it in motion
             </p>
             <h2 className="mt-4 text-center text-3xl font-light tracking-tight text-white sm:text-4xl lg:text-5xl">
-              The platform,{" "}
+              A clearer view{" "}
               <span className="bg-gradient-to-r from-white via-indigo-100 to-indigo-300 bg-clip-text text-transparent">
-                end to end.
+                in hours.
               </span>
             </h2>
           </Reveal>
@@ -280,19 +277,25 @@ export default function HomePage() {
       </section>
 
       {/* ====================================================================
-          2. THE COST OF BEING WRONG
+          2. THE PROBLEM
       ==================================================================== */}
       <section className="border-b border-[#E5E7EB] bg-[#FAFAFA]">
         <div className="mx-auto max-w-6xl px-6 py-24 sm:py-28">
           <Reveal>
             <div className="max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-                The cost of being wrong
+                The problem
               </p>
               <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-                The check clears fast.{" "}
-                <span className="text-slate-600">The bill comes later.</span>
+                Most teams evaluate companies from{" "}
+                <span className="text-slate-600">fragmented data.</span>
               </h2>
+              <p className="kx-sub mt-6 max-w-2xl">
+                Documents, decks, spreadsheets, and assumptions. It takes days
+                or weeks to understand what&apos;s real, what&apos;s missing,
+                and where the risks are. Kaptrix gives you a structured view
+                in hours.
+              </p>
             </div>
           </Reveal>
 
@@ -322,8 +325,8 @@ export default function HomePage() {
               What Kaptrix does
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              A decision system.{" "}
-              <span className="text-slate-600">Not a report generator.</span>
+              Not just a report —{" "}
+              <span className="text-slate-600">a clear, structured view of the company.</span>
             </h2>
           </Reveal>
 
@@ -331,23 +334,23 @@ export default function HomePage() {
             {[
               {
                 id: "01",
-                title: "Ingests the evidence",
-                body: "CIMs, contracts, code, customer calls, model specs — pulled in, parsed, and indexed as the source of truth for the engagement.",
+                title: "Key risks surfaced clearly",
+                body: "What could go wrong, what's already going wrong, and where attention is needed first — laid out plainly.",
               },
               {
                 id: "02",
-                title: "Scores what's real",
-                body: "A fixed rubric applied to the dimensions that actually break AI companies. Every score tied back to a specific passage.",
+                title: "Evidence tied to every conclusion",
+                body: "Every point in the read links back to a specific document or data point so the team can see exactly where it came from.",
               },
               {
                 id: "03",
-                title: "Exposes contradictions",
-                body: "Decks claim one thing; contracts and code say another. The gap is surfaced, not absorbed.",
+                title: "Gaps and unknowns identified",
+                body: "Kaptrix flags what's missing, unclear, or unsupported — so you know which parts of the read still need more proof.",
               },
               {
                 id: "04",
-                title: "Ships decision-grade outputs",
-                body: "IC memo, risk register, execution plan — each one defensible on the way in and on the way out.",
+                title: "Actionable next steps",
+                body: "Every read ends with clear, prioritized actions — what to address first, what's a quick win, and what needs more work.",
               },
             ].map((layer, idx) => (
               <Reveal key={layer.id} delay={idx * 90}>
@@ -378,8 +381,8 @@ export default function HomePage() {
               How it works
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              Intake.{" "}
-              <span className="text-slate-600">Scoring. Outputs.</span>
+              Upload.{" "}
+              <span className="text-slate-600">Structure. Read.</span>
             </h2>
           </Reveal>
 
@@ -412,11 +415,11 @@ export default function HomePage() {
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-              Outputs
+              What you get
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              What lands on your desk.{" "}
-              <span className="text-slate-600">Sourced. Auditable. Usable.</span>
+              A clear company read.{" "}
+              <span className="text-slate-600">Backed by evidence. Ready to share.</span>
             </h2>
           </Reveal>
 
@@ -432,7 +435,7 @@ export default function HomePage() {
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     <span className="text-[10px] font-semibold uppercase tracking-[0.28em] text-slate-500">
-                      Deliverable
+                      Read
                     </span>
                   </div>
                   <h3 className="text-xl font-medium tracking-tight text-[#0B0B1A]">
@@ -454,14 +457,59 @@ export default function HomePage() {
           <Reveal delay={120}>
             <div className="mt-10">
               <Link href="/sample-report" className={BTN_PRIMARY}>
-                See a sample report
+                See a sample read
               </Link>
             </div>
           </Reveal>
         </section>
 
         {/* ================================================================
-            6. DIFFERENTIATION
+            5.5 WHO IT'S FOR
+        ================================================================ */}
+        <section className="border-t border-[#E5E7EB] pt-24">
+          <Reveal>
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
+              Who it&apos;s for
+            </p>
+            <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
+              Built for the people who{" "}
+              <span className="text-slate-600">need to understand a company quickly.</span>
+            </h2>
+          </Reveal>
+
+          <ul className="mt-12 grid gap-4 sm:grid-cols-2">
+            {[
+              {
+                name: "Small investment teams",
+                body: "Get a fast, structured read before you commit time or capital to a longer process.",
+              },
+              {
+                name: "Advisors evaluating companies",
+                body: "Walk into the conversation with a clear view of strengths, risks, and what to ask next.",
+              },
+              {
+                name: "Operators preparing for diligence",
+                body: "See your own company the way an outside reviewer would — and fix the gaps before they're found.",
+              },
+              {
+                name: "Firms handling compliance workflows",
+                body: "Apply a consistent, evidence-backed read across companies without rebuilding the work each time.",
+              },
+            ].map((row, i) => (
+              <Reveal key={row.name} delay={i * 80}>
+                <li className="flex h-full flex-col rounded-lg border border-[#E5E7EB] bg-white p-6 shadow-[0_1px_2px_rgba(11,11,26,0.04)]">
+                  <h3 className="text-base font-semibold tracking-tight text-[#0B0B1A]">
+                    {row.name}
+                  </h3>
+                  <p className="kx-sub-sm mt-2">{row.body}</p>
+                </li>
+              </Reveal>
+            ))}
+          </ul>
+        </section>
+
+        {/* ================================================================
+            6. WHY KAPTRIX
         ================================================================ */}
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
@@ -471,8 +519,8 @@ export default function HomePage() {
                   Why Kaptrix
                 </p>
                 <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-                  Not another tool.{" "}
-                  <span className="text-slate-600">Not another consultant.</span>
+                  Clear answers.{" "}
+                  <span className="text-slate-600">Not more noise.</span>
                 </h2>
               </div>
               <ul className="space-y-3">
@@ -494,16 +542,16 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            7. EXECUTION LAYER
+            7. ACTION PLAN
         ================================================================ */}
         <section className="border-t border-[#E5E7EB] pt-24">
           <Reveal>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-              Execution layer
+              Next steps
             </p>
             <h2 className="mt-4 max-w-3xl text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-              This doesn&apos;t die{" "}
-              <span className="text-slate-600">in a PDF.</span>
+              Every read ends in{" "}
+              <span className="text-slate-600">a clear plan.</span>
             </h2>
           </Reveal>
 
@@ -525,7 +573,7 @@ export default function HomePage() {
         </section>
 
         {/* ================================================================
-            8. KNOWLEDGE BASE / MOAT
+            8. KNOWLEDGE BASE
         ================================================================ */}
         <section className="relative overflow-hidden rounded-2xl bg-[radial-gradient(ellipse_at_top_left,#1B1F4A_0%,#0D1033_40%,#0A0B1F_75%,#070815_100%)] p-8 text-white sm:p-14">
           <div
@@ -535,18 +583,17 @@ export default function HomePage() {
           <Reveal>
             <div className="relative max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-indigo-300">
-                The moat
+                Your library
               </p>
               <h2 className="mt-4 text-3xl font-normal leading-[1.1] tracking-tight sm:text-5xl">
-                Intelligence that{" "}
+                Knowledge that{" "}
                 <span className="bg-gradient-to-r from-white to-indigo-200 bg-clip-text text-transparent">
-                  compounds.
+                  builds with you.
                 </span>
               </h2>
               <p className="mt-6 text-base leading-7 text-slate-100 sm:text-lg">
-                Your submissions train <em>your</em> private knowledge base —
-                fully isolated, never shared, never used to train models for
-                anyone else.
+                Every company you upload becomes part of your private library
+                — fully isolated, never shared, and yours alone.
               </p>
             </div>
           </Reveal>
@@ -576,22 +623,22 @@ export default function HomePage() {
           <Reveal>
             <div className="max-w-3xl">
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#6B5BFF]">
-                Before the wire goes out
+                Before you commit
               </p>
               <h2 className="mt-4 text-3xl font-normal leading-[1.15] tracking-tight text-[#0B0B1A] sm:text-5xl">
-                Don&apos;t write a check on{" "}
-                <span className="text-slate-600">AI you can&apos;t defend.</span>
+                Before you commit time, capital, or resources —{" "}
+                <span className="text-slate-600">get a clear read first.</span>
               </h2>
               <p className="kx-sub mt-6">
-                You&apos;ll answer for this decision — at the next IC, at the
-                board, at the exit. Bring the evidence.
+                Kaptrix gives you a fast, structured, evidence-backed read on a
+                company before you spend time or money.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link href="/contact" className={BTN_PRIMARY}>
-                  Start a diligence engagement
+                  Get a Kaptrix Quick Read
                 </Link>
                 <Link href="/sample-report" className={BTN_SECONDARY}>
-                  See a sample report
+                  See a sample read
                 </Link>
               </div>
             </div>

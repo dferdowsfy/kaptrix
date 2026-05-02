@@ -161,10 +161,10 @@ export function AiReportCard({
             disabled={!canGenerate}
           >
             {loading
-              ? "Generating report…"
+              ? "Creating read…"
               : result
-                ? "Re-generate report"
-                : "Generate report"}
+                ? "Re-create Read"
+                : "Create Read"}
           </GenerateButton>
           {result && (
             <>
@@ -187,10 +187,10 @@ export function AiReportCard({
                 onClick={() => { setEmailModalOpen(true); setEmailStatus(null); }}
                 className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
               >
-                Email report
+                Share Read
               </button>
               <span className="ml-auto text-[11px] text-slate-500">
-                Saved · generated{" "}
+                Saved · created{" "}
                 {result.generated_at ? formatTime(result.generated_at) : ""}
               </span>
             </>
@@ -256,7 +256,7 @@ export function AiReportCard({
                   ✓
                 </span>
                 <span>
-                  Report ready
+                  Read ready
                   {result?.generated_at && (
                     <span className="ml-1 font-normal text-slate-500">
                       · {formatTime(result.generated_at)}
@@ -343,9 +343,9 @@ function EmailModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="mx-4 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
-        <h3 className="text-lg font-bold text-slate-900">Email this report</h3>
+        <h3 className="text-lg font-bold text-slate-900">Share this read</h3>
         <p className="mt-1 text-sm text-slate-500">
-          The report will be sent from hello@kaptrix.com with your name in the subject line.
+          The read will be sent from hello@kaptrix.com with your name in the subject line.
         </p>
 
         <label htmlFor="email-to" className="mt-4 block text-sm font-medium text-slate-700">

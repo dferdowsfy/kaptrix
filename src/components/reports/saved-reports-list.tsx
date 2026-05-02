@@ -16,11 +16,11 @@ import {
 } from "@/lib/reports/advanced-reports";
 
 /**
- * "Saved reports" list. Shows every report the signed-in user has
- * generated, across every client and every report type, with the
- * date/time it was generated. Reports hydrate from Supabase on first
- * render (see report-store.hydrateFromServer) so previously
- * generated reports appear even on a new browser/device.
+ * "Your Company Reads" list. Shows every read the signed-in user has
+ * created, across every client and every read type, with the date/time
+ * it was created. Reads hydrate from Supabase on first render (see
+ * report-store.hydrateFromServer) so previously created reads appear
+ * even on a new browser/device.
  */
 export function SavedReportsList() {
   const { records } = useReportStore();
@@ -36,8 +36,8 @@ export function SavedReportsList() {
   if (done.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-300 bg-white/60 p-8 text-center text-sm text-slate-500">
-        You have not generated any reports yet. Pick a report above and click
-        <span className="mx-1 font-semibold text-slate-700">Generate report</span>
+        You have not created any reads yet. Pick a read above and click
+        <span className="mx-1 font-semibold text-slate-700">Create Read</span>
         — it will be saved here and remain available across browsers.
       </div>
     );
@@ -86,7 +86,7 @@ function SavedReportRow({ record }: { record: ReportRecord }) {
   const remove = useCallback(() => {
     if (
       !window.confirm(
-        `Delete "${record.title}" for ${record.target}? This removes it from every device.`,
+        `Delete this read of ${record.target} ("${record.title}")? This removes it from every device.`,
       )
     )
       return;

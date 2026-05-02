@@ -37,8 +37,8 @@ export default function PreviewHomePage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <SectionHeader
           eyebrow="Home"
-          title="Your active client roster"
-          description="Choose an engagement to dive into its workspace, or add a new client below."
+          title="Get a fast, structured read on a company"
+          description="Upload company documents and get a clear view of risks, gaps, and opportunities — ready to review or share."
         />
         <button
           type="button"

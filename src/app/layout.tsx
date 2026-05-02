@@ -16,11 +16,11 @@ const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://kaptrix.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "Kaptrix | AI Product Diligence for Private Equity",
+    default: "Kaptrix | A fast, structured read on a company",
     template: "%s | Kaptrix",
   },
   description:
-    "Evidence-backed AI diligence for investors and operators. Expose fragile systems, score what's real, and produce decision-grade outputs before capital moves.",
+    "Kaptrix turns messy company data into a clear view of risks, gaps, and opportunities — in hours, not weeks.",
   metadataBase: new URL(baseUrl),
   icons: {
     icon: [
@@ -33,16 +33,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     siteName: "Kaptrix",
-    title: "Kaptrix | AI Product Diligence for Private Equity",
+    title: "Kaptrix | A fast, structured read on a company",
     description:
-      "Evidence-backed AI diligence for investors and operators. Expose fragile systems, score what's real, and produce decision-grade outputs before capital moves.",
+      "Kaptrix turns messy company data into a clear view of risks, gaps, and opportunities — in hours, not weeks.",
     url: baseUrl,
   },
   twitter: {
     card: "summary_large_image",
-    title: "Kaptrix | AI Product Diligence for Private Equity",
+    title: "Kaptrix | A fast, structured read on a company",
     description:
-      "Evidence-backed AI diligence for investors and operators. Expose fragile systems, score what's real, and produce decision-grade outputs before capital moves.",
+      "Kaptrix turns messy company data into a clear view of risks, gaps, and opportunities — in hours, not weeks.",
   },
   robots: {
     index: true,
