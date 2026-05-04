@@ -16,6 +16,7 @@ import {
   recordUsage,
 } from "@/lib/plans-server";
 import { assertPreviewTabVisible } from "@/lib/security/authz";
+import { applyDemoAnonymization, getDemoDisplayName } from "@/lib/reports/demo-anonymize";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -129,12 +130,19 @@ export async function POST(req: Request) {
     ? await readKnowledgeBaseText(userId, clientId, { maxChars: 24_000 })
     : "";
   const kbText = serverKbText || (body.knowledge_base ?? "").slice(0, 20_000);
-  const combinedEvidence = kbText
+  let combinedEvidence = kbText
     ? `${evidence}\n\n--- OPERATOR-SUBMITTED KNOWLEDGE BASE ---\n${kbText}`.slice(
         0,
         90_000,
       )
     : evidence;
+
+  // Demo-only anonymization (Harvey → CounselFlow AI). No-op otherwise.
+  const demoDisplay = getDemoDisplayName(targetName);
+  if (demoDisplay) {
+    combinedEvidence = applyDemoAnonymization(combinedEvidence, targetName);
+    targetName = demoDisplay;
+  }
 
   const existingReport = (body.existing_report ?? "").slice(0, 48_000);
   const isUpdateMode = existingReport.length > 0;

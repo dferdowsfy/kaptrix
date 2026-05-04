@@ -16,6 +16,7 @@ import {
   type AdvancedReportId,
 } from "@/lib/reports/advanced-reports";
 import { requireAuth, assertPreviewTabVisible } from "@/lib/security/authz";
+import { applyDemoAnonymization, getDemoDisplayName } from "@/lib/reports/demo-anonymize";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -117,12 +118,20 @@ export async function POST(req: Request) {
     ? await readKnowledgeBaseText(userId, clientId, { maxChars: 24_000 })
     : "";
   const kbText = serverKbText || (body.knowledge_base ?? "").slice(0, 24_000);
-  const combinedEvidence = kbText
+  let combinedEvidence = kbText
     ? `${evidence}\n\n--- OPERATOR-SUBMITTED KNOWLEDGE BASE ---\n${kbText}`.slice(
         0,
         130_000,
       )
     : evidence;
+
+  // Demo-only anonymization (Harvey → CounselFlow AI). No-op for any
+  // engagement whose target name is not in the override map.
+  const demoDisplay = getDemoDisplayName(targetName);
+  if (demoDisplay) {
+    combinedEvidence = applyDemoAnonymization(combinedEvidence, targetName);
+    targetName = demoDisplay;
+  }
 
   // Trim prior markdown so we never blow past the model's context.
   // Keep the tail (most recent sections) since coherence usually
