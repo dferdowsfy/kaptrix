@@ -318,48 +318,120 @@ For the snapshot: "verdict" must be one of "Move Forward" / "Proceed with Condit
 
 ${FINAL_POSITION_RULE}`;
 
-const RISK_REGISTER_PROMPT = `${OPERATING_MODE}
+// Self-contained prompt — intentionally does NOT inherit OPERATING_MODE,
+// DECISION_SNAPSHOT_RULE, FINAL_POSITION_RULE, COMMERCIAL_PAIN_RULE, or
+// FORMAT_RULES. The Technical Risk Register is a client-facing markdown
+// document; the spec forbids the ':::snapshot' / ':::final-position'
+// fences, [L1/L2/L3] tags, JSON blocks, and per-risk "Decision:" lines
+// that the shared rules would otherwise force into the output.
+const RISK_REGISTER_PROMPT = `You are producing the client-facing TECHNICAL RISK REGISTER for the target company.
 
-${COMMERCIAL_PAIN_RULE}
+Write like a senior technical diligence practitioner advising a private equity investment committee. Be concise, evidence-based, skeptical, and specific. Do NOT write like a generic LLM report. Do NOT repeat the same risk in different words. Do NOT invent numbers.
 
-COMMERCIAL PAIN — RISK INTERPRETATION ONLY.
-- Reference [commercial_pain_summary] only where it materially changes the risk picture, not as a separate section. Examples:
-  - Strong pain + weak execution → tag execution / scalability / governance risks as elevated; quote the band.
-  - Weak pain + strong execution → flag adoption risk (works, but no one buys); name the missing demand evidence.
-  - Intake-only commercial claims → flag evidence risk; the operator owes artifact-backed validation.
+INPUTS AVAILABLE in the evidence context that follows in the user message:
+- Target company name (engagement target on the ENGAGEMENT line).
+- Uploaded artifacts and extracted evidence: \`[document]\`, \`[<source_doc> <location>]\`, \`[<source_document>]\` blocks.
+- Missing artifact list: \`[open question]\`, \`[open validation]\`, \`[requirement ... if missing]\` blocks.
+- Scores by dimension: \`[dimension scores]\` and \`[score · ...]\` blocks.
+- Relevant company claims: \`[executive · ...]\`, \`[takeaway]\`, \`[<source_doc>]\` claim entries, \`[commercial_pain_summary]\`.
+- Financial / commercial data, when present in the context above.
+- Customer / contract data, when present in the context above.
 
-Generate a Technical Risk Register. This is the practical remediation backlog the team will actually work against. Each risk must be TESTABLE: a named engineer could reproduce the failure path from the description, and a named owner could close it against the pass criterion.
+CORE RULES:
+1. Every risk must tie to evidence in the context, a specific missing-evidence gap, or a directly stated company claim. Cite the source inline (e.g. "per security_overview.pdf §3.2", "[commercial_pain_summary] intake_only_claims").
+2. If a risk rests on missing evidence, set Evidence Status to "Missing / Required" — do not call it a proven risk.
+3. Do NOT fabricate ARR impact, revenue loss, fines, market size, percentages, or dollar amounts. Numbers must appear in the evidence verbatim or be omitted.
+4. Only quantify impact if the provided evidence supports the figure. Otherwise use qualitative impact language: "Material margin risk", "Potential enterprise sales blocker", "Unverified scalability risk", "Potential regulatory / customer trust exposure", or "Quantification requires additional evidence".
+5. Remove duplicates. Combine overlapping issues into one stronger risk. Examples:
+   - "Data privacy gaps" + "data handling gaps" → one risk.
+   - "Model drift" + "missing model evaluation metrics" → one risk.
+   - "Vendor concentration" and "API brittleness" may stay separate ONLY if the evidence supports distinct issues.
+6. Cap the register at the 8–10 MOST MATERIAL risks. Depth over volume.
+7. This report INFORMS the investment decision; it is not the final investment decision. Never frame it as one.
 
-RULES:
-- No abstract risks. "Scalability issues" is a rejection. Each risk must be tied to a specific system behavior, architecture decision, vendor contract clause, or missing control with a named artifact reference.
-- Every risk must include a QUANTIFIED severity × likelihood score that resolves to a numeric risk score (severity 1-5 × likelihood 1-5 = 1-25).
-- Every mitigation must name the owner (title or team), the estimated effort (person-weeks or $), and a pass criterion (measurable, not "implement controls").
-- Every residual risk must be justified — show why the mitigation does not fully close the gap and what remains.
-- The concrete failure trace matters: don't write "API failure" — write "if Anthropic returns HTTP 529 (overload), current code path (api/chat/route.ts) surfaces a raw 500 to the tenant; no retry, no circuit breaker, no degraded-mode response".
-- Forbidden phrases: "No direct evidence, inferred from product claims", "inferred from security posture", "inferred from company structure". If you have no artifact, cite the absence as a diligence gap with the specific document you would request (e.g. "Requires: IaC repo audit + pen test report from Q3 2025").
-- Every risk title must be distinct — do not emit two risks that collapse to the same root cause (e.g. R1 "Shared Embeddings" and R6 "Data Sensitivity" describing the same Pinecone namespace issue is unacceptable; merge or differentiate by attack vector).
+MATERIALITY FILTER — only include a risk if it could affect one or more of: valuation; gross margin durability; enterprise customer adoption; security / compliance approval; scalability; product credibility; vendor dependency; data rights / data sensitivity; model reliability; post-close execution.
 
-Output: markdown. Start with '# Technical Risk Register'. For each risk use a '## R<N>. <Risk Title>' heading followed by the fields below as a bulleted list.
+RISK CATEGORIES TO CONSIDER (use only those the evidence supports — do not pad):
+- Missing architecture documentation
+- Unverified inference economics / cost-per-inference
+- Vendor concentration / model provider dependency
+- API brittleness / integration dependency
+- Missing model evaluation metrics
+- Model drift / lack of monitoring
+- Data provenance uncertainty
+- Data privacy / sensitive data handling gaps
+- Security and compliance posture unverified
+- Incident response maturity unverified
+- Customer contract / SLA / liability exposure
+- Scalability and production readiness gaps
+- Weak observability / logging / audit trail
+- Lack of human-in-the-loop controls
+- Unsupported AI defensibility claims
 
-For each risk, include every field below on its own bullet line:
-- **System Area**: exact component (model router, embedding layer, tenant isolation boundary, billing pipeline, etc.)
-- **Description**: 2-4 sentences naming the specific failure path with concrete technical detail
-- **Trigger Condition**: the precise event that materializes the risk
-- **Evidence**: named artifact + section/page, OR a specific gap ("Requires: tenant isolation pen test report")
-- **Severity (1-5)**: justify with revenue/customer/regulatory impact
-- **Likelihood (1-5)**: justify with base rate, vendor SLA history, or code-path inspection
-- **Risk Score**: severity × likelihood (1-25)
-- **Business Impact**: quantified — % revenue at risk, named customers, regulatory fine range, churn probability
-- **Mitigation**: specific action + named owner + effort estimate (person-weeks or $) + pass criterion
-- **Residual Risk (1-5)**: justify why the gap is not fully closed
+OUTPUT — exactly the following sections in this order, plain GitHub-flavored markdown only.
 
-Produce 10-15 risks. Depth over volume — every risk must add a distinct root cause. Order by RISK SCORE (severity × likelihood) descending. ${FORMAT_RULES}
+# Technical Risk Register
 
-${DECISION_SNAPSHOT_RULE}
+## Decision Snapshot
 
-For the snapshot: "verdict" summarizes the overall technical risk posture (e.g. "Elevated — 3 Critical Risks Outstanding"). "posture" is the HIGHEST single-risk severity in the register. "confidence" reflects how well-evidenced the register is (0-100). "thesis" is one sentence on where the system is most likely to fail first. Use "risks" only (leave strengths empty) — list the top 3 residual risks with severity tags.
+- Technical Risk Posture: Low | Moderate | High | Critical
+- Confidence: integer 0–100 (reflects evidence coverage)
+- Rationale: one sentence; cite evidence coverage and material gaps only.
+- Top Risks: a numbered list of the top three risk names, ordered by Severity × Likelihood descending.
+- Evidence Coverage Summary — three labelled bullet groups:
+  - Supported areas: list areas backed by artifact evidence.
+  - Partially supported areas: list areas with partial support.
+  - Missing / required areas: list missing artifacts or evidence gaps.
 
-${FINAL_POSITION_RULE}`;
+## Risk Register Summary Table
+
+A multi-line markdown table (header row + separator row on its own line) with EXACTLY these columns and 8–10 data rows ordered by Severity × Likelihood descending:
+
+| ID | Risk | Evidence Status | Severity | Likelihood | Why It Matters | Required Follow-Up |
+| --- | --- | --- | --- | --- | --- | --- |
+
+Severity scale (numeric only in the table): 1 = Low, 2 = Moderate, 3 = Material, 4 = High, 5 = Critical.
+Likelihood scale (numeric only in the table): 1 = Unlikely, 2 = Possible, 3 = Moderate, 4 = Likely, 5 = Highly likely.
+Evidence Status MUST be one of: Supported | Partially Supported | Missing / Required | Contradicted.
+
+## Detailed Risks
+
+For each of the 8–10 risks, emit a heading "### R<N>. <Risk Name>" followed by these labelled lines in this exact order:
+
+- **System Area:** one of Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations.
+- **Evidence Status:** Supported | Partially Supported | Missing / Required | Contradicted.
+- **What We Know:** state only what the evidence supports — say so plainly when nothing does.
+- **What Is Missing:** specific artifacts, data, metrics, or explanations needed to validate the risk.
+- **Why It Matters:** business and technical consequence in plain English. Tie it to valuation, margin, scale, enterprise sales, compliance, or post-close execution.
+- **Severity:** integer 1–5, then a brief rationale.
+- **Likelihood:** integer 1–5, then a brief rationale.
+- **Risk Score:** Severity × Likelihood.
+- **Business Impact:** qualitative impact language unless the context provides quantified financial evidence. Otherwise write "Quantification requires <specific missing evidence>."
+- **Required Evidence:** the exact documents or data needed.
+- **Recommended Mitigation:** specific and practical. Avoid unrealistic claims like "achieve SOC 2 in 8 weeks". Prefer "begin SOC 2 readiness", "produce architecture documentation", "validate inference cost model".
+- **Pass Criterion:** a clear test for whether the risk has been reduced.
+- **Residual Risk:** Low | Moderate | High, with a brief explanation of what may remain.
+
+## Overall Technical Risk Interpretation
+
+Two or three short paragraphs that answer, in this order:
+1. The central technical risk pattern.
+2. What must be validated before the deal can be trusted.
+3. Which 3–5 artifacts would most improve confidence.
+
+End with a single bolded line:
+**Recommended Next Step:** <one clear next diligence action>.
+
+CRITICAL FORMATTING RULES (override any conflicting habits):
+- Plain markdown only. NO ":::snapshot", ":::final-position", or any ":::"-fenced block. NO JSON, YAML, code fences, or hidden tags.
+- NO inline classification tags like [L1] / [L2] / [L3], [REAL] / [PARTIAL] / [ILLUSION], or [CRITICAL] / [HIGH] / [MEDIUM] / [LOW]. Use plain words.
+- NO per-risk "Decision:" line.
+- NO FINAL POSITION fields (classification, conviction, primary_driver, failure_trigger, timing, operator_dependency).
+- Do not say "No direct evidence, inferred from …". If evidence is absent, set Evidence Status to "Missing / Required" and name the artifact required.
+- Numbers must come from the evidence verbatim. Otherwise use the qualitative impact language listed above.
+- Do not turn unverified claims into strengths.
+- Use only the section headings listed above. No extras, no preamble, no closing remark.
+- Markdown tables MUST use a header row plus a separator row on its own line.`;
 
 const VALUE_CREATION_PROMPT = `${OPERATING_MODE}
 
@@ -564,12 +636,101 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
   { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
+// Sections render in order and are concatenated by the orchestrator.
+// No ':::snapshot' or ':::final-position' fences here — the spec is
+// plain markdown end-to-end. Severity / Likelihood numerics live in
+// the summary table; per-risk detail blocks repeat the rationale.
 const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
-  { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
-  { id: "critical", label: "Critical & high risks (R1–R5)", maxTokens: 2600, instruction: sectionBodyInstruction("# Technical Risk Register", "Emit the top 5 risks as '## R1. Title' through '## R5. Title'. For each: System Area, Description (2-4 sentences with concrete failure trace naming components/endpoints/schemas), Trigger Condition, Evidence (named artifact + section OR specific gap with requested artifact), Severity 1-5 (justify with revenue/customer impact), Likelihood 1-5 (justify with base rate or SLA history), Risk Score (severity × likelihood), Business Impact (quantified in $/% revenue/customers), Mitigation (named owner + effort in person-weeks + pass criterion), Residual Risk 1-5 (justify). Order by Risk Score descending. Never use the phrase 'No direct evidence, inferred from'.") },
-  { id: "medium", label: "Medium residual risks (R6–R10)", maxTokens: 2200, instruction: sectionBodyInstruction("<!-- continuing risk register -->", "Emit 5 more risks as '## R6. Title' through '## R10. Title' with the same full field set. These must be DISTINCT root causes — do not restate R1-R5 from a different angle. Skip the '# Technical Risk Register' header.") },
-  { id: "long_tail", label: "Long-tail risks (R11–R15)", maxTokens: 1800, instruction: sectionBodyInstruction("<!-- continuing risk register -->", "Emit up to 5 lower-severity but real and distinct risks as '## R11. Title' onward with the full field set. If fewer than 5 material additional risks exist, emit only the real ones and briefly explain in one sentence why the register stops there.") },
-  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
+  {
+    id: "snapshot",
+    label: "Decision snapshot",
+    maxTokens: 700,
+    instruction: [
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the line "# Technical Risk Register" exactly, then a blank line, then "## Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `Under "## Decision Snapshot" emit these bullets in this order, on their own lines:`,
+      `- "Technical Risk Posture:" followed by Low | Moderate | High | Critical (plain word, no brackets).`,
+      `- "Confidence:" followed by an integer 0–100 reflecting evidence coverage.`,
+      `- "Rationale:" followed by ONE sentence justifying the posture in terms of evidence coverage and material gaps.`,
+      `- "Top Risks:" header line, then a numbered list (1., 2., 3.) of the three highest Severity × Likelihood risk names — names only, no scores.`,
+      `- "Evidence Coverage Summary:" header line, then three sub-bullets (indent two spaces) — "Supported areas:", "Partially supported areas:", and "Missing / required areas:" — each followed by a comma-separated list grounded in the evidence context.`,
+      `Cite evidence inline by artifact name when listing supported / partially supported / missing areas (e.g. "security_overview.pdf §3", "[commercial_pain_summary] missing_evidence"). Do not invent artifact names.`,
+      `Stop after the Evidence Coverage Summary block. Do NOT emit the Risk Register Summary Table, the Detailed Risks, or the Overall Interpretation here — they are produced in later sections.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "summary_table",
+    label: "Risk register summary table",
+    maxTokens: 1400,
+    instruction: [
+      `OUTPUT ONLY the "## Risk Register Summary Table" section. Begin your response with the heading line "## Risk Register Summary Table" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `Below the heading, emit ONE multi-line markdown table with a header row and a separator row on its own line, using EXACTLY these columns in this order:`,
+      `| ID | Risk | Evidence Status | Severity | Likelihood | Why It Matters | Required Follow-Up |`,
+      `Rules for the table:`,
+      `- Emit 8–10 data rows ordered by Severity × Likelihood descending. Cap at 10. Do not pad.`,
+      `- ID column: R1, R2, … numbered to match the Detailed Risks section that will follow.`,
+      `- Evidence Status column: exactly one of Supported | Partially Supported | Missing / Required | Contradicted.`,
+      `- Severity column: a single integer 1–5 (1 = Low, 2 = Moderate, 3 = Material, 4 = High, 5 = Critical).`,
+      `- Likelihood column: a single integer 1–5 (1 = Unlikely, 2 = Possible, 3 = Moderate, 4 = Likely, 5 = Highly likely).`,
+      `- Why It Matters: at most 18 words, naming the business or technical consequence.`,
+      `- Required Follow-Up: at most 18 words, naming the specific artifact or action that would resolve the risk.`,
+      `- Combine overlapping risks into one row (e.g. "model drift" + "missing eval metrics" → one). No two rows may collapse to the same root cause.`,
+      `- Do not include a "Decision:" or "Posture:" column. Do not add bracketed severity tags like [HIGH].`,
+      `Stop immediately after the final data row. Do not emit any other heading or prose.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "critical",
+    label: "Detailed risks (R1–R5)",
+    maxTokens: 2600,
+    instruction: [
+      `OUTPUT ONLY the "## Detailed Risks" heading and the first FIVE detailed risk blocks. Begin your response with the heading line "## Detailed Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `Emit five risks as "### R1. <Risk Name>" through "### R5. <Risk Name>", matching the IDs and ordering from the Risk Register Summary Table above (highest Severity × Likelihood first).`,
+      `For EACH risk, emit these labelled lines on their own lines, in this exact order:`,
+      `- "**System Area:**" then one of: Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations.`,
+      `- "**Evidence Status:**" then Supported | Partially Supported | Missing / Required | Contradicted.`,
+      `- "**What We Know:**" 1–3 sentences citing the supporting artifact (or stating plainly that no evidence exists yet).`,
+      `- "**What Is Missing:**" specific artifacts, data, metrics, or explanations needed to validate.`,
+      `- "**Why It Matters:**" plain-English business / technical consequence; tie it to valuation, margin, scale, enterprise sales, compliance, or post-close execution.`,
+      `- "**Severity:**" integer 1–5, then a brief rationale.`,
+      `- "**Likelihood:**" integer 1–5, then a brief rationale.`,
+      `- "**Risk Score:**" Severity × Likelihood.`,
+      `- "**Business Impact:**" qualitative impact language unless the evidence in context provides a quantified figure verbatim. If not, write "Quantification requires <specific missing evidence>."`,
+      `- "**Required Evidence:**" the exact documents or data needed.`,
+      `- "**Recommended Mitigation:**" specific and practical (e.g. "begin SOC 2 readiness", "produce architecture documentation", "validate inference cost model"). Avoid unrealistic timelines.`,
+      `- "**Pass Criterion:**" a clear test for whether the risk has been reduced.`,
+      `- "**Residual Risk:**" Low | Moderate | High with a brief explanation of what may remain.`,
+      `Forbidden: ":::"-fenced blocks, JSON, YAML, code fences, hidden tags, "[L1]"/"[L2]"/"[L3]", "[CRITICAL]"/"[HIGH]"/"[MEDIUM]"/"[LOW]", a per-risk "Decision:" line, "No direct evidence, inferred from …", or fabricated dollar / percentage figures.`,
+      `Stop after the closing "Residual Risk" line of R5. Do not emit R6 or later — they are produced in the next section.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "medium",
+    label: "Detailed risks (R6–R10)",
+    maxTokens: 2400,
+    instruction: [
+      `OUTPUT ONLY the next detailed risk blocks (R6 through R10 if 10 risks total; if only 8 or 9 risks total, emit just the remaining ones — do not pad). Continue numbering from R6. Do NOT re-emit "## Detailed Risks" or any earlier heading. Do not emit any ":::"-fenced block.`,
+      `Use the same per-risk structure and the same ordering rules as R1–R5: heading "### R<N>. <Risk Name>" then the labelled lines in the prescribed order.`,
+      `Each risk MUST be a DISTINCT root cause from R1–R5 — never restate an earlier risk from a different angle.`,
+      `If the evidence supports fewer than 10 material risks total, emit only the real remaining ones and add a single closing sentence in italics explaining why the register stops there (e.g. "*Register stops at R8 — additional categories had no supporting or material missing evidence.*"). Never invent risks to fill the count.`,
+      `Forbidden: ":::"-fenced blocks, JSON, code fences, hidden tags, bracketed severity labels, a per-risk "Decision:" line, fabricated numbers.`,
+      `Stop after the closing "Residual Risk" line of the last risk emitted.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "interpretation",
+    label: "Overall technical risk interpretation",
+    maxTokens: 700,
+    instruction: [
+      `OUTPUT ONLY the "## Overall Technical Risk Interpretation" section. Begin your response with the heading line "## Overall Technical Risk Interpretation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `Write 2–3 short paragraphs that answer, in this order:`,
+      `1. The central technical risk pattern (what the register's shape says about the company).`,
+      `2. What must be validated before the deal can be trusted.`,
+      `3. Which 3–5 artifacts would most improve confidence (name them concretely — e.g. "SOC 2 Type II report", "current architecture diagram with data flows", "model evaluation results vs holdout").`,
+      `End with EXACTLY one final line, on its own line, in this format:`,
+      `**Recommended Next Step:** <one clear next diligence action>.`,
+      `Forbidden: ":::"-fenced blocks, JSON, YAML, hidden tags, classification fields, a "Decision:" line, fabricated numbers, or any closing remark after the Recommended Next Step line.`,
+    ].join("\n\n"),
+  },
 ];
 
 const VALUE_CREATION_SECTIONS: AdvancedReportSection[] = [
