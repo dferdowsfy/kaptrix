@@ -402,7 +402,23 @@ async function runGeneration(args: StartArgs): Promise<void> {
       }
     }
 
-    // All sections completed.
+    // All sections completed. Log section / heading counts so we can
+    // diagnose reports that come back unexpectedly short (e.g. a
+    // Company Readiness Report that only renders the snapshot).
+    const headingCount = (accumulated.match(/^##\s+/gm) ?? []).length;
+    console.log("[report-store] generation complete", {
+      report_id: args.reportId,
+      client_id: args.clientId,
+      sections_total: total,
+      sections_done: total,
+      heading_count: headingCount,
+      content_length: accumulated.length,
+    });
+    if (total >= 5 && headingCount < total - 2) {
+      console.warn(
+        `[report-store] short report — ${args.reportId} produced ${headingCount} '## ' headings for ${total} sections; the LLM may be collapsing or skipping body sections`,
+      );
+    }
     setRecord({
       reportId: args.reportId,
       clientId: args.clientId,

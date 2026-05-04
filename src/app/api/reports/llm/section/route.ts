@@ -22,6 +22,11 @@ import {
   detectDemoLeakage,
   DEMO_SUBTITLE,
 } from "@/lib/reports/demo-anonymize";
+import {
+  buildScoringSourceOfTruth,
+  formatScoringSourceOfTruthForPrompt,
+  detectSotMismatch,
+} from "@/lib/reports/scoring-truth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -104,11 +109,13 @@ export async function POST(req: Request) {
   let evidence = "";
   let targetName = "";
   let clientName = "";
+  let sot: ReturnType<typeof buildScoringSourceOfTruth> | null = null;
   try {
     const snapshot = await getPreviewSnapshot(clientId);
     evidence = buildReportEvidenceContext(snapshot, { maxChars: 110_000 });
     targetName = snapshot.engagement.target_company_name;
     clientName = snapshot.engagement.client_firm_name;
+    sot = buildScoringSourceOfTruth(snapshot);
   } catch (err) {
     return NextResponse.json(
       {
@@ -153,11 +160,28 @@ export async function POST(req: Request) {
   const demoLine = demoDisplay
     ? `\nDEMO MODE: true\nDEMO SUBTITLE: ${DEMO_SUBTITLE}`
     : "";
+  const sotBlock = sot
+    ? `\n\n${formatScoringSourceOfTruthForPrompt(sot)}`
+    : "";
+  if (sot) {
+    // Server log so the binding is visible when debugging cards that
+    // render zero scores or recommendations that drift from scoring.
+    console.log("[reports/section] scoring_source_of_truth", {
+      report_type: reportType,
+      section_id: sectionId,
+      client_id: sot.client_id,
+      recommendation: sot.recommendation,
+      risk_posture: sot.risk_posture,
+      confidence_score: sot.confidence_score,
+      composite_score: sot.composite_score,
+      has_dimension_scores: !!sot.dimension_scores,
+    });
+  }
   const userPrompt = isUpdateMode
     ? `${config.userPromptIntro} — UPDATE MODE
 
 TARGET: ${targetName}
-CLIENT: ${clientName}${demoLine}
+CLIENT: ${clientName}${demoLine}${sotBlock}
 
 PRIOR REPORT (existing version — parse baseline state from this):
 """
@@ -176,7 +200,7 @@ Follow the REPORT UPDATE PROTOCOL. Return markdown only. No preamble. No closing
     : `${config.userPromptIntro}
 
 TARGET: ${targetName}
-CLIENT: ${clientName}${demoLine}
+CLIENT: ${clientName}${demoLine}${sotBlock}
 
 EVIDENCE (use only what is supported here; label uncertainty where the evidence is thin):
 """
@@ -245,6 +269,32 @@ Return markdown only. No preamble. No closing remark. No code fences.`;
         },
         { status: 422 },
       );
+    }
+
+    // Scoring Source-of-Truth guardrail. Compare the recommendation,
+    // posture, and confidence emitted by the LLM in the snapshot /
+    // Investment-Committee-Read sections to the SOT and block when the
+    // narrative drifts from the locked scoring decision.
+    if (sot) {
+      const mismatches = detectSotMismatch(content, sot);
+      console.log("[reports/section] sot_validation", {
+        section_id: sectionId,
+        mismatches,
+      });
+      if (mismatches.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Report recommendation conflicts with scoring source of truth. Regenerate using locked scoring decision.",
+            debug: {
+              section_id: sectionId,
+              mismatches,
+              scoring_source_of_truth: sot,
+            },
+          },
+          { status: 422 },
+        );
+      }
     }
 
     return NextResponse.json({

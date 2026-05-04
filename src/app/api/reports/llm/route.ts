@@ -22,6 +22,11 @@ import {
   detectDemoLeakage,
   DEMO_SUBTITLE,
 } from "@/lib/reports/demo-anonymize";
+import {
+  buildScoringSourceOfTruth,
+  formatScoringSourceOfTruthForPrompt,
+  detectSotMismatch,
+} from "@/lib/reports/scoring-truth";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -114,11 +119,13 @@ export async function POST(req: Request) {
   let evidence = "";
   let targetName = "";
   let clientName = "";
+  let sot: ReturnType<typeof buildScoringSourceOfTruth> | null = null;
   try {
     const snapshot = await getPreviewSnapshot(clientId);
     evidence = buildReportEvidenceContext(snapshot, { maxChars: 90_000 });
     targetName = snapshot.engagement.target_company_name;
     clientName = snapshot.engagement.client_firm_name;
+    sot = buildScoringSourceOfTruth(snapshot);
   } catch (err) {
     return NextResponse.json(
       {
@@ -159,11 +166,25 @@ export async function POST(req: Request) {
   const demoLine = demoDisplay
     ? `\nDEMO MODE: true\nDEMO SUBTITLE: ${DEMO_SUBTITLE}`
     : "";
+  const sotBlock = sot
+    ? `\n\n${formatScoringSourceOfTruthForPrompt(sot)}`
+    : "";
+  if (sot) {
+    console.log("[reports/llm] scoring_source_of_truth", {
+      report_type: reportType,
+      client_id: sot.client_id,
+      recommendation: sot.recommendation,
+      risk_posture: sot.risk_posture,
+      confidence_score: sot.confidence_score,
+      composite_score: sot.composite_score,
+      has_dimension_scores: !!sot.dimension_scores,
+    });
+  }
   const userPrompt = isUpdateMode
     ? `${config.userPromptIntro} — UPDATE MODE
 
 TARGET: ${targetName}
-CLIENT: ${clientName}${demoLine}
+CLIENT: ${clientName}${demoLine}${sotBlock}
 
 PRIOR REPORT (existing version — parse baseline state from this):
 """
@@ -179,7 +200,7 @@ Follow the REPORT UPDATE PROTOCOL. Return the updated report as clean markdown o
     : `${config.userPromptIntro}
 
 TARGET: ${targetName}
-CLIENT: ${clientName}${demoLine}
+CLIENT: ${clientName}${demoLine}${sotBlock}
 
 EVIDENCE (use only what is supported here; label uncertainty where the evidence is thin):
 """
@@ -243,6 +264,25 @@ Return the report as clean markdown only. No preamble, no closing remarks, no co
         },
         { status: 422 },
       );
+    }
+
+    // Scoring Source-of-Truth guardrail.
+    if (sot) {
+      const mismatches = detectSotMismatch(content, sot);
+      console.log("[reports/llm] sot_validation", {
+        report_type: reportType,
+        mismatches,
+      });
+      if (mismatches.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "Report recommendation conflicts with scoring source of truth. Regenerate using locked scoring decision.",
+            debug: { mismatches, scoring_source_of_truth: sot },
+          },
+          { status: 422 },
+        );
+      }
     }
 
     if (userId) {
