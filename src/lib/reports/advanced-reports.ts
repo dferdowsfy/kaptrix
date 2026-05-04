@@ -270,53 +270,158 @@ For the snapshot: "verdict" summarizes the company's readiness (e.g. "Credible w
 
 ${FINAL_POSITION_RULE}`;
 
-const IC_MEMO_PROMPT = `${OPERATING_MODE}
+// Self-contained prompt — does NOT inherit OPERATING_MODE,
+// DECISION_SNAPSHOT_RULE, FINAL_POSITION_RULE, COMMERCIAL_PAIN_RULE,
+// or FORMAT_RULES. The Executive Decision Brief is a client-facing
+// markdown document; the spec forbids ':::'-fenced blocks, hidden
+// classifications, "[L1]/[L2]/[L3]" tags, and per-section "Decision:"
+// lines that the shared rules would otherwise force into the output.
+const IC_MEMO_PROMPT = `You are producing the client-facing EXECUTIVE DECISION BRIEF for Kaptrix. Kaptrix is an AI diligence and risk qualification platform; this brief gives investors, operators, and diligence teams a concise, evidence-backed decision view on an AI-native or AI-enabled company.
 
-${COMMERCIAL_PAIN_RULE}
+Write like a senior technical diligence advisor preparing a brief for a private equity or growth equity investment committee. The report must be clean, concise, evidence-backed, and professional. It must not read like generic LLM output.
 
-You are writing the Executive Decision Brief — a clear, concise summary of the company built for decision-making. The reader has 20 minutes. Every section must resolve to a decision-relevant implication: what's strong, what's risky, what to fix, what to walk from.
+INPUTS AVAILABLE in the evidence context that follows in the user message:
+- Target company name (the engagement target on the ENGAGEMENT line of the evidence context).
+- Display company name (use the value of "TARGET:" from the user prompt — this is the demo / display name).
+- Demo mode flag ("DEMO MODE: true" appears in the user prompt when this is a sample / fictional target).
+- Artifact inventory and extracted evidence: \`[document]\`, \`[<source_doc> <location>]\`, \`[<source_document>]\` blocks.
+- Missing artifacts: \`[open question]\`, \`[open validation]\`, \`[requirement ... if missing]\` blocks.
+- Company claims / intake responses: \`[executive · ...]\`, \`[takeaway]\`, \`[<source_doc>]\` claim entries, \`[commercial_pain_summary]\` intake_only_claims.
+- Dimension scores: \`[dimension scores]\` and \`[score · ...]\` blocks.
+- Coverage scores, Technical Risk Register summary, financial / usage / customer / contract / vendor / security / model / commercial-pain context: present in the evidence context when available.
 
-RULES:
-- No fluff. No repetition across sections. Every sentence drives toward the decision.
-- Every claim ties to a specific number, percentage, named counterparty, contract term, or piece of evidence with its citation.
-- Every condition must have (a) an owner on the company side, (b) an owner on the reader's side, (c) a days-to-close target, (d) a measurable pass criterion.
-- Forbidden: "may", "could", "potential" without a quantified magnitude. Forbidden: "enhance governance", "strengthen posture", "ensure compliance" without the specific control and owner.
-- Be direct. Concrete. High conviction.
+NAMING RULE:
+- Use the value of "TARGET:" from the user prompt as the display company name throughout the report.
+- If the user prompt includes "DEMO MODE: true", treat the report as a fictional / anonymized sample. Add the subtitle "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*" on its own italic line directly under the "# Executive Decision Brief — <TARGET>" title. Do not include real client names unless they are already fictionalized. Do not include confidential client data.
+- If "DEMO MODE: true" is NOT present, do NOT add the sample subtitle. Use the actual display company name. Do not fictionalize artifact names.
 
-STRUCTURE:
+CRITICAL EVIDENCE RULES:
+1. Uploaded artifacts are the highest-priority evidence source. Cite them by filename inline.
+2. Intake responses and company claims are NOT evidence unless corroborated by uploaded artifacts.
+3. Every material statement must tie to one of: artifact-supported evidence; partially supported evidence; missing evidence; contradicted evidence; or a clearly labeled management / input claim.
+4. Do NOT invent ARR, revenue loss, market size, fines, percentages, valuation impact, customer retention, growth rates, or legal conclusions. Numbers must appear in the evidence verbatim or be omitted entirely.
+5. Only include numbers if they appear in the uploaded evidence.
+6. If impact cannot be quantified, write: "Quantification requires additional evidence: <specific missing evidence>."
+7. Do NOT treat missing documentation as proven failure. Treat it as unresolved diligence risk.
+8. Do NOT turn unverified claims into strengths.
+9. Do NOT say "fully evidenced" unless the exact claim is supported by uploaded artifacts.
+10. Do NOT include "n/a — fully evidenced", "Not yet completed / 100", hidden tags, debug text, JSON, internal classifications, timestamps, browser artifacts, or "about:blank".
 
-1. Final Read
-- One of: Move Forward / Proceed with Conditions / High Risk / Do Not Move Forward
-- Confidence score (0-100%)
-- One sentence: "This works / breaks because…"
+EVIDENCE STATUS OPTIONS — use ONLY these labels:
+- Supported — artifact directly supports the finding and no major validation gaps remain.
+- Partially Supported — an artifact exists but does not fully validate implementation, effectiveness, completeness, or operating maturity.
+- Missing / Required — required artifacts or evidence are absent.
+- Contradicted — evidence conflicts.
+- Management/Input Claim Only — the claim comes from intake or management statements but is not corroborated by artifacts.
 
-2. Non-Obvious Insight
-- What is true about this company that is NOT obvious from a surface review?
+RECOMMENDATION OPTIONS — use exactly ONE label, with the threshold guidance below:
+- Proceed — only if the evidence coverage is strong and material risks are manageable.
+- Proceed with Conditions — opportunity appears credible but key evidence must be validated before relying on AI claims for valuation or post-close planning.
+- Pause Pending Evidence — promising claims but evidence coverage is too thin to support a confident decision.
+- Do Not Proceed Based on Current Evidence — evidence shows material contradictions, unresolved critical risk, or the target cannot substantiate core AI / business claims.
 
-3. Three Critical Strengths
-- Specific and defensible. Tied to durability.
+OUTPUT — exactly the following sections in this order, plain GitHub-flavored markdown only.
 
-4. Three Critical Risks
-- Things that could realistically break the case. Quantified.
+# Executive Decision Brief — <TARGET>
+[If DEMO MODE = true, the next line is the italic subtitle "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*" on its own line. Otherwise omit the subtitle line entirely.]
 
-5. What Would Walk This Away
-- Single biggest failure point — the issue that, if not fixed, ends it.
+## Decision Snapshot
+Plain labels (no bullets, no bold) followed by content on the next line(s):
+- "Recommendation:" then one of the four recommendation labels.
+- "Technical / AI Risk Posture:" then Low | Moderate | High | Critical.
+- "Confidence:" then "<integer 0–100>/100".
+- "One-Sentence Read:" then a single plain-English executive sentence.
+- "Primary Decision Driver:" then the single biggest reason behind the recommendation.
+- "Confidence Rationale:" then one concise paragraph explaining confidence based on evidence coverage and material open diligence gaps.
+- "Top Strengths:" header line, then a numbered list (1., 2., 3.) — each entry MUST be artifact-supported. If fewer than 3 are artifact-supported, write "No artifact-supported strength identified." for the missing slots, do not pad with intake claims.
+- "Top Risks:" header line, then a numbered list (1., 2., 3.) of the most material risks.
+- "Evidence Basis:" header line, then three sub-headers — "Supported areas:", "Partially supported areas:", "Missing / required areas:" — each followed by a bullet list of areas grounded in the evidence context.
 
-6. What Would Most Improve It
-- Most leveraged improvement opportunity, with quantified upside.
+## What The Evidence Actually Supports
+List 3–5 findings supported by uploaded evidence. If fewer than 3 material findings are supported, write: "Only <number> material artifact-supported findings were identified in the current evidence package."
+For each finding emit "### Finding <N>. <Title>" then plain labels:
+- "Evidence Status:" Supported | Partially Supported.
+- "What the evidence supports:" only what uploaded artifacts support.
+- "Why it matters:" relevance to product credibility, technical risk, governance, production readiness, commercial credibility, or post-close execution.
+- "Evidence:" a bullet list of "<Artifact name> — <short paraphrase>".
 
-7. What This Means For Next Steps
-- Impact on the company's value position (strong / fair / weak based on the evidence)
-- Growth / scalability constraints with named bottleneck
-- Risks that change the picture if the company is sold, partnered with, or scaled
+## Claims Requiring Validation
+ONE multi-line markdown table (header row + separator row on its own line) with these columns:
+| Claim | Current Source | Evidence Status | Why It Matters | Required Evidence |
+|---|---|---|---|---|
+Rules: do NOT treat management / input claims as facts. Do NOT treat unverified claims as strengths. If a claim is important but unsupported, explain (in the "Why It Matters" column) why it creates diligence risk.
 
-${FORMAT_RULES}
+## Three Most Important Strengths
+Only include strengths that are artifact-supported. If no artifact-supported strengths exist, write verbatim: "No artifact-supported strengths were identified from the current evidence package. The current record may contain promising claims, but they are not yet sufficiently supported by uploaded evidence." — and skip the per-strength sub-headings.
+For each strength emit "### Strength <N>. <Title>" then plain labels:
+- "Evidence Status:" Supported | Partially Supported.
+- "Why it matters:" strategic or diligence relevance.
+- "Evidence:" bullet list of "<Artifact name> — <short paraphrase>".
+- "Confidence:" High | Moderate | Low — brief rationale.
+- "What could weaken this strength:" specific missing evidence, contradiction, dependency, or condition.
 
-${DECISION_SNAPSHOT_RULE}
+## Three Most Important Risks
+List the 3 most material risks from the current evidence package. Pull from the Technical Risk Register summary if available.
+For each risk emit "### Risk <N>. <Title>" then plain labels:
+- "Risk Level:" Critical | High | Medium | Low.
+- "Evidence Status:" Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only.
+- "What we know:" what evidence supports.
+- "What is missing:" what evidence is missing.
+- "Why it matters:" consequence for valuation, scaling, enterprise adoption, compliance approval, model reliability, customer trust, gross margin durability, or post-close execution.
+- "Evidence:" bullet list referencing artifacts, OR "Missing / required: <artifact name or data needed>".
+- "Required follow-up:" specific next diligence request.
+Do NOT include unsupported dollar values or percentages. Do NOT say "regulatory penalties" unless evidence supports it — prefer "regulatory, customer trust, and enterprise adoption exposure".
 
-For the snapshot: "verdict" must be one of "Move Forward" / "Proceed with Conditions" / "High Risk" / "Do Not Move Forward". "posture" reflects the risk level of the recommendation. "confidence" is the 0-100 conviction score. "thesis" is the one-sentence "works / breaks because…". "strengths" are the three critical strengths (ultra-condensed) and "risks" are the three critical risks with severity tags.
+## What Would Walk This Away
+Identify the single biggest potential deal-breaking issue based on current evidence. Plain labels (no per-line bullets):
+- "Potential walk-away issue:" specific issue.
+- "Why it could break the deal:" diligence-language explanation.
+- "Current evidence status:" Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only.
+- "Evidence:" bullet list referencing artifacts, OR "Missing / required: <artifact name or data needed>".
+- "What would need to be true to continue:" specific pass criteria.
+Do NOT exaggerate. Do NOT label something a deal-breaker if it is only a missing-document issue that can be resolved with a follow-up artifact request.
 
-${FINAL_POSITION_RULE}`;
+## What Would Most Improve Confidence
+ONE multi-line markdown table identifying the 3–5 evidence items that would most lift the diligence conclusion:
+| Priority | Evidence Needed | Why It Matters | Owner | Pass Criterion |
+|---|---|---|---|---|
+Examples that may apply when relevant: product architecture documentation, model / AI system documentation, model evaluation metrics, drift monitoring evidence, data provenance documentation, security and compliance documentation, vendor and API dependency list, cost-per-inference / usage metrics, customer contracts or redacted enterprise agreements, incident logs / postmortems, customer proof / retention data.
+
+## Commercial Pain Read
+Summarize commercial pain ONLY from \`[commercial_pain_summary]\` and other artifact-supported context. If commercial pain evidence is missing or incomplete, do NOT write "Not yet completed / 100" — instead write "Commercial pain confidence cannot be fully scored from the current evidence package."
+Plain labels:
+- "Commercial Pain Confidence:" "<integer 0–100>/100" or "Insufficient evidence to score".
+- "Rationale:" one short paragraph based on available artifacts.
+- "What is supported:" bullet list of supported commercial evidence (or "None artifact-supported.").
+- "What is missing:" bullet list — typical examples include customer interviews, renewal / churn data, sales pipeline evidence, win/loss analysis, ROI proof, pricing / willingness-to-pay evidence, case studies or customer outcomes — but only list those actually missing here.
+- "Evidence:" bullet list referencing artifacts, OR "Missing / required: <specific evidence>".
+
+## Overall Read
+Write 2–3 concise paragraphs answering, in this order:
+1. What does the current evidence actually prove?
+2. What remains unverified?
+3. What should the reader do next?
+
+End with EXACTLY this final block on its own lines, separated by a blank line from the preceding paragraph:
+
+Recommended Next Step:
+<one clear next diligence action>.
+
+CRITICAL FORMATTING RULES (override any conflicting habits):
+- Plain markdown only. NO ":::snapshot", ":::final-position", or any ":::"-fenced block. NO JSON, YAML, code fences, or hidden tags.
+- DO NOT prefix any "## " heading with a section number (e.g. "## 01 · Decision Snapshot" is WRONG — emit "## Decision Snapshot"). The downstream renderer adds the section number automatically; manual prefixes produce "01 · 01 · …" duplicates.
+- NO inline classification tags like [L1] / [L2] / [L3], [REAL] / [PARTIAL] / [ILLUSION], or [CRITICAL] / [HIGH] / [MEDIUM] / [LOW]. Use plain words.
+- NO per-section "Decision:" line.
+- NO FINAL POSITION fields (classification, conviction, primary_driver, failure_trigger, timing, operator_dependency).
+- NO timestamps, browser export artifacts, page headers / footers, internal tags, JSON, "about:blank", or debug text.
+- Do not say "No direct evidence, inferred from …". If evidence is absent, set Evidence Status to "Missing / Required" and name the artifact required.
+- Numbers must come from the evidence verbatim. Otherwise use qualitative impact language or the "Quantification requires additional evidence" pattern.
+- Do not turn unverified claims into strengths.
+- Do not repeat the same missing-document issue in every section. Summarize once, then advance the analysis.
+- Be concise, skeptical, specific. Avoid hype, fake precision, generic filler.
+- This brief INFORMS the investment decision; never frame it as the final decision.
+- Use only the section headings listed above. No extras, no preamble, no closing remark.
+- Markdown tables MUST use a header row plus a separator row on its own line.`;
 
 // Self-contained prompt — intentionally does NOT inherit OPERATING_MODE,
 // DECISION_SNAPSHOT_RULE, FINAL_POSITION_RULE, COMMERCIAL_PAIN_RULE, or
@@ -701,16 +806,150 @@ const MASTER_SECTIONS: AdvancedReportSection[] = [
   { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
 ];
 
+// Sections render in order and are concatenated by the orchestrator.
+// No ':::snapshot' or ':::final-position' fences here — the spec is
+// plain markdown end-to-end, with no manual section number prefixes
+// (the renderer auto-numbers H2 headings).
 const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
-  { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
-  { id: "recommendation", label: "Final read", maxTokens: 1300, instruction: sectionBodyInstruction("## 1. Final Read", "State one of: Move Forward / Proceed with Conditions / High Risk / Do Not Move Forward. Give a 0-100 confidence score. Write the one-sentence 'this works / breaks because…'. State the Commercial Pain Confidence score and band on its own bullet line in the form 'Commercial Pain Confidence: <score> / 100 — <band>' read directly from [commercial_pain_summary]. Then add a sub-block titled '### Commercial Pain Reading' that answers EACH of these seven questions on its own bullet, citing the exact field from [commercial_pain_summary] (or 'Not yet completed' if the block reports that status): (1) Is the pain real? (2) Is it urgent? (3) Is it expensive? (4) Is there customer proof? (5) Does the product directly solve it? (6) Is the technical approach necessary? (7) What evidence is still missing? The final read must explicitly weigh BOTH the Company Readiness Score and the Commercial Pain Confidence — never collapse them into a single composite. Then list the 3-5 specific CONDITIONS (if conditional) as a table: Condition | Owner (Company) | Owner (Reader) | Pass Criterion | Days-to-Close.") },
-  { id: "insight", label: "Non-obvious insight", maxTokens: 800, instruction: sectionBodyInstruction("## 2. Non-Obvious Insight", "The single most important thing that IS NOT obvious from a surface review but IS supported by the artifacts. Cite the specific evidence trail (artifact + section). Explain why it matters.") },
-  { id: "strengths", label: "Critical strengths", maxTokens: 1100, instruction: sectionBodyInstruction("## 3. Three Critical Strengths", "The 3 strengths most defensible and tied to durability. For each: 2-3 sentence paragraph with the exact metric (customers, retention, accuracy, latency), the proof artifact, and why it compounds.") },
-  { id: "risks", label: "Critical risks", maxTokens: 1300, instruction: sectionBodyInstruction("## 4. Three Critical Risks", "The 3 risks that could realistically break the case. Table: Risk | Severity | Trigger | Quantified Impact ($ / % revenue) | Evidence | Mitigation Path. Each row names the counterparty, the dollar impact, and the mitigation owner.") },
-  { id: "killer", label: "What would walk this away", maxTokens: 700, instruction: sectionBodyInstruction("## 5. What Would Walk This Away", "The single biggest failure point — the issue that, if not fixed, ends it. One dense paragraph with the trigger, the impact, and the pass criterion required to keep moving forward.") },
-  { id: "double", label: "What would most improve it", maxTokens: 700, instruction: sectionBodyInstruction("## 6. What Would Most Improve It", "The single most leveraged improvement. Quantify the upside (revenue, margin, position), name the owner, name the effort, and state the timeline.") },
-  { id: "implications", label: "What this means for next steps", maxTokens: 1200, instruction: sectionBodyInstruction("## 7. What This Means For Next Steps", "Cover three areas concisely. (a) Position: rate the company's value position as strong / fair / weak based on the evidence and explain why. (b) Growth: name the specific bottleneck and the revenue ceiling it implies. (c) Risk shifts: which scenarios change the picture if the company is sold, partnered with, or scaled. Include a scenario table: Scenario | Key Assumption | Revenue Outlook | Position Outlook | Probability. Cover base / bull / bear.") },
-  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
+  {
+    id: "snapshot",
+    label: "Decision snapshot",
+    maxTokens: 800,
+    instruction: [
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Executive Decision Brief — <TARGET>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — this italic subtitle verbatim: "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*". Then a blank line, then the heading "## Decision Snapshot" (the renderer adds the section number automatically — DO NOT prefix the heading with "01 ·" or any number). Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `Use plain labels (no bullets, no bold) followed by content on the next line(s). Match this skeleton, separated by blank lines:`,
+      `Recommendation:\n<Proceed | Proceed with Conditions | Pause Pending Evidence | Do Not Proceed Based on Current Evidence>`,
+      `Technical / AI Risk Posture:\n<Low | Moderate | High | Critical>`,
+      `Confidence:\n<integer 0–100>/100`,
+      `One-Sentence Read:\n<single plain-English executive sentence>`,
+      `Primary Decision Driver:\n<single biggest reason behind the recommendation>`,
+      `Confidence Rationale:\n<one short paragraph: evidence coverage + material open diligence gaps>`,
+      `Top Strengths:\n1. <artifact-supported strength, or "No artifact-supported strength identified.">\n2. <artifact-supported strength, or "No artifact-supported strength identified.">\n3. <artifact-supported strength, or "No artifact-supported strength identified.">`,
+      `Top Risks:\n1. <Risk>\n2. <Risk>\n3. <Risk>`,
+      `Evidence Basis:\nSupported areas:\n- <artifact-supported area>\n\nPartially supported areas:\n- <partially supported area>\n\nMissing / required areas:\n- <missing artifact or evidence area>`,
+      `Strict rules: Strengths MUST be artifact-supported — never pad with intake / management claims. Recommendation MUST match evidence coverage and risk posture per the system prompt thresholds. Cite artifact names verbatim from the evidence context. Do NOT emit any of the later sections here — they are produced in subsequent calls.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "supported_findings",
+    label: "What the evidence actually supports",
+    maxTokens: 1400,
+    instruction: [
+      `OUTPUT ONLY the "## What The Evidence Actually Supports" section. Begin your response with the heading line "## What The Evidence Actually Supports" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "02 ·" or any number.`,
+      `List 3–5 findings supported by uploaded evidence. If fewer than 3 material findings are supported, write a single sentence: "Only <number> material artifact-supported findings were identified in the current evidence package." and emit just those findings.`,
+      `For EACH finding emit a heading "### Finding <N>. <Title>" then plain labels (no inline bold prefixes, no bullets):`,
+      `Evidence Status:\n<Supported | Partially Supported>`,
+      `What the evidence supports:\n<state ONLY what uploaded artifacts support>`,
+      `Why it matters:\n<relevance to product credibility, technical risk, governance, production readiness, commercial credibility, or post-close execution>`,
+      `Evidence:\n- <Artifact name> — <short paraphrase of what it supports>`,
+      `Cite artifacts by filename verbatim from the evidence context. Never invent filenames. Stop after the last finding.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "claims_validation",
+    label: "Claims requiring validation",
+    maxTokens: 900,
+    instruction: [
+      `OUTPUT ONLY the "## Claims Requiring Validation" section. Begin your response with the heading line "## Claims Requiring Validation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "03 ·" or any number.`,
+      `Below the heading emit ONE multi-line markdown table with a header row and a separator row on its own line:`,
+      `| Claim | Current Source | Evidence Status | Why It Matters | Required Evidence |\n|---|---|---|---|---|`,
+      `Rules: Current Source is where the claim came from (e.g. intake, management call, deck p.4, [commercial_pain_summary] intake_only_claims). Evidence Status MUST be one of Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only. Do NOT treat management / input claims as facts. Do NOT treat unverified claims as strengths. Why It Matters explains the diligence risk concisely (≤ 18 words). Required Evidence names the specific artifact or data that would resolve the claim.`,
+      `Stop immediately after the final data row. Do not emit any other heading or prose.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "strengths",
+    label: "Three most important strengths",
+    maxTokens: 1100,
+    instruction: [
+      `OUTPUT ONLY the "## Three Most Important Strengths" section. Begin your response with the heading line "## Three Most Important Strengths" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "04 ·" or any number.`,
+      `Only include strengths that are artifact-supported. If NO artifact-supported strengths exist in the evidence context, emit ONLY this paragraph after the heading and stop: "No artifact-supported strengths were identified from the current evidence package. The current record may contain promising claims, but they are not yet sufficiently supported by uploaded evidence."`,
+      `Otherwise, for EACH strength (up to three) emit a heading "### Strength <N>. <Title>" then plain labels:`,
+      `Evidence Status:\n<Supported | Partially Supported>`,
+      `Why it matters:\n<strategic or diligence relevance>`,
+      `Evidence:\n- <Artifact name> — <short paraphrase of support>`,
+      `Confidence:\n<High | Moderate | Low> — <brief rationale>`,
+      `What could weaken this strength:\n<specific missing evidence, contradiction, dependency, or condition>`,
+      `Strict: never elevate intake / management claims to "strengths". Cite artifacts by filename verbatim. Stop after the last strength.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "risks",
+    label: "Three most important risks",
+    maxTokens: 1300,
+    instruction: [
+      `OUTPUT ONLY the "## Three Most Important Risks" section. Begin your response with the heading line "## Three Most Important Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "05 ·" or any number.`,
+      `List the 3 most material risks from the current evidence package. Pull from the Technical Risk Register summary if it appears in the evidence context.`,
+      `For EACH risk emit a heading "### Risk <N>. <Title>" then plain labels:`,
+      `Risk Level:\n<Critical | High | Medium | Low>`,
+      `Evidence Status:\n<Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only>`,
+      `What we know:\n<what evidence supports>`,
+      `What is missing:\n<what evidence is missing>`,
+      `Why it matters:\n<consequence for valuation, scaling, enterprise adoption, compliance approval, model reliability, customer trust, gross margin durability, or post-close execution>`,
+      `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <artifact name or data needed>`,
+      `Required follow-up:\n<specific next diligence request>`,
+      `Forbidden: unsupported dollar values or percentages, "regulatory penalties" without evidence (prefer "regulatory, customer trust, and enterprise adoption exposure"), bracketed severity tags like [HIGH], "[L1]"/"[L2]"/"[L3]", a per-risk "Decision:" line, "No direct evidence, inferred from …".`,
+      `Stop after the closing "Required follow-up" of the third risk.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "walk_away",
+    label: "What would walk this away",
+    maxTokens: 700,
+    instruction: [
+      `OUTPUT ONLY the "## What Would Walk This Away" section. Begin your response with the heading line "## What Would Walk This Away" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "06 ·" or any number.`,
+      `Identify the SINGLE biggest potential deal-breaking issue based on current evidence. Plain labels (no bullets):`,
+      `Potential walk-away issue:\n<specific issue>`,
+      `Why it could break the deal:\n<diligence-language explanation>`,
+      `Current evidence status:\n<Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only>`,
+      `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <artifact name or data needed>`,
+      `What would need to be true to continue:\n<specific pass criteria>`,
+      `Do NOT exaggerate. Do NOT label something a deal-breaker if it is only a missing-document issue resolvable with a follow-up artifact request.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "confidence_improvers",
+    label: "What would most improve confidence",
+    maxTokens: 900,
+    instruction: [
+      `OUTPUT ONLY the "## What Would Most Improve Confidence" section. Begin your response with the heading line "## What Would Most Improve Confidence" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "07 ·" or any number.`,
+      `Below the heading emit ONE multi-line markdown table identifying the 3–5 evidence items that would most lift the diligence conclusion:`,
+      `| Priority | Evidence Needed | Why It Matters | Owner | Pass Criterion |\n|---|---|---|---|---|`,
+      `Rules: Priority numbers 1, 2, 3 (highest first). Evidence Needed names a concrete artifact or dataset (e.g. product architecture documentation, model evaluation metrics, drift monitoring evidence, data provenance documentation, vendor and API dependency list, cost-per-inference / usage metrics, customer contracts or redacted enterprise agreements, incident logs / postmortems, customer proof / retention data — only when relevant to the actual evidence gaps). Owner names the responsible role/team (e.g. "Company CTO", "Reader diligence team"). Pass Criterion is a specific, testable condition.`,
+      `Stop immediately after the final data row. Do not emit any other heading or prose.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "commercial_pain",
+    label: "Commercial pain read",
+    maxTokens: 800,
+    instruction: [
+      `OUTPUT ONLY the "## Commercial Pain Read" section. Begin your response with the heading line "## Commercial Pain Read" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "08 ·" or any number.`,
+      `Summarize commercial pain ONLY from "[commercial_pain_summary]" and other artifact-supported context in the evidence. If commercial pain evidence is missing or incomplete, do NOT write "Not yet completed / 100" — instead write "Commercial pain confidence cannot be fully scored from the current evidence package." for the Confidence value.`,
+      `Plain labels:`,
+      `Commercial Pain Confidence:\n<integer 0–100>/100  OR  Insufficient evidence to score`,
+      `Rationale:\n<one short paragraph based on available artifacts>`,
+      `What is supported:\n- <supported commercial evidence>  (or "None artifact-supported.")`,
+      `What is missing:\n- <only the commercial-evidence gaps actually present, drawn from items like customer interviews, renewal / churn data, sales pipeline evidence, win/loss analysis, ROI proof, pricing / willingness-to-pay evidence, case studies or customer outcomes>`,
+      `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <specific evidence>`,
+    ].join("\n\n"),
+  },
+  {
+    id: "overall_read",
+    label: "Overall read",
+    maxTokens: 700,
+    instruction: [
+      `OUTPUT ONLY the "## Overall Read" section. Begin your response with the heading line "## Overall Read" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "09 ·" or any number.`,
+      `Write 2–3 concise paragraphs answering, in this order:`,
+      `1. What does the current evidence actually prove?`,
+      `2. What remains unverified?`,
+      `3. What should the reader do next?`,
+      `Use hedging vocabulary where evidence is partial or missing — phrases such as "The current evidence package does not yet validate …", "This remains unresolved based on available artifacts …". Do NOT invent dollar amounts, ARR, percentages, or valuation implications. This brief INFORMS the investment decision; never frame it as the final decision.`,
+      `End with EXACTLY this final block, on its own lines, separated by a blank line from the preceding paragraph:`,
+      `Recommended Next Step:\n<one clear next diligence action>.`,
+      `Forbidden: ":::"-fenced blocks, JSON, YAML, hidden tags, classification fields, a "Decision:" line, fabricated numbers, or any closing remark after the Recommended Next Step block.`,
+    ].join("\n\n"),
+  },
 ];
 
 // Sections render in order and are concatenated by the orchestrator.
