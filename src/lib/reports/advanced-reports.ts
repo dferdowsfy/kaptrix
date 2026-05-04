@@ -306,6 +306,11 @@ CRITICAL EVIDENCE RULES:
 8. Do NOT turn unverified claims into strengths.
 9. Do NOT say "fully evidenced" unless the exact claim is supported by uploaded artifacts.
 10. Do NOT include "n/a — fully evidenced", "Not yet completed / 100", hidden tags, debug text, JSON, internal classifications, timestamps, browser artifacts, or "about:blank".
+11. STRENGTHS MUST DESCRIBE WHAT THE EVIDENCE PROVES — not the artifact's existence. "Privacy policy provided" is NOT a strength; "Privacy policy establishes a baseline data-handling posture (note: implementation evidence is incomplete)" is. Each strength must be a statement about the company's posture, capability, or control maturity that the artifact actually substantiates.
+12. SOURCE LABELS — when citing the origin of a claim, use clean, reader-facing labels: "Intake response", "Management/input claim", "Uploaded artifact: <filename>", "Missing / Required". Do NOT expose internal context labels like "[commercial_pain_summary]", "[document]", "[executive · ...]", "[takeaway]", or any other bracketed tag from the evidence-context format.
+13. REQUIRED PHRASING SUBSTITUTIONS:
+    - Do NOT write "strong commercial narrative supported by various artifacts" or any near-equivalent. Instead use: "The current evidence package supports parts of the technical and governance posture, but does not yet validate commercial pain, margin durability, customer commitment, or model performance." (or a variant tailored to the actual gaps).
+    - Do NOT write "regulatory penalties" or "legal penalties". Instead use: "regulatory, customer trust, and enterprise adoption exposure."
 
 EVIDENCE STATUS OPTIONS — use ONLY these labels:
 - Supported — artifact directly supports the finding and no major validation gaps remain.
@@ -314,11 +319,11 @@ EVIDENCE STATUS OPTIONS — use ONLY these labels:
 - Contradicted — evidence conflicts.
 - Management/Input Claim Only — the claim comes from intake or management statements but is not corroborated by artifacts.
 
-RECOMMENDATION OPTIONS — use exactly ONE label, with the threshold guidance below:
-- Proceed — only if the evidence coverage is strong and material risks are manageable.
-- Proceed with Conditions — opportunity appears credible but key evidence must be validated before relying on AI claims for valuation or post-close planning.
-- Pause Pending Evidence — promising claims but evidence coverage is too thin to support a confident decision.
-- Do Not Proceed Based on Current Evidence — evidence shows material contradictions, unresolved critical risk, or the target cannot substantiate core AI / business claims.
+RECOMMENDATION OPTIONS — use exactly ONE label, with the threshold guidance below. Default toward the more cautious label when in doubt — never use a stronger label than the evidence justifies:
+- Proceed — only if the evidence coverage is strong AND material risks are manageable AND model reliability, inference economics, security/compliance maturity, AND commercial pain are each at least Partially Supported by uploaded artifacts.
+- Proceed with Conditions — only if the opportunity is credible AND most diligence pillars are at least Partially Supported AND the remaining gaps can plausibly be closed with named follow-up artifacts. Do NOT use this label when commercial pain validation, model evaluation metrics, OR cost-per-inference data are entirely missing.
+- Pause Pending Evidence — DEFAULT label when evidence coverage is thin in any of: model reliability, inference economics, customer commitment, or security / compliance maturity. Use this whenever the brief cannot confidently underwrite AI performance, margin durability, or enterprise adoption from the current artifacts.
+- Do Not Proceed Based on Current Evidence — only when evidence shows material contradictions, unresolved critical risk, or the target cannot substantiate core AI / business claims.
 
 OUTPUT — exactly the following sections in this order, plain GitHub-flavored markdown only.
 
@@ -870,7 +875,9 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
       `Evidence:\n- <Artifact name> — <short paraphrase of support>`,
       `Confidence:\n<High | Moderate | Low> — <brief rationale>`,
       `What could weaken this strength:\n<specific missing evidence, contradiction, dependency, or condition>`,
-      `Strict: never elevate intake / management claims to "strengths". Cite artifacts by filename verbatim. Stop after the last strength.`,
+      `Strict: each strength must describe what the evidence actually proves about the company's posture, capability, or control maturity — not the artifact's existence. The Title and "Why it matters" must read as a finding (e.g. "Documented AI system architecture and model-routing layer", "Privacy policy establishes a baseline data-handling posture", "Security attestations provide partial evidence of control maturity"), not a filename. If only an artifact name is available with no posture finding behind it, that strength does NOT qualify — drop it.`,
+      `If the supporting artifact does not validate implementation, effectiveness, or operating maturity, set Evidence Status to "Partially Supported" and explicitly state what is still missing in "What could weaken this strength".`,
+      `Never elevate intake / management claims to strengths. Cite artifacts by filename verbatim. Stop after the last strength.`,
     ].join("\n\n"),
   },
   {
@@ -898,13 +905,13 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     maxTokens: 700,
     instruction: [
       `OUTPUT ONLY the "## What Would Walk This Away" section. Begin your response with the heading line "## What Would Walk This Away" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "06 ·" or any number.`,
-      `Identify the SINGLE biggest potential deal-breaking issue based on current evidence. Plain labels (no bullets):`,
-      `Potential walk-away issue:\n<specific issue>`,
-      `Why it could break the deal:\n<diligence-language explanation>`,
-      `Current evidence status:\n<Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only>`,
+      `Identify the SINGLE biggest potential deal-breaking issue based on current evidence. Frame it as the inability to validate something material BEFORE that thing is used to support valuation — not as a confirmed failure. Plain labels (no bullets):`,
+      `Potential walk-away issue:\n<specific issue, framed as: "The company cannot validate <X, Y, Z> before those claims are used to support valuation.">`,
+      `Why it could break the deal:\n<diligence-language explanation: if these areas remain unresolved, the buyer cannot confidently underwrite AI performance, margin durability, enterprise adoption risk, or post-close operating exposure>`,
+      `Current evidence status:\n<Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only — use "Partially Supported / Missing / Required" if multiple statuses apply across the cited gaps>`,
       `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <artifact name or data needed>`,
-      `What would need to be true to continue:\n<specific pass criteria>`,
-      `Do NOT exaggerate. Do NOT label something a deal-breaker if it is only a missing-document issue resolvable with a follow-up artifact request.`,
+      `What would need to be true to continue:\n<specific pass criteria — name the concrete artifacts the company would need to provide (e.g. model evaluation metrics, cost-per-inference data, SOC 2 Type II or equivalent control evidence, customer contracts, incident response documentation)>`,
+      `Do NOT exaggerate. Do NOT label something a deal-breaker if it is only a missing-document issue resolvable with a follow-up artifact request — frame those as walk-away IF the company is unwilling or unable to produce the artifacts.`,
     ].join("\n\n"),
   },
   {
