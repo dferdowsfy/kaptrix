@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SectionHeader } from "@/components/preview/preview-shell";
 import { useSelectedPreviewClient } from "@/hooks/use-selected-preview-client";
@@ -15,6 +15,20 @@ export default function PreviewHomePage() {
   const { clients, isLoading, refresh } = usePreviewClients();
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/user/profile", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data) setIsAdmin(Boolean(data.is_admin));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const openClient = (id: string) => {
     setSelectedId(id);
@@ -38,18 +52,24 @@ export default function PreviewHomePage() {
         <SectionHeader
           eyebrow="Home"
           title="Get a fast, structured read on a company"
-          description="Upload company documents and get a clear view of risks, gaps, and opportunities — ready to review or share."
+          description={
+            isAdmin
+              ? "Upload company documents and get a clear view of risks, gaps, and opportunities — or add a new client below."
+              : "Upload company documents and get a clear view of risks, gaps, and opportunities — ready to review or share."
+          }
         />
-        <button
-          type="button"
-          onClick={() => setShowForm(!showForm)}
-          className="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
-        >
-          {showForm ? "Cancel" : "+ New Client"}
-        </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={() => setShowForm(!showForm)}
+            className="shrink-0 rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          >
+            {showForm ? "Cancel" : "+ New Client"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {isAdmin && showForm && (
         <NewClientForm
           onCreated={() => {
             setShowForm(false);
@@ -62,7 +82,11 @@ export default function PreviewHomePage() {
         <div className="py-12 text-center text-sm text-slate-500">Loading engagements…</div>
       ) : clients.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-slate-300 py-16 text-center">
-          <p className="text-sm text-slate-500">No engagements yet. Add your first client above.</p>
+          <p className="text-sm text-slate-500">
+            {isAdmin
+              ? "No engagements yet. Add your first client above."
+              : "No engagements yet. Contact an admin to add a client."}
+          </p>
         </div>
       ) : (
         <div className="grid gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-2">

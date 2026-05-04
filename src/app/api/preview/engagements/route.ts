@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase/service";
-import { requireAuth, authErrorResponse } from "@/lib/security/authz";
+import { requireAuth, requireAdmin, authErrorResponse } from "@/lib/security/authz";
 import { getUserPlanContext, checkEngagementLimit } from "@/lib/plans-server";
 
 export const runtime = "nodejs";
@@ -40,10 +40,12 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  // Auth is enough — any signed-in user can create a new client.
+  // Admin-only: client creation is restricted to platform admins. Demo
+  // visitors and non-admin signed-in users get 403.
   let ctx;
   try {
     ctx = await requireAuth();
+    requireAdmin(ctx);
   } catch (err) {
     return authErrorResponse(err);
   }
