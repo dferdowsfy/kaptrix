@@ -295,6 +295,40 @@ NAMING RULE:
 - If the user prompt includes "DEMO MODE: true", treat the report as a fictional / anonymized sample. Add the subtitle "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*" on its own italic line directly under the "# Executive Decision Brief — <TARGET>" title. Do not include real client names unless they are already fictionalized. Do not include confidential client data.
 - If "DEMO MODE: true" is NOT present, do NOT add the sample subtitle. Use the actual display company name. Do not fictionalize artifact names.
 
+EVIDENCE INGESTION REQUIREMENT — read this BEFORE writing anything else.
+
+Inspect the evidence_context that follows in the user message. Do NOT rely on artifact filenames alone. For each material finding, risk, strength, and recommendation, you must use actual extracted artifact content (the quoted excerpts, paraphrased passages, or specifically-cited fields that appear in the context). A bare "[document] <filename>" entry with no excerpt does NOT count as extracted content.
+
+If extracted content from an artifact is NOT present in evidence_context, do NOT claim the artifact supports a finding. State plainly: "Artifact inventory exists, but artifact contents were not available to support this finding."
+
+REQUIRED EVIDENCE-CITATION FORMAT — every "Evidence:" block (in Findings, Strengths, Risks, Walk-Away, and Commercial Pain Read) MUST use this five-line shape:
+
+Evidence:
+- Artifact: <artifact name>
+- Location: <page / section / field, or "Not specified" if not available>
+- Extracted support: <specific paraphrased evidence taken from the artifact's extracted content>
+- Supports: <the specific claim this evidence backs>
+- Still missing: <the specific validation gap that remains>
+
+Never write "<artifact> provides insights into …" or similar vague pointers. If you have nothing concrete from the extracted content for a given finding, that finding does not qualify — drop it.
+
+EVIDENCE RETRIEVAL FAILURE FALLBACK — if evidence_context contains an artifact inventory (filenames, [document] entries, or similar) but does NOT contain actual extracted passages from those artifacts, do NOT generate a full Executive Decision Brief. Instead, in the Decision Snapshot section, replace ALL of the snapshot's normal labels with this single block, then in every subsequent section emit ONLY a one-line italic placeholder pointing back to the notice — do not invent findings, strengths, risks, or recommendations.
+
+Failure-notice block (placed inside the Decision Snapshot section after the title and optional demo subtitle):
+
+> **Evidence Retrieval Failure Notice**
+>
+> 1. Artifacts detected: <bulleted list of artifact filenames found in the inventory>
+> 2. Missing extracted content: <name the artifacts whose excerpts were not present in evidence_context>
+> 3. Why the report cannot be evidence-backed yet: <one short paragraph explaining that an evidence-backed brief requires extracted artifact passages, not just filenames>
+> 4. Required system action: retrieve and pass artifact excerpts (page-level extracts, section paraphrases, or relevant field values) into the report generator, then re-run.
+
+Placeholder line for every section after the Decision Snapshot when the failure notice was emitted:
+
+*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*
+
+Do NOT invent placeholder findings, generic strengths, hypothetical risks, or speculative recommendations under the failure path.
+
 CRITICAL EVIDENCE RULES:
 1. Uploaded artifacts are the highest-priority evidence source. Cite them by filename inline.
 2. Intake responses and company claims are NOT evidence unless corroborated by uploaded artifacts.
@@ -833,6 +867,7 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
       `Top Risks:\n1. <Risk>\n2. <Risk>\n3. <Risk>`,
       `Evidence Basis:\nSupported areas:\n- <artifact-supported area>\n\nPartially supported areas:\n- <partially supported area>\n\nMissing / required areas:\n- <missing artifact or evidence area>`,
       `Strict rules: Strengths MUST be artifact-supported — never pad with intake / management claims. Recommendation MUST match evidence coverage and risk posture per the system prompt thresholds. Cite artifact names verbatim from the evidence context. Do NOT emit any of the later sections here — they are produced in subsequent calls.`,
+      `EVIDENCE-RETRIEVAL CHECK: before emitting the snapshot fields above, verify that the evidence_context contains actual extracted artifact passages (excerpts, paraphrased page content, or specifically-cited fields) — not just an artifact inventory. If the context only carries filenames or "[document]"-style entries with no extracted content, you MUST instead emit the Evidence Retrieval Failure Notice block defined in the system prompt verbatim (as a blockquote) immediately after the title (and demo subtitle, if present), and DO NOT emit Recommendation / Risk Posture / Confidence / One-Sentence Read / Primary Decision Driver / Confidence Rationale / Top Strengths / Top Risks / Evidence Basis. The "## Decision Snapshot" heading still appears, but its body is the failure notice only.`,
     ].join("\n\n"),
   },
   {
@@ -842,12 +877,13 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     instruction: [
       `OUTPUT ONLY the "## What The Evidence Actually Supports" section. Begin your response with the heading line "## What The Evidence Actually Supports" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "02 ·" or any number.`,
       `List 3–5 findings supported by uploaded evidence. If fewer than 3 material findings are supported, write a single sentence: "Only <number> material artifact-supported findings were identified in the current evidence package." and emit just those findings.`,
-      `For EACH finding emit a heading "### Finding <N>. <Title>" then plain labels (no inline bold prefixes, no bullets):`,
+      `EVIDENCE-RETRIEVAL CHECK: if the prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR if evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, for EACH finding emit a heading "### Finding <N>. <Title>" then plain labels (no inline bold prefixes, no bullets):`,
       `Evidence Status:\n<Supported | Partially Supported>`,
       `What the evidence supports:\n<state ONLY what uploaded artifacts support>`,
       `Why it matters:\n<relevance to product credibility, technical risk, governance, production readiness, commercial credibility, or post-close execution>`,
-      `Evidence:\n- <Artifact name> — <short paraphrase of what it supports>`,
-      `Cite artifacts by filename verbatim from the evidence context. Never invent filenames. Stop after the last finding.`,
+      `Evidence:\n- Artifact: <artifact name>\n- Location: <page / section / field, or "Not specified">\n- Extracted support: <specific paraphrased evidence taken from the artifact's extracted content>\n- Supports: <the specific claim this evidence backs>\n- Still missing: <the specific validation gap that remains>`,
+      `Cite artifacts by filename verbatim from the evidence context. Never invent filenames. Never write "<artifact> provides insights …" without the five-line Evidence block. Stop after the last finding.`,
     ].join("\n\n"),
   },
   {
@@ -856,9 +892,10 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     maxTokens: 900,
     instruction: [
       `OUTPUT ONLY the "## Claims Requiring Validation" section. Begin your response with the heading line "## Claims Requiring Validation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "03 ·" or any number.`,
-      `Below the heading emit ONE multi-line markdown table with a header row and a separator row on its own line:`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, below the heading emit ONE multi-line markdown table with a header row and a separator row on its own line:`,
       `| Claim | Current Source | Evidence Status | Why It Matters | Required Evidence |\n|---|---|---|---|---|`,
-      `Rules: Current Source is where the claim came from (e.g. intake, management call, deck p.4, [commercial_pain_summary] intake_only_claims). Evidence Status MUST be one of Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only. Do NOT treat management / input claims as facts. Do NOT treat unverified claims as strengths. Why It Matters explains the diligence risk concisely (≤ 18 words). Required Evidence names the specific artifact or data that would resolve the claim.`,
+      `Rules: Current Source uses reader-facing labels — "Intake response", "Management/input claim", "Uploaded artifact: <filename>", or "Missing / Required". Do NOT expose internal context tags like "[commercial_pain_summary]". Evidence Status MUST be one of Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only. Do NOT treat management / input claims as facts. Do NOT treat unverified claims as strengths. Why It Matters explains the diligence risk concisely (≤ 18 words). Required Evidence names the specific artifact or data that would resolve the claim.`,
       `Stop immediately after the final data row. Do not emit any other heading or prose.`,
     ].join("\n\n"),
   },
@@ -869,10 +906,11 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     instruction: [
       `OUTPUT ONLY the "## Three Most Important Strengths" section. Begin your response with the heading line "## Three Most Important Strengths" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "04 ·" or any number.`,
       `Only include strengths that are artifact-supported. If NO artifact-supported strengths exist in the evidence context, emit ONLY this paragraph after the heading and stop: "No artifact-supported strengths were identified from the current evidence package. The current record may contain promising claims, but they are not yet sufficiently supported by uploaded evidence."`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
       `Otherwise, for EACH strength (up to three) emit a heading "### Strength <N>. <Title>" then plain labels:`,
       `Evidence Status:\n<Supported | Partially Supported>`,
       `Why it matters:\n<strategic or diligence relevance>`,
-      `Evidence:\n- <Artifact name> — <short paraphrase of support>`,
+      `Evidence:\n- Artifact: <artifact name>\n- Location: <page / section / field, or "Not specified">\n- Extracted support: <specific paraphrased evidence taken from the artifact's extracted content>\n- Supports: <the specific posture / capability / control-maturity finding this evidence backs>\n- Still missing: <the specific validation gap that remains>`,
       `Confidence:\n<High | Moderate | Low> — <brief rationale>`,
       `What could weaken this strength:\n<specific missing evidence, contradiction, dependency, or condition>`,
       `Strict: each strength must describe what the evidence actually proves about the company's posture, capability, or control maturity — not the artifact's existence. The Title and "Why it matters" must read as a finding (e.g. "Documented AI system architecture and model-routing layer", "Privacy policy establishes a baseline data-handling posture", "Security attestations provide partial evidence of control maturity"), not a filename. If only an artifact name is available with no posture finding behind it, that strength does NOT qualify — drop it.`,
@@ -887,13 +925,14 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     instruction: [
       `OUTPUT ONLY the "## Three Most Important Risks" section. Begin your response with the heading line "## Three Most Important Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "05 ·" or any number.`,
       `List the 3 most material risks from the current evidence package. Pull from the Technical Risk Register summary if it appears in the evidence context.`,
-      `For EACH risk emit a heading "### Risk <N>. <Title>" then plain labels:`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, for EACH risk emit a heading "### Risk <N>. <Title>" then plain labels:`,
       `Risk Level:\n<Critical | High | Medium | Low>`,
       `Evidence Status:\n<Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only>`,
       `What we know:\n<what evidence supports>`,
       `What is missing:\n<what evidence is missing>`,
       `Why it matters:\n<consequence for valuation, scaling, enterprise adoption, compliance approval, model reliability, customer trust, gross margin durability, or post-close execution>`,
-      `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <artifact name or data needed>`,
+      `Evidence:\n- Artifact: <artifact name>  OR  "Missing / Required" if no artifact applies\n- Location: <page / section / field, or "Not specified">\n- Extracted support: <specific paraphrased evidence taken from the artifact's extracted content, or "No extracted content available — diligence gap">\n- Supports: <the specific risk this evidence substantiates>\n- Still missing: <the specific validation gap that remains>`,
       `Required follow-up:\n<specific next diligence request>`,
       `Forbidden: unsupported dollar values or percentages, "regulatory penalties" without evidence (prefer "regulatory, customer trust, and enterprise adoption exposure"), bracketed severity tags like [HIGH], "[L1]"/"[L2]"/"[L3]", a per-risk "Decision:" line, "No direct evidence, inferred from …".`,
       `Stop after the closing "Required follow-up" of the third risk.`,
@@ -905,11 +944,12 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     maxTokens: 700,
     instruction: [
       `OUTPUT ONLY the "## What Would Walk This Away" section. Begin your response with the heading line "## What Would Walk This Away" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "06 ·" or any number.`,
-      `Identify the SINGLE biggest potential deal-breaking issue based on current evidence. Frame it as the inability to validate something material BEFORE that thing is used to support valuation — not as a confirmed failure. Plain labels (no bullets):`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, identify the SINGLE biggest potential deal-breaking issue based on current evidence. Frame it as the inability to validate something material BEFORE that thing is used to support valuation — not as a confirmed failure. Plain labels (no bullets):`,
       `Potential walk-away issue:\n<specific issue, framed as: "The company cannot validate <X, Y, Z> before those claims are used to support valuation.">`,
       `Why it could break the deal:\n<diligence-language explanation: if these areas remain unresolved, the buyer cannot confidently underwrite AI performance, margin durability, enterprise adoption risk, or post-close operating exposure>`,
       `Current evidence status:\n<Supported | Partially Supported | Missing / Required | Contradicted | Management/Input Claim Only — use "Partially Supported / Missing / Required" if multiple statuses apply across the cited gaps>`,
-      `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <artifact name or data needed>`,
+      `Evidence:\n- Artifact: <artifact name>  OR  "Missing / Required" if no artifact applies\n- Location: <page / section / field, or "Not specified">\n- Extracted support: <specific paraphrased evidence taken from the artifact's extracted content, or "No extracted content available — diligence gap">\n- Supports: <the specific concern this evidence substantiates>\n- Still missing: <the specific validation gap that remains>`,
       `What would need to be true to continue:\n<specific pass criteria — name the concrete artifacts the company would need to provide (e.g. model evaluation metrics, cost-per-inference data, SOC 2 Type II or equivalent control evidence, customer contracts, incident response documentation)>`,
       `Do NOT exaggerate. Do NOT label something a deal-breaker if it is only a missing-document issue resolvable with a follow-up artifact request — frame those as walk-away IF the company is unwilling or unable to produce the artifacts.`,
     ].join("\n\n"),
@@ -920,7 +960,8 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     maxTokens: 900,
     instruction: [
       `OUTPUT ONLY the "## What Would Most Improve Confidence" section. Begin your response with the heading line "## What Would Most Improve Confidence" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "07 ·" or any number.`,
-      `Below the heading emit ONE multi-line markdown table identifying the 3–5 evidence items that would most lift the diligence conclusion:`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, below the heading emit ONE multi-line markdown table identifying the 3–5 evidence items that would most lift the diligence conclusion:`,
       `| Priority | Evidence Needed | Why It Matters | Owner | Pass Criterion |\n|---|---|---|---|---|`,
       `Rules: Priority numbers 1, 2, 3 (highest first). Evidence Needed names a concrete artifact or dataset (e.g. product architecture documentation, model evaluation metrics, drift monitoring evidence, data provenance documentation, vendor and API dependency list, cost-per-inference / usage metrics, customer contracts or redacted enterprise agreements, incident logs / postmortems, customer proof / retention data — only when relevant to the actual evidence gaps). Owner names the responsible role/team (e.g. "Company CTO", "Reader diligence team"). Pass Criterion is a specific, testable condition.`,
       `Stop immediately after the final data row. Do not emit any other heading or prose.`,
@@ -932,13 +973,14 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     maxTokens: 800,
     instruction: [
       `OUTPUT ONLY the "## Commercial Pain Read" section. Begin your response with the heading line "## Commercial Pain Read" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "08 ·" or any number.`,
-      `Summarize commercial pain ONLY from "[commercial_pain_summary]" and other artifact-supported context in the evidence. If commercial pain evidence is missing or incomplete, do NOT write "Not yet completed / 100" — instead write "Commercial pain confidence cannot be fully scored from the current evidence package." for the Confidence value.`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, summarize commercial pain ONLY from artifact-supported context in the evidence (the canonical commercial-pain block, plus any extracted artifact passages relevant to commercial pain). Use clean reader-facing source labels — "Intake response", "Management/input claim", "Uploaded artifact: <filename>", "Missing / Required" — not internal context tags like "[commercial_pain_summary]". If commercial pain evidence is missing or incomplete, do NOT write "Not yet completed / 100" — instead write "Commercial pain confidence cannot be fully scored from the current evidence package." for the Confidence value.`,
       `Plain labels:`,
       `Commercial Pain Confidence:\n<integer 0–100>/100  OR  Insufficient evidence to score`,
       `Rationale:\n<one short paragraph based on available artifacts>`,
       `What is supported:\n- <supported commercial evidence>  (or "None artifact-supported.")`,
       `What is missing:\n- <only the commercial-evidence gaps actually present, drawn from items like customer interviews, renewal / churn data, sales pipeline evidence, win/loss analysis, ROI proof, pricing / willingness-to-pay evidence, case studies or customer outcomes>`,
-      `Evidence:\n- <Artifact name> — <short paraphrase>\nor\n- Missing / required: <specific evidence>`,
+      `Evidence:\n- Artifact: <artifact name>  OR  "Missing / Required" if no artifact applies\n- Location: <page / section / field, or "Not specified">\n- Extracted support: <specific paraphrased evidence taken from the artifact's extracted content, or "No extracted content available — diligence gap">\n- Supports: <the specific commercial-pain claim this evidence backs>\n- Still missing: <the specific validation gap that remains>`,
     ].join("\n\n"),
   },
   {
@@ -947,7 +989,8 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     maxTokens: 700,
     instruction: [
       `OUTPUT ONLY the "## Overall Read" section. Begin your response with the heading line "## Overall Read" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block. Do NOT prefix the heading with "09 ·" or any number.`,
-      `Write 2–3 concise paragraphs answering, in this order:`,
+      `EVIDENCE-RETRIEVAL CHECK: if prior_markdown shows the Decision Snapshot emitted the Evidence Retrieval Failure Notice, OR evidence_context still contains only an artifact inventory with no extracted passages, emit ONLY this single italic line under the heading and stop: "*Section deferred — see the Evidence Retrieval Failure Notice in the Decision Snapshot.*"`,
+      `Otherwise, write 2–3 concise paragraphs answering, in this order:`,
       `1. What does the current evidence actually prove?`,
       `2. What remains unverified?`,
       `3. What should the reader do next?`,
