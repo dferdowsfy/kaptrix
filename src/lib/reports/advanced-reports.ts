@@ -292,7 +292,7 @@ INPUTS AVAILABLE in the evidence context that follows in the user message:
 
 NAMING RULE:
 - Use the value of "TARGET:" from the user prompt as the display company name throughout the report.
-- If the user prompt includes "DEMO MODE: true", treat the report as a fictional / anonymized sample. Add the subtitle "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*" on its own italic line directly under the "# Executive Decision Brief — <TARGET>" title. Do not include real client names unless they are already fictionalized. Do not include confidential client data.
+- If the user prompt includes "DEMO MODE: true", treat the report as a fictional / anonymized sample. Add the demo subtitle on its own italic line directly under the "# Executive Decision Brief — <TARGET>" title. The subtitle text is provided in the user prompt as "DEMO SUBTITLE: <text>" — emit exactly "*<text>*" on its own line. Do not invent or reword the subtitle. Do not include real client names unless they are already fictionalized. Do not include confidential client data.
 - If "DEMO MODE: true" is NOT present, do NOT add the sample subtitle. Use the actual display company name. Do not fictionalize artifact names.
 
 EVIDENCE INGESTION REQUIREMENT — read this BEFORE writing anything else.
@@ -362,7 +362,7 @@ RECOMMENDATION OPTIONS — use exactly ONE label, with the threshold guidance be
 OUTPUT — exactly the following sections in this order, plain GitHub-flavored markdown only.
 
 # Executive Decision Brief — <TARGET>
-[If DEMO MODE = true, the next line is the italic subtitle "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*" on its own line. Otherwise omit the subtitle line entirely.]
+[If DEMO MODE = true, the next line is the italic subtitle "*<value of DEMO SUBTITLE from the user prompt>*" on its own line. Otherwise omit the subtitle line entirely.]
 
 ## Decision Snapshot
 Plain labels (no bullets, no bold) followed by content on the next line(s):
@@ -855,7 +855,7 @@ const IC_MEMO_SECTIONS: AdvancedReportSection[] = [
     label: "Decision snapshot",
     maxTokens: 800,
     instruction: [
-      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Executive Decision Brief — <TARGET>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — this italic subtitle verbatim: "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*". Then a blank line, then the heading "## Decision Snapshot" (the renderer adds the section number automatically — DO NOT prefix the heading with "01 ·" or any number). Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Executive Decision Brief — <TARGET>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — the italic demo subtitle exactly: "*<value of DEMO SUBTITLE from the user prompt>*". If "DEMO MODE: true" is NOT present, OMIT the subtitle line entirely. Then a blank line, then the heading "## Decision Snapshot" (the renderer adds the section number automatically — DO NOT prefix the heading with "01 ·" or any number). Do not emit any other section. Do not emit any ":::"-fenced block.`,
       `Use plain labels (no bullets, no bold) followed by content on the next line(s). Match this skeleton, separated by blank lines:`,
       `Recommendation:\n<Proceed | Proceed with Conditions | Pause Pending Evidence | Do Not Proceed Based on Current Evidence>`,
       `Technical / AI Risk Posture:\n<Low | Moderate | High | Critical>`,
@@ -1012,7 +1012,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Decision snapshot",
     maxTokens: 700,
     instruction: [
-      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Technical Risk Register — <TARGET NAME>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — this italic subtitle verbatim: "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*". Then a blank line, then the heading "## Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Technical Risk Register — <TARGET NAME>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — the italic demo subtitle exactly: "*<value of DEMO SUBTITLE from the user prompt>*". If "DEMO MODE: true" is NOT present, OMIT the subtitle line entirely. Then a blank line, then the heading "## Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
       `Use plain labels (no bullets, no bold) followed by content on the next line(s). Match this skeleton exactly, separated by blank lines:`,
       `Technical Risk Posture: Low | Moderate | High | Critical`,
       `Confidence: <integer 0–100>/100`,

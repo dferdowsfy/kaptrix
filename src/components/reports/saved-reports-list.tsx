@@ -14,10 +14,7 @@ import {
   ADVANCED_REPORTS,
   type AdvancedReportId,
 } from "@/lib/reports/advanced-reports";
-import { isDemoDisplayName } from "@/lib/reports/demo-anonymize";
-
-const DEMO_SUBTITLE =
-  "Sample / Fictional Target — Generated to demonstrate Kaptrix methodology";
+import { isDemoDisplayName, DEMO_SUBTITLE } from "@/lib/reports/demo-anonymize";
 
 /**
  * "Your Company Reads" list. Shows every read the signed-in user has

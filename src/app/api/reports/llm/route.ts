@@ -16,7 +16,12 @@ import {
   recordUsage,
 } from "@/lib/plans-server";
 import { assertPreviewTabVisible } from "@/lib/security/authz";
-import { applyDemoAnonymization, getDemoDisplayName } from "@/lib/reports/demo-anonymize";
+import {
+  applyDemoAnonymization,
+  getDemoDisplayName,
+  detectDemoLeakage,
+  DEMO_SUBTITLE,
+} from "@/lib/reports/demo-anonymize";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -151,7 +156,9 @@ export async function POST(req: Request) {
     ? buildUpdateSystemPrompt(config.systemPrompt)
     : config.systemPrompt;
 
-  const demoLine = demoDisplay ? `\nDEMO MODE: true` : "";
+  const demoLine = demoDisplay
+    ? `\nDEMO MODE: true\nDEMO SUBTITLE: ${DEMO_SUBTITLE}`
+    : "";
   const userPrompt = isUpdateMode
     ? `${config.userPromptIntro} — UPDATE MODE
 
@@ -219,6 +226,22 @@ Return the report as clean markdown only. No preamble, no closing remarks, no co
           debug: { finish_reason: finishReason },
         },
         { status: 502 },
+      );
+    }
+
+    // Demo-leakage guardrail. For non-demo runs, refuse to return any
+    // report that mentions demo phrasing or demo display names — this
+    // catches prompts that hardcode demo strings or engagements that
+    // were mis-routed through the demo override map.
+    const leak = detectDemoLeakage(content, !!demoDisplay);
+    if (leak) {
+      return NextResponse.json(
+        {
+          error:
+            "Demo naming detected in non-demo report. Please regenerate with correct client context.",
+          debug: { leaked_pattern: leak },
+        },
+        { status: 422 },
       );
     }
 
