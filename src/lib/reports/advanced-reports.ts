@@ -339,15 +339,29 @@ INPUTS AVAILABLE in the evidence context that follows in the user message:
 
 CORE RULES:
 1. Every risk must tie to evidence in the context, a specific missing-evidence gap, or a directly stated company claim. Cite the source inline (e.g. "per security_overview.pdf §3.2", "[commercial_pain_summary] intake_only_claims").
-2. If a risk rests on missing evidence, set Evidence Status to "Missing / Required" — do not call it a proven risk.
-3. Do NOT fabricate ARR impact, revenue loss, fines, market size, percentages, or dollar amounts. Numbers must appear in the evidence verbatim or be omitted.
-4. Only quantify impact if the provided evidence supports the figure. Otherwise use qualitative impact language: "Material margin risk", "Potential enterprise sales blocker", "Unverified scalability risk", "Potential regulatory / customer trust exposure", or "Quantification requires additional evidence".
+2. If a risk rests on missing or partial evidence, set Evidence Status to "Missing / Required" or "Partially Supported" accordingly — do NOT call it a proven risk and do NOT overstate certainty.
+3. Do NOT fabricate ARR impact, revenue loss, fines, market sizes, percentages, valuation implications, or dollar amounts. Numbers must appear in the evidence verbatim or be omitted entirely.
+4. Only quantify impact if the provided evidence supports the figure. Otherwise use qualitative impact language. Required substitutions for common weak phrasing:
+   - "Potential enterprise sales blocker due to reduced profitability" → "Gross margin and valuation risk if inference costs scale faster than revenue or pricing power."
+   - "Material margin risk due to potential operational inefficiencies" → "Scalability and operating leverage risk if the architecture cannot support expected production load."
+   - "Material margin risk due to potential operational disruptions from unaddressed incidents" → "Operational resilience risk if incidents cannot be detected, escalated, resolved, and reviewed consistently."
+   - When more quantification is genuinely needed, write: "Quantification requires additional evidence: <specific missing data>."
 5. Remove duplicates. Combine overlapping issues into one stronger risk. Examples:
    - "Data privacy gaps" + "data handling gaps" → one risk.
    - "Model drift" + "missing model evaluation metrics" → one risk.
    - "Vendor concentration" and "API brittleness" may stay separate ONLY if the evidence supports distinct issues.
 6. Cap the register at the 8–10 MOST MATERIAL risks. Depth over volume.
-7. This report INFORMS the investment decision; it is not the final investment decision. Never frame it as one.
+7. ANTI-CONTRADICTION DISCIPLINE — Evidence Coverage Summary and per-risk Evidence Status must be internally consistent:
+   - The same artifact category cannot appear in both "Supported areas" and "Missing / required areas".
+   - If Model / AI System Documentation, Data Handling Privacy Policy, Security Compliance Attestations, or a Vendor / API Dependency Inventory exists in the evidence context, that category belongs in "Supported areas" — never list it as fully missing.
+   - Use "Partially supported areas" for categories where artifacts exist but coverage is incomplete (e.g. financial unit economics, model dependency detail, compliance maturity, vendor concentration analysis).
+   - Reserve "Missing / required areas" for categories with no supporting artifact (e.g. full product architecture documentation, cost-per-inference detail, customer contracts or redacted enterprise agreements, incident logs and post-mortems, SOC 2 report or SOC 2 readiness evidence, model evaluation metrics and drift monitoring evidence).
+8. HEDGING VOCABULARY — when an artifact partially supports a risk or the evidence is incomplete, use phrasing that does not overstate certainty:
+   - "The current evidence package does not yet validate …"
+   - "This remains unresolved based on available artifacts …"
+   - "The artifact set partially supports this area but does not yet establish …"
+   - "The risk is not confirmed, but it remains material because …"
+9. This report INFORMS the investment decision; it is not the final investment decision. Never frame it as one.
 
 MATERIALITY FILTER — only include a risk if it could affect one or more of: valuation; gross margin durability; enterprise customer adoption; security / compliance approval; scalability; product credibility; vendor dependency; data rights / data sensitivity; model reliability; post-close execution.
 
@@ -372,55 +386,99 @@ OUTPUT — exactly the following sections in this order, plain GitHub-flavored m
 
 # Technical Risk Register
 
-## Decision Snapshot
+## 01 · Decision Snapshot
 
-- Technical Risk Posture: Low | Moderate | High | Critical
-- Confidence: integer 0–100 (reflects evidence coverage)
-- Rationale: one sentence; cite evidence coverage and material gaps only.
-- Top Risks: a numbered list of the top three risk names, ordered by Severity × Likelihood descending.
-- Evidence Coverage Summary — three labelled bullet groups:
-  - Supported areas: list areas backed by artifact evidence.
-  - Partially supported areas: list areas with partial support.
-  - Missing / required areas: list missing artifacts or evidence gaps.
+Use plain labels (no bullets, no bold) followed by content. Match this skeleton exactly:
 
-## Risk Register Summary Table
+Technical Risk Posture: Low | Moderate | High | Critical
 
-A multi-line markdown table (header row + separator row on its own line) with EXACTLY these columns and 8–10 data rows ordered by Severity × Likelihood descending:
+Confidence: <integer 0–100>/100
+
+Rationale:
+<one or two sentences citing evidence coverage and material gaps only — no fabricated context>
+
+Top Risks:
+1. <Risk name>
+2. <Risk name>
+3. <Risk name>
+
+Evidence Coverage Summary:
+Supported areas:
+- <area backed by an artifact in the context>
+
+Partially supported areas:
+- <area where artifacts exist but coverage is incomplete>
+
+Missing / required areas:
+- <area with no supporting artifact in the context>
+
+## 02 · Risk Register Summary Table
+
+Emit ONE multi-line markdown table (header row + separator row on its own line) with EXACTLY these columns and 8–10 data rows ordered by Severity × Likelihood descending:
 
 | ID | Risk | Evidence Status | Severity | Likelihood | Why It Matters | Required Follow-Up |
-| --- | --- | --- | --- | --- | --- | --- |
+|---|---|---|---:|---:|---|---|
 
 Severity scale (numeric only in the table): 1 = Low, 2 = Moderate, 3 = Material, 4 = High, 5 = Critical.
 Likelihood scale (numeric only in the table): 1 = Unlikely, 2 = Possible, 3 = Moderate, 4 = Likely, 5 = Highly likely.
-Evidence Status MUST be one of: Supported | Partially Supported | Missing / Required | Contradicted.
+Evidence Status MUST be one of: Supported | Partially Supported | Missing / Required | Contradicted — and MUST match the per-risk Evidence Status used in section 03.
 
-## Detailed Risks
+## 03 · Detailed Risks
 
-For each of the 8–10 risks, emit a heading "### R<N>. <Risk Name>" followed by these labelled lines in this exact order:
+For each of the 8–10 risks, emit a heading "### R<N>. <Risk Name>" followed by these labelled blocks in this exact order, each label on its own line and the value on the line(s) below (no inline bold prefixes, no bullets):
 
-- **System Area:** one of Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations.
-- **Evidence Status:** Supported | Partially Supported | Missing / Required | Contradicted.
-- **What We Know:** state only what the evidence supports — say so plainly when nothing does.
-- **What Is Missing:** specific artifacts, data, metrics, or explanations needed to validate the risk.
-- **Why It Matters:** business and technical consequence in plain English. Tie it to valuation, margin, scale, enterprise sales, compliance, or post-close execution.
-- **Severity:** integer 1–5, then a brief rationale.
-- **Likelihood:** integer 1–5, then a brief rationale.
-- **Risk Score:** Severity × Likelihood.
-- **Business Impact:** qualitative impact language unless the context provides quantified financial evidence. Otherwise write "Quantification requires <specific missing evidence>."
-- **Required Evidence:** the exact documents or data needed.
-- **Recommended Mitigation:** specific and practical. Avoid unrealistic claims like "achieve SOC 2 in 8 weeks". Prefer "begin SOC 2 readiness", "produce architecture documentation", "validate inference cost model".
-- **Pass Criterion:** a clear test for whether the risk has been reduced.
-- **Residual Risk:** Low | Moderate | High, with a brief explanation of what may remain.
+System Area:
+<one of Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations>
 
-## Overall Technical Risk Interpretation
+Evidence Status:
+<Supported | Partially Supported | Missing / Required | Contradicted — must equal the row in the summary table>
 
-Two or three short paragraphs that answer, in this order:
+What We Know:
+<only what the evidence supports — say so plainly when nothing does; cite the artifact name>
+
+What Is Missing:
+<specific artifacts, data, metrics, or explanations needed to validate the risk>
+
+Why It Matters:
+<plain-English business and technical consequence; tie to valuation, margin, scale, enterprise sales, compliance, or post-close execution>
+
+Severity:
+<integer 1–5> — <brief rationale>
+
+Likelihood:
+<integer 1–5> — <brief rationale>
+
+Risk Score:
+<Severity × Likelihood>
+
+Business Impact:
+<qualitative impact language unless the context provides quantified financial evidence; otherwise "Quantification requires additional evidence: <specific missing data>.">
+
+Required Evidence:
+<the exact documents or data needed>
+
+Recommended Mitigation:
+<specific and practical — e.g. "begin SOC 2 readiness", "produce architecture documentation", "validate inference cost model"; avoid unrealistic timelines>
+
+Pass Criterion:
+<a clear test for whether the risk has been reduced>
+
+Residual Risk:
+<Low | Moderate | High> — <brief reason for what may remain>
+
+Keep each detailed risk tight and diligence-style — short, scannable lines, not multi-paragraph LLM prose.
+
+## 04 · Overall Technical Risk Interpretation
+
+Two or three concise paragraphs that answer, in this order:
 1. The central technical risk pattern.
-2. What must be validated before the deal can be trusted.
-3. Which 3–5 artifacts would most improve confidence.
+2. What must be validated before the target can be trusted.
+3. Which 3–5 artifacts would most improve confidence (name them concretely).
 
-End with a single bolded line:
-**Recommended Next Step:** <one clear next diligence action>.
+End with EXACTLY this final block on its own lines:
+
+Recommended Next Step:
+<one clear next diligence action>.
 
 CRITICAL FORMATTING RULES (override any conflicting habits):
 - Plain markdown only. NO ":::snapshot", ":::final-position", or any ":::"-fenced block. NO JSON, YAML, code fences, or hidden tags.
@@ -646,15 +704,15 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Decision snapshot",
     maxTokens: 700,
     instruction: [
-      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the line "# Technical Risk Register" exactly, then a blank line, then "## Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
-      `Under "## Decision Snapshot" emit these bullets in this order, on their own lines:`,
-      `- "Technical Risk Posture:" followed by Low | Moderate | High | Critical (plain word, no brackets).`,
-      `- "Confidence:" followed by an integer 0–100 reflecting evidence coverage.`,
-      `- "Rationale:" followed by ONE sentence justifying the posture in terms of evidence coverage and material gaps.`,
-      `- "Top Risks:" header line, then a numbered list (1., 2., 3.) of the three highest Severity × Likelihood risk names — names only, no scores.`,
-      `- "Evidence Coverage Summary:" header line, then three sub-bullets (indent two spaces) — "Supported areas:", "Partially supported areas:", and "Missing / required areas:" — each followed by a comma-separated list grounded in the evidence context.`,
-      `Cite evidence inline by artifact name when listing supported / partially supported / missing areas (e.g. "security_overview.pdf §3", "[commercial_pain_summary] missing_evidence"). Do not invent artifact names.`,
-      `Stop after the Evidence Coverage Summary block. Do NOT emit the Risk Register Summary Table, the Detailed Risks, or the Overall Interpretation here — they are produced in later sections.`,
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the line "# Technical Risk Register" exactly, then a blank line, then "## 01 · Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `Use plain labels (no bullets, no bold) followed by content on the next line(s). Match this skeleton exactly, separated by blank lines:`,
+      `Technical Risk Posture: Low | Moderate | High | Critical`,
+      `Confidence: <integer 0–100>/100`,
+      `Rationale:\n<one or two sentences citing evidence coverage and material gaps only — no fabricated context>`,
+      `Top Risks:\n1. <Risk name>\n2. <Risk name>\n3. <Risk name>`,
+      `Evidence Coverage Summary:\nSupported areas:\n- <area backed by an artifact in the context>\n\nPartially supported areas:\n- <area where artifacts exist but coverage is incomplete>\n\nMissing / required areas:\n- <area with no supporting artifact in the context>`,
+      `ANTI-CONTRADICTION CHECK before emitting: every artifact category present in the evidence context (Model / AI System Documentation, Data Handling Privacy Policy, Security Compliance Attestations, Vendor / API Dependency Inventory, etc.) MUST appear under "Supported areas" — never list any of these as fully missing. Use "Partially supported areas" for categories where artifacts exist but coverage is incomplete (financial unit economics, model dependency detail, compliance maturity, vendor concentration analysis). Reserve "Missing / required areas" for categories with no supporting artifact at all (full product architecture documentation, cost-per-inference detail, customer contracts or redacted enterprise agreements, incident logs and post-mortems, SOC 2 report or SOC 2 readiness evidence, model evaluation metrics and drift monitoring evidence).`,
+      `Cite artifact names verbatim from the evidence context — do not invent filenames. Confidence must use the "<n>/100" format. Stop after the Missing / required areas list. Do NOT emit the Risk Register Summary Table, Detailed Risks, or Overall Interpretation here — they are produced in later sections.`,
     ].join("\n\n"),
   },
   {
@@ -662,16 +720,16 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Risk register summary table",
     maxTokens: 1400,
     instruction: [
-      `OUTPUT ONLY the "## Risk Register Summary Table" section. Begin your response with the heading line "## Risk Register Summary Table" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
-      `Below the heading, emit ONE multi-line markdown table with a header row and a separator row on its own line, using EXACTLY these columns in this order:`,
-      `| ID | Risk | Evidence Status | Severity | Likelihood | Why It Matters | Required Follow-Up |`,
+      `OUTPUT ONLY the "## 02 · Risk Register Summary Table" section. Begin your response with the heading line "## 02 · Risk Register Summary Table" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `Below the heading, emit ONE multi-line markdown table with a header row and a separator row on its own line, using EXACTLY this column set and alignment:`,
+      `| ID | Risk | Evidence Status | Severity | Likelihood | Why It Matters | Required Follow-Up |\n|---|---|---|---:|---:|---|---|`,
       `Rules for the table:`,
       `- Emit 8–10 data rows ordered by Severity × Likelihood descending. Cap at 10. Do not pad.`,
       `- ID column: R1, R2, … numbered to match the Detailed Risks section that will follow.`,
-      `- Evidence Status column: exactly one of Supported | Partially Supported | Missing / Required | Contradicted.`,
+      `- Evidence Status column: exactly one of Supported | Partially Supported | Missing / Required | Contradicted. The status here MUST equal the per-risk Evidence Status in section 03.`,
       `- Severity column: a single integer 1–5 (1 = Low, 2 = Moderate, 3 = Material, 4 = High, 5 = Critical).`,
       `- Likelihood column: a single integer 1–5 (1 = Unlikely, 2 = Possible, 3 = Moderate, 4 = Likely, 5 = Highly likely).`,
-      `- Why It Matters: at most 18 words, naming the business or technical consequence.`,
+      `- Why It Matters: at most 18 words, naming the business or technical consequence. Avoid the weak phrasings listed in the system prompt.`,
       `- Required Follow-Up: at most 18 words, naming the specific artifact or action that would resolve the risk.`,
       `- Combine overlapping risks into one row (e.g. "model drift" + "missing eval metrics" → one). No two rows may collapse to the same root cause.`,
       `- Do not include a "Decision:" or "Posture:" column. Do not add bracketed severity tags like [HIGH].`,
@@ -683,23 +741,25 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Detailed risks (R1–R5)",
     maxTokens: 2600,
     instruction: [
-      `OUTPUT ONLY the "## Detailed Risks" heading and the first FIVE detailed risk blocks. Begin your response with the heading line "## Detailed Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
-      `Emit five risks as "### R1. <Risk Name>" through "### R5. <Risk Name>", matching the IDs and ordering from the Risk Register Summary Table above (highest Severity × Likelihood first).`,
-      `For EACH risk, emit these labelled lines on their own lines, in this exact order:`,
-      `- "**System Area:**" then one of: Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations.`,
-      `- "**Evidence Status:**" then Supported | Partially Supported | Missing / Required | Contradicted.`,
-      `- "**What We Know:**" 1–3 sentences citing the supporting artifact (or stating plainly that no evidence exists yet).`,
-      `- "**What Is Missing:**" specific artifacts, data, metrics, or explanations needed to validate.`,
-      `- "**Why It Matters:**" plain-English business / technical consequence; tie it to valuation, margin, scale, enterprise sales, compliance, or post-close execution.`,
-      `- "**Severity:**" integer 1–5, then a brief rationale.`,
-      `- "**Likelihood:**" integer 1–5, then a brief rationale.`,
-      `- "**Risk Score:**" Severity × Likelihood.`,
-      `- "**Business Impact:**" qualitative impact language unless the evidence in context provides a quantified figure verbatim. If not, write "Quantification requires <specific missing evidence>."`,
-      `- "**Required Evidence:**" the exact documents or data needed.`,
-      `- "**Recommended Mitigation:**" specific and practical (e.g. "begin SOC 2 readiness", "produce architecture documentation", "validate inference cost model"). Avoid unrealistic timelines.`,
-      `- "**Pass Criterion:**" a clear test for whether the risk has been reduced.`,
-      `- "**Residual Risk:**" Low | Moderate | High with a brief explanation of what may remain.`,
-      `Forbidden: ":::"-fenced blocks, JSON, YAML, code fences, hidden tags, "[L1]"/"[L2]"/"[L3]", "[CRITICAL]"/"[HIGH]"/"[MEDIUM]"/"[LOW]", a per-risk "Decision:" line, "No direct evidence, inferred from …", or fabricated dollar / percentage figures.`,
+      `OUTPUT ONLY the "## 03 · Detailed Risks" heading and the first FIVE detailed risk blocks. Begin your response with the heading line "## 03 · Detailed Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `Emit five risks as "### R1. <Risk Name>" through "### R5. <Risk Name>", matching the IDs, names, and Evidence Status used in the Risk Register Summary Table above (highest Severity × Likelihood first). The Evidence Status here MUST equal the table row.`,
+      `For EACH risk, emit these labelled blocks IN THIS EXACT ORDER. Each label on its own line, content on the line(s) below — NO inline "**Label:** value" format, NO bullets:`,
+      `System Area:\n<one of Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations>`,
+      `Evidence Status:\n<Supported | Partially Supported | Missing / Required | Contradicted — must equal the summary-table row>`,
+      `What We Know:\n<short, scannable diligence prose — 1–3 sentences citing the supporting artifact by name, or stating plainly that no evidence exists yet>`,
+      `What Is Missing:\n<specific artifacts, data, metrics, or explanations needed to validate>`,
+      `Why It Matters:\n<plain-English business / technical consequence; tie to valuation, margin, scale, enterprise sales, compliance, or post-close execution>`,
+      `Severity:\n<integer 1–5> — <brief rationale>`,
+      `Likelihood:\n<integer 1–5> — <brief rationale>`,
+      `Risk Score:\n<Severity × Likelihood>`,
+      `Business Impact:\n<qualitative impact language unless the evidence in context provides a quantified figure verbatim. Use the required phrasings from the system prompt — "Gross margin and valuation risk if inference costs scale faster than revenue or pricing power", "Scalability and operating leverage risk if the architecture cannot support expected production load", "Operational resilience risk if incidents cannot be detected, escalated, resolved, and reviewed consistently" — or write "Quantification requires additional evidence: <specific missing data>.">`,
+      `Required Evidence:\n<the exact documents or data needed>`,
+      `Recommended Mitigation:\n<specific and practical — e.g. "begin SOC 2 readiness", "produce architecture documentation", "validate inference cost model"; avoid unrealistic timelines>`,
+      `Pass Criterion:\n<a clear evidence-based test for whether the risk has been reduced>`,
+      `Residual Risk:\n<Low | Moderate | High> — <brief reason for what may remain>`,
+      `Use the hedging vocabulary from the system prompt for any risk whose Evidence Status is "Partially Supported" or "Missing / Required" — phrases such as "The current evidence package does not yet validate …", "This remains unresolved based on available artifacts …", "The artifact set partially supports this area but does not yet establish …", or "The risk is not confirmed, but it remains material because …". Do not overstate certainty.`,
+      `Keep each risk tight and diligence-style — short, scannable lines, not multi-paragraph LLM prose.`,
+      `Forbidden: ":::"-fenced blocks, JSON, YAML, code fences, hidden tags, "[L1]"/"[L2]"/"[L3]", "[CRITICAL]"/"[HIGH]"/"[MEDIUM]"/"[LOW]", a per-risk "Decision:" line, "No direct evidence, inferred from …", or fabricated dollar / percentage / ARR / valuation figures.`,
       `Stop after the closing "Residual Risk" line of R5. Do not emit R6 or later — they are produced in the next section.`,
     ].join("\n\n"),
   },
@@ -708,12 +768,13 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Detailed risks (R6–R10)",
     maxTokens: 2400,
     instruction: [
-      `OUTPUT ONLY the next detailed risk blocks (R6 through R10 if 10 risks total; if only 8 or 9 risks total, emit just the remaining ones — do not pad). Continue numbering from R6. Do NOT re-emit "## Detailed Risks" or any earlier heading. Do not emit any ":::"-fenced block.`,
-      `Use the same per-risk structure and the same ordering rules as R1–R5: heading "### R<N>. <Risk Name>" then the labelled lines in the prescribed order.`,
-      `Each risk MUST be a DISTINCT root cause from R1–R5 — never restate an earlier risk from a different angle.`,
-      `If the evidence supports fewer than 10 material risks total, emit only the real remaining ones and add a single closing sentence in italics explaining why the register stops there (e.g. "*Register stops at R8 — additional categories had no supporting or material missing evidence.*"). Never invent risks to fill the count.`,
-      `Forbidden: ":::"-fenced blocks, JSON, code fences, hidden tags, bracketed severity labels, a per-risk "Decision:" line, fabricated numbers.`,
-      `Stop after the closing "Residual Risk" line of the last risk emitted.`,
+      `OUTPUT ONLY the next detailed risk blocks (R6 through R10 if 10 risks total; if only 8 or 9 risks total, emit just the remaining ones — do not pad). Continue numbering from R6. Do NOT re-emit "## 03 · Detailed Risks" or any earlier heading. Do not emit any ":::"-fenced block.`,
+      `Use the same per-risk structure and the same ordering rules as R1–R5: heading "### R<N>. <Risk Name>" then the labelled blocks (System Area / Evidence Status / What We Know / What Is Missing / Why It Matters / Severity / Likelihood / Risk Score / Business Impact / Required Evidence / Recommended Mitigation / Pass Criterion / Residual Risk) — each label on its own line with content on the next line, no inline bold prefixes, no bullets.`,
+      `Each risk MUST be a DISTINCT root cause from R1–R5 — never restate an earlier risk from a different angle. The Evidence Status here MUST match the corresponding row in the summary table.`,
+      `Apply the hedging vocabulary from the system prompt for any risk whose Evidence Status is "Partially Supported" or "Missing / Required". Apply the required Business Impact phrasings from the system prompt.`,
+      `If the evidence supports fewer than 10 material risks total, emit only the real remaining ones and add a single closing sentence in italics: "*Additional risk categories were excluded because they were duplicative, immaterial, or not supported by the current evidence package.*". Never invent risks to fill the count.`,
+      `Forbidden: ":::"-fenced blocks, JSON, code fences, hidden tags, bracketed severity labels, a per-risk "Decision:" line, fabricated numbers, or the prior closing phrase "Register stops at R8 — additional categories had no supporting or material missing evidence."`,
+      `Stop after the closing "Residual Risk" line of the last risk emitted (or after the italic closing sentence if fewer than 10 risks).`,
     ].join("\n\n"),
   },
   {
@@ -721,14 +782,15 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Overall technical risk interpretation",
     maxTokens: 700,
     instruction: [
-      `OUTPUT ONLY the "## Overall Technical Risk Interpretation" section. Begin your response with the heading line "## Overall Technical Risk Interpretation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
-      `Write 2–3 short paragraphs that answer, in this order:`,
-      `1. The central technical risk pattern (what the register's shape says about the company).`,
-      `2. What must be validated before the deal can be trusted.`,
-      `3. Which 3–5 artifacts would most improve confidence (name them concretely — e.g. "SOC 2 Type II report", "current architecture diagram with data flows", "model evaluation results vs holdout").`,
-      `End with EXACTLY one final line, on its own line, in this format:`,
-      `**Recommended Next Step:** <one clear next diligence action>.`,
-      `Forbidden: ":::"-fenced blocks, JSON, YAML, hidden tags, classification fields, a "Decision:" line, fabricated numbers, or any closing remark after the Recommended Next Step line.`,
+      `OUTPUT ONLY the "## 04 · Overall Technical Risk Interpretation" section. Begin your response with the heading line "## 04 · Overall Technical Risk Interpretation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `Write 2–3 concise paragraphs that answer, in this order:`,
+      `1. The central technical risk pattern (what the register's shape says about the target).`,
+      `2. What must be validated before the target can be trusted.`,
+      `3. Which 3–5 artifacts would most improve confidence (name them concretely — e.g. "SOC 2 Type II report", "current architecture diagram with data flows", "model evaluation results vs holdout", "incident logs and post-mortems", "redacted enterprise customer agreements").`,
+      `Use the hedging vocabulary from the system prompt — do not overstate certainty. Do not invent dollar amounts, ARR, percentages, or valuation implications. This report INFORMS the investment decision; never frame it as the final investment decision.`,
+      `End with EXACTLY this final block, on its own lines, separated by a blank line from the preceding paragraph:`,
+      `Recommended Next Step:\n<one clear next diligence action>.`,
+      `Forbidden: ":::"-fenced blocks, JSON, YAML, hidden tags, classification fields, a "Decision:" line, fabricated numbers, or any closing remark after the Recommended Next Step block.`,
     ].join("\n\n"),
   },
 ];
