@@ -345,17 +345,29 @@ CORE RULES:
    - "Potential enterprise sales blocker due to reduced profitability" → "Gross margin and valuation risk if inference costs scale faster than revenue or pricing power."
    - "Material margin risk due to potential operational inefficiencies" → "Scalability and operating leverage risk if the architecture cannot support expected production load."
    - "Material margin risk due to potential operational disruptions from unaddressed incidents" → "Operational resilience risk if incidents cannot be detected, escalated, resolved, and reviewed consistently."
+   - For "Missing model evaluation metrics" / "Model drift / lack of monitoring":
+     - Why It Matters: "Model reliability risk if output quality degrades without detection, evaluation, retraining triggers, or owner accountability."
+     - Business Impact: "Potential product credibility, customer trust, and liability exposure if model performance degrades without detection."
+     - Required Evidence MUST include: model evaluation metrics; drift monitoring evidence; retraining policy; evaluation cadence; owner / accountability model for model performance.
+     - Pass Criterion: "Documented model evaluation framework shows baseline metrics, monitoring cadence, drift thresholds, retraining triggers, and accountable owners."
    - When more quantification is genuinely needed, write: "Quantification requires additional evidence: <specific missing data>."
-5. Remove duplicates. Combine overlapping issues into one stronger risk. Examples:
+5. Remove duplicates. Combine overlapping issues into one stronger risk. Mandatory merges:
    - "Data privacy gaps" + "data handling gaps" → one risk.
    - "Model drift" + "missing model evaluation metrics" → one risk.
-   - "Vendor concentration" and "API brittleness" may stay separate ONLY if the evidence supports distinct issues.
+   - "Incident response maturity unverified" + "Weak observability / logging / audit trail" → ALWAYS combine into one risk titled "Weak observability and incident response maturity" (System Area: "Observability / Incident Response"). They share root cause and operational scope; never emit them as separate risks.
+   Optional merges (keep separate ONLY if the evidence supports distinct issues):
+   - "Vendor concentration" and "API brittleness".
 6. Cap the register at the 8–10 MOST MATERIAL risks. Depth over volume.
 7. ANTI-CONTRADICTION DISCIPLINE — Evidence Coverage Summary and per-risk Evidence Status must be internally consistent:
    - The same artifact category cannot appear in both "Supported areas" and "Missing / required areas".
-   - If Model / AI System Documentation, Data Handling Privacy Policy, Security Compliance Attestations, or a Vendor / API Dependency Inventory exists in the evidence context, that category belongs in "Supported areas" — never list it as fully missing.
-   - Use "Partially supported areas" for categories where artifacts exist but coverage is incomplete (e.g. financial unit economics, model dependency detail, compliance maturity, vendor concentration analysis).
-   - Reserve "Missing / required areas" for categories with no supporting artifact (e.g. full product architecture documentation, cost-per-inference detail, customer contracts or redacted enterprise agreements, incident logs and post-mortems, SOC 2 report or SOC 2 readiness evidence, model evaluation metrics and drift monitoring evidence).
+   - "Supported" means the artifact comprehensively addresses the area. An artifact that exists but only addresses some aspects is "Partially Supported", NOT "Supported". When in doubt, prefer "Partially Supported".
+   - Per-risk examples (apply when the evidence matches):
+     - Vendor concentration / model provider dependency: an inventory of vendors / APIs alone is "Partially Supported" — switching costs, fallback strategy, contract protections, and concentration analysis must be present for "Supported".
+     - Data privacy / sensitive data handling gaps: a privacy policy alone is "Partially Supported" — implementation evidence (data flow maps, DPIA, subprocessor list, retention controls, customer data isolation) must be present for "Supported".
+     - Security and compliance posture: a SOC 2 attestation summary alone is "Partially Supported" — a full Type II report with observation window dates is needed for "Supported".
+     - Model / AI system documentation: an architecture overview alone is "Partially Supported" if scaling, monitoring, or cost-per-inference detail is absent.
+   - Reserve "Missing / Required" for categories with NO supporting artifact at all (e.g. full product architecture documentation, cost-per-inference detail, customer contracts or redacted enterprise agreements, incident logs and post-mortems, SOC 2 report or SOC 2 readiness evidence, model evaluation metrics and drift monitoring evidence).
+   - The Evidence Status used in section 03 (per-risk) MUST equal the Evidence Status used in section 02 (summary table) for the same risk ID.
 8. HEDGING VOCABULARY — when an artifact partially supports a risk or the evidence is incomplete, use phrasing that does not overstate certainty:
    - "The current evidence package does not yet validate …"
    - "This remains unresolved based on available artifacts …"
@@ -704,7 +716,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Decision snapshot",
     maxTokens: 700,
     instruction: [
-      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the line "# Technical Risk Register" exactly, then a blank line, then "## 01 · Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Technical Risk Register — <TARGET NAME>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — this italic subtitle verbatim: "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*". Then a blank line, then the heading "## 01 · Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
       `Use plain labels (no bullets, no bold) followed by content on the next line(s). Match this skeleton exactly, separated by blank lines:`,
       `Technical Risk Posture: Low | Moderate | High | Critical`,
       `Confidence: <integer 0–100>/100`,

@@ -145,11 +145,12 @@ export async function POST(req: Request) {
     ? buildUpdateSystemPrompt(config.systemPrompt)
     : config.systemPrompt;
 
+  const demoLine = demoDisplay ? `\nDEMO MODE: true` : "";
   const userPrompt = isUpdateMode
     ? `${config.userPromptIntro} — UPDATE MODE
 
 TARGET: ${targetName}
-CLIENT: ${clientName}
+CLIENT: ${clientName}${demoLine}
 
 PRIOR REPORT (existing version — parse baseline state from this):
 """
@@ -168,7 +169,7 @@ Follow the REPORT UPDATE PROTOCOL. Return markdown only. No preamble. No closing
     : `${config.userPromptIntro}
 
 TARGET: ${targetName}
-CLIENT: ${clientName}
+CLIENT: ${clientName}${demoLine}
 
 EVIDENCE (use only what is supported here; label uncertainty where the evidence is thin):
 """
