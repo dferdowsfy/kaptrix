@@ -656,6 +656,7 @@ const STATUS_TONE: Record<string, string> = {
   "Missing / Required": "bg-rose-100 text-rose-800 ring-rose-200",
   Contradicted: "bg-violet-100 text-violet-800 ring-violet-200",
   "Management/Input Claim Only": "bg-slate-200 text-slate-700 ring-slate-300",
+  "Preliminary / Intake-Based": "bg-sky-100 text-sky-800 ring-sky-200",
 };
 
 function statusTone(status: string): string {
@@ -663,8 +664,51 @@ function statusTone(status: string): string {
   return STATUS_TONE[norm] ?? "bg-slate-100 text-slate-700 ring-slate-200";
 }
 
+// A dimension grid is "all-empty" when every row has score 0 AND a
+// missing/empty status. That usually means the LLM never wired the
+// scores through (no [dimension scores] in the evidence context, no
+// derived preliminary fallback). We surface a visible internal
+// warning instead of rendering six sad zeros.
+function isDimensionGridEmpty(rows: DimensionRow[]): boolean {
+  if (rows.length === 0) return true;
+  return rows.every((r) => {
+    const status = r.status.trim().toLowerCase();
+    const isMissing =
+      status === "" ||
+      status === "missing / required" ||
+      status === "missing" ||
+      status === "—";
+    return r.score <= 0.05 && isMissing;
+  });
+}
+
 function DimensionGrid({ rows }: { rows: DimensionRow[] }) {
   if (rows.length === 0) return null;
+  if (typeof window !== "undefined") {
+    // Helps debug binding issues when a brief renders six zeros.
+    // eslint-disable-next-line no-console
+    console.debug(
+      "[ReportMarkdown] dimension grid rows",
+      rows.map((r) => ({ key: r.key, score: r.score, status: r.status })),
+    );
+  }
+  if (isDimensionGridEmpty(rows)) {
+    return (
+      <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-700">
+          Visual cards not bound to report data
+        </p>
+        <p className="mt-1 leading-6">
+          Executive Brief visual score cards are not mapped to the populated
+          report data. Check <code>dimension_scores</code> and intake response
+          binding — every dimension is scored 0.0 / Missing while the narrative
+          may reference supporting artifacts. Re-generate after operator scoring
+          or intake responses are entered, or check the prompt&apos;s preliminary
+          derivation rules.
+        </p>
+      </section>
+    );
+  }
   return (
     <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {rows.map((r) => (
@@ -1248,6 +1292,7 @@ function dimensionsToHtml(rows: DimensionRow[]): string {
     "Missing / Required": ["#fecdd3", "#9f1239"],
     Contradicted: ["#ede9fe", "#5b21b6"],
     "Management/Input Claim Only": ["#e2e8f0", "#334155"],
+    "Preliminary / Intake-Based": ["#e0f2fe", "#075985"],
   };
   const cards = rows
     .map((r) => {
