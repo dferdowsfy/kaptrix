@@ -14,6 +14,10 @@ import {
   ADVANCED_REPORTS,
   type AdvancedReportId,
 } from "@/lib/reports/advanced-reports";
+import { isDemoDisplayName } from "@/lib/reports/demo-anonymize";
+
+const DEMO_SUBTITLE =
+  "Sample / Fictional Target — Generated to demonstrate Kaptrix methodology";
 
 /**
  * "Your Company Reads" list. Shows every read the signed-in user has
@@ -106,14 +110,20 @@ function SavedReportRow({ record }: { record: ReportRecord }) {
             {eyebrow}
           </p>
           <h4 className="mt-0.5 truncate text-sm font-semibold text-slate-900">
-            {record.title}
+            {record.target ? `${record.title} — ${record.target}` : record.title}
           </h4>
           <p className="mt-0.5 truncate text-xs text-slate-500">
-            {record.target}
-            {record.client ? ` · ${record.client}` : ""}
-            {record.generated_at
-              ? ` · Generated ${formatDateTime(record.generated_at)}`
-              : ""}
+            {isDemoDisplayName(record.target) ? (
+              <em>{DEMO_SUBTITLE}</em>
+            ) : (
+              <>
+                {record.target}
+                {record.client ? ` · ${record.client}` : ""}
+                {record.generated_at
+                  ? ` · Generated ${formatDateTime(record.generated_at)}`
+                  : ""}
+              </>
+            )}
           </p>
         </div>
 
@@ -163,7 +173,7 @@ function SavedReportRow({ record }: { record: ReportRecord }) {
               <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
             </svg>
           </button>
-          <ReportMarkdown source={record.content} />
+          <ReportMarkdown source={record.content} hideH1 />
         </div>
       ) : null}
 
@@ -192,7 +202,7 @@ function SavedReportRow({ record }: { record: ReportRecord }) {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-8 py-6">
-            <ReportMarkdown source={record.content} />
+            <ReportMarkdown source={record.content} hideH1 />
           </div>
         </div>
       ) : null}

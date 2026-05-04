@@ -124,7 +124,7 @@ export function AiReportCard({
 
   const rendered = useMemo(
     () =>
-      result?.content ? <ReportMarkdown source={result.content} /> : null,
+      result?.content ? <ReportMarkdown source={result.content} hideH1 /> : null,
     [result],
   );
 

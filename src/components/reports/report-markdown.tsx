@@ -19,8 +19,21 @@ import React from "react";
 //     [LOW], [OK], [GAP]) rendered as colored pills.
 // ---------------------------------------------------------------
 
-export function ReportMarkdown({ source }: { source: string }) {
-  const blocks = parseBlocks(source);
+export function ReportMarkdown({
+  source,
+  hideH1 = false,
+}: {
+  source: string;
+  /** When true, drops the first H1 block so the report can be embedded
+   *  inside a host that already shows its own title (e.g. the saved-
+   *  reports row header). */
+  hideH1?: boolean;
+}) {
+  let blocks = parseBlocks(source);
+  if (hideH1) {
+    const firstH1 = blocks.findIndex((b) => b.kind === "h1");
+    if (firstH1 !== -1) blocks = blocks.filter((_, i) => i !== firstH1);
+  }
   return <div className="report-markdown space-y-4">{blocks.map(renderBlock)}</div>;
 }
 
@@ -378,14 +391,18 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       );
     case "h2": {
       const num = String(block.number).padStart(2, "0");
+      // Strip a manual leading "01 · ", "01. ", or "1. " from the
+      // heading text so the auto-numbered eyebrow doesn't double up
+      // (e.g. "01 · 01 · DECISION SNAPSHOT").
+      const cleanedText = block.text.replace(/^\s*\d{1,2}\s*[·.\)]\s*/, "");
       return (
         <div key={index} className="mt-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-indigo-600">
-            {num} · {stripMarkdown(block.text).toUpperCase()}
+            {num} · {stripMarkdown(cleanedText).toUpperCase()}
           </p>
           <h2
             className="mt-1.5 text-xl font-bold tracking-tight text-slate-900"
-            dangerouslySetInnerHTML={{ __html: renderInline(block.text) }}
+            dangerouslySetInnerHTML={{ __html: renderInline(cleanedText) }}
           />
         </div>
       );
@@ -824,10 +841,11 @@ export function markdownToExportHtml(md: string): string {
         break;
       case "h2": {
         const num = String(b.number).padStart(2, "0");
+        const cleanedText = b.text.replace(/^\s*\d{1,2}\s*[·.\)]\s*/, "");
         parts.push(
           `<div class="section"><p class="eyebrow">${num} · ${escapeHtml(
-            stripMarkdown(b.text).toUpperCase(),
-          )}</p><h2>${renderInlineExport(b.text)}</h2></div>`,
+            stripMarkdown(cleanedText).toUpperCase(),
+          )}</p><h2>${renderInlineExport(cleanedText)}</h2></div>`,
         );
         break;
       }

@@ -12,6 +12,14 @@ export function getDemoDisplayName(originalTarget: string): string | null {
   return DEMO_NAME_OVERRIDES[originalTarget]?.display ?? null;
 }
 
+const DEMO_DISPLAY_NAMES = new Set(
+  Object.values(DEMO_NAME_OVERRIDES).map((o) => o.display),
+);
+
+export function isDemoDisplayName(name: string | null | undefined): boolean {
+  return !!name && DEMO_DISPLAY_NAMES.has(name);
+}
+
 export function applyDemoAnonymization(text: string, originalTarget: string): string {
   const override = DEMO_NAME_OVERRIDES[originalTarget];
   if (!override) return text;

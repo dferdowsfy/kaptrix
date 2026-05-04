@@ -350,6 +350,12 @@ CORE RULES:
      - Business Impact: "Potential product credibility, customer trust, and liability exposure if model performance degrades without detection."
      - Required Evidence MUST include: model evaluation metrics; drift monitoring evidence; retraining policy; evaluation cadence; owner / accountability model for model performance.
      - Pass Criterion: "Documented model evaluation framework shows baseline metrics, monitoring cadence, drift thresholds, retraining triggers, and accountable owners."
+   - For "Data privacy / sensitive data handling gaps" — when a privacy policy artifact exists but implementation evidence does not:
+     - What We Know MUST state verbatim: "A privacy policy exists, but implementation evidence and control effectiveness remain incomplete."
+   - For "Vendor concentration / model provider dependency" — when a vendor / API inventory exists but switching-cost / fallback / contract analysis is absent:
+     - What We Know MUST state verbatim: "A vendor/API dependency inventory exists, but switching costs, fallback strategy, concentration analysis, and contract protections remain unresolved."
+   - For "Security and compliance posture unverified" — when attestations exist but full SOC 2 Type II or equivalent control documentation is absent:
+     - What We Know MUST state verbatim: "Security compliance attestations exist, but SOC 2 Type II evidence, equivalent control documentation, or detailed security policies remain incomplete."
    - When more quantification is genuinely needed, write: "Quantification requires additional evidence: <specific missing data>."
 5. Remove duplicates. Combine overlapping issues into one stronger risk. Mandatory merges:
    - "Data privacy gaps" + "data handling gaps" → one risk.
@@ -367,7 +373,7 @@ CORE RULES:
      - Security and compliance posture: a SOC 2 attestation summary alone is "Partially Supported" — a full Type II report with observation window dates is needed for "Supported".
      - Model / AI system documentation: an architecture overview alone is "Partially Supported" if scaling, monitoring, or cost-per-inference detail is absent.
    - Reserve "Missing / Required" for categories with NO supporting artifact at all (e.g. full product architecture documentation, cost-per-inference detail, customer contracts or redacted enterprise agreements, incident logs and post-mortems, SOC 2 report or SOC 2 readiness evidence, model evaluation metrics and drift monitoring evidence).
-   - The Evidence Status used in section 03 (per-risk) MUST equal the Evidence Status used in section 02 (summary table) for the same risk ID.
+   - The per-risk Evidence Status (Detailed Risks section) MUST equal the Evidence Status used in the summary table for the same risk ID.
 8. HEDGING VOCABULARY — when an artifact partially supports a risk or the evidence is incomplete, use phrasing that does not overstate certainty:
    - "The current evidence package does not yet validate …"
    - "This remains unresolved based on available artifacts …"
@@ -398,7 +404,7 @@ OUTPUT — exactly the following sections in this order, plain GitHub-flavored m
 
 # Technical Risk Register
 
-## 01 · Decision Snapshot
+## Decision Snapshot
 
 Use plain labels (no bullets, no bold) followed by content. Match this skeleton exactly:
 
@@ -424,7 +430,7 @@ Partially supported areas:
 Missing / required areas:
 - <area with no supporting artifact in the context>
 
-## 02 · Risk Register Summary Table
+## Risk Register Summary Table
 
 Emit ONE multi-line markdown table (header row + separator row on its own line) with EXACTLY these columns and 8–10 data rows ordered by Severity × Likelihood descending:
 
@@ -433,9 +439,9 @@ Emit ONE multi-line markdown table (header row + separator row on its own line) 
 
 Severity scale (numeric only in the table): 1 = Low, 2 = Moderate, 3 = Material, 4 = High, 5 = Critical.
 Likelihood scale (numeric only in the table): 1 = Unlikely, 2 = Possible, 3 = Moderate, 4 = Likely, 5 = Highly likely.
-Evidence Status MUST be one of: Supported | Partially Supported | Missing / Required | Contradicted — and MUST match the per-risk Evidence Status used in section 03.
+Evidence Status MUST be one of: Supported | Partially Supported | Missing / Required | Contradicted — and MUST match the per-risk Evidence Status used in the Detailed Risks section.
 
-## 03 · Detailed Risks
+## Detailed Risks
 
 For each of the 8–10 risks, emit a heading "### R<N>. <Risk Name>" followed by these labelled blocks in this exact order, each label on its own line and the value on the line(s) below (no inline bold prefixes, no bullets):
 
@@ -480,7 +486,7 @@ Residual Risk:
 
 Keep each detailed risk tight and diligence-style — short, scannable lines, not multi-paragraph LLM prose.
 
-## 04 · Overall Technical Risk Interpretation
+## Overall Technical Risk Interpretation
 
 Two or three concise paragraphs that answer, in this order:
 1. The central technical risk pattern.
@@ -494,6 +500,7 @@ Recommended Next Step:
 
 CRITICAL FORMATTING RULES (override any conflicting habits):
 - Plain markdown only. NO ":::snapshot", ":::final-position", or any ":::"-fenced block. NO JSON, YAML, code fences, or hidden tags.
+- DO NOT prefix any "## " heading with a section number (e.g. "## 01 · Decision Snapshot" is WRONG — emit "## Decision Snapshot"). The downstream renderer adds the section number automatically; manual prefixes produce "01 · 01 · …" duplicates.
 - NO inline classification tags like [L1] / [L2] / [L3], [REAL] / [PARTIAL] / [ILLUSION], or [CRITICAL] / [HIGH] / [MEDIUM] / [LOW]. Use plain words.
 - NO per-risk "Decision:" line.
 - NO FINAL POSITION fields (classification, conviction, primary_driver, failure_trigger, timing, operator_dependency).
@@ -716,7 +723,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Decision snapshot",
     maxTokens: 700,
     instruction: [
-      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Technical Risk Register — <TARGET NAME>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — this italic subtitle verbatim: "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*". Then a blank line, then the heading "## 01 · Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the report title and the Decision Snapshot section. Begin your response with the title line "# Technical Risk Register — <TARGET NAME>" (substitute the actual TARGET value from the user prompt). If the user prompt includes "DEMO MODE: true", emit on the next line — and on its own line — this italic subtitle verbatim: "*Sample / Fictional Target — Generated to demonstrate Kaptrix methodology.*". Then a blank line, then the heading "## Decision Snapshot". Do not emit any other section. Do not emit any ":::"-fenced block.`,
       `Use plain labels (no bullets, no bold) followed by content on the next line(s). Match this skeleton exactly, separated by blank lines:`,
       `Technical Risk Posture: Low | Moderate | High | Critical`,
       `Confidence: <integer 0–100>/100`,
@@ -732,13 +739,13 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Risk register summary table",
     maxTokens: 1400,
     instruction: [
-      `OUTPUT ONLY the "## 02 · Risk Register Summary Table" section. Begin your response with the heading line "## 02 · Risk Register Summary Table" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the "## Risk Register Summary Table" section. Begin your response with the heading line "## Risk Register Summary Table" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
       `Below the heading, emit ONE multi-line markdown table with a header row and a separator row on its own line, using EXACTLY this column set and alignment:`,
       `| ID | Risk | Evidence Status | Severity | Likelihood | Why It Matters | Required Follow-Up |\n|---|---|---|---:|---:|---|---|`,
       `Rules for the table:`,
       `- Emit 8–10 data rows ordered by Severity × Likelihood descending. Cap at 10. Do not pad.`,
       `- ID column: R1, R2, … numbered to match the Detailed Risks section that will follow.`,
-      `- Evidence Status column: exactly one of Supported | Partially Supported | Missing / Required | Contradicted. The status here MUST equal the per-risk Evidence Status in section 03.`,
+      `- Evidence Status column: exactly one of Supported | Partially Supported | Missing / Required | Contradicted. The status here MUST equal the per-risk Evidence Status in the Detailed Risks section.`,
       `- Severity column: a single integer 1–5 (1 = Low, 2 = Moderate, 3 = Material, 4 = High, 5 = Critical).`,
       `- Likelihood column: a single integer 1–5 (1 = Unlikely, 2 = Possible, 3 = Moderate, 4 = Likely, 5 = Highly likely).`,
       `- Why It Matters: at most 18 words, naming the business or technical consequence. Avoid the weak phrasings listed in the system prompt.`,
@@ -753,7 +760,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Detailed risks (R1–R5)",
     maxTokens: 2600,
     instruction: [
-      `OUTPUT ONLY the "## 03 · Detailed Risks" heading and the first FIVE detailed risk blocks. Begin your response with the heading line "## 03 · Detailed Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the "## Detailed Risks" heading and the first FIVE detailed risk blocks. Begin your response with the heading line "## Detailed Risks" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
       `Emit five risks as "### R1. <Risk Name>" through "### R5. <Risk Name>", matching the IDs, names, and Evidence Status used in the Risk Register Summary Table above (highest Severity × Likelihood first). The Evidence Status here MUST equal the table row.`,
       `For EACH risk, emit these labelled blocks IN THIS EXACT ORDER. Each label on its own line, content on the line(s) below — NO inline "**Label:** value" format, NO bullets:`,
       `System Area:\n<one of Architecture | Model Reliability | Data Governance | Security & Compliance | Vendor Dependency | Cost Structure | Incident Response | Customer Contracts | Production Operations>`,
@@ -780,7 +787,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Detailed risks (R6–R10)",
     maxTokens: 2400,
     instruction: [
-      `OUTPUT ONLY the next detailed risk blocks (R6 through R10 if 10 risks total; if only 8 or 9 risks total, emit just the remaining ones — do not pad). Continue numbering from R6. Do NOT re-emit "## 03 · Detailed Risks" or any earlier heading. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the next detailed risk blocks (R6 through R10 if 10 risks total; if only 8 or 9 risks total, emit just the remaining ones — do not pad). Continue numbering from R6. Do NOT re-emit "## Detailed Risks" or any earlier heading. Do not emit any ":::"-fenced block.`,
       `Use the same per-risk structure and the same ordering rules as R1–R5: heading "### R<N>. <Risk Name>" then the labelled blocks (System Area / Evidence Status / What We Know / What Is Missing / Why It Matters / Severity / Likelihood / Risk Score / Business Impact / Required Evidence / Recommended Mitigation / Pass Criterion / Residual Risk) — each label on its own line with content on the next line, no inline bold prefixes, no bullets.`,
       `Each risk MUST be a DISTINCT root cause from R1–R5 — never restate an earlier risk from a different angle. The Evidence Status here MUST match the corresponding row in the summary table.`,
       `Apply the hedging vocabulary from the system prompt for any risk whose Evidence Status is "Partially Supported" or "Missing / Required". Apply the required Business Impact phrasings from the system prompt.`,
@@ -794,7 +801,7 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
     label: "Overall technical risk interpretation",
     maxTokens: 700,
     instruction: [
-      `OUTPUT ONLY the "## 04 · Overall Technical Risk Interpretation" section. Begin your response with the heading line "## 04 · Overall Technical Risk Interpretation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
+      `OUTPUT ONLY the "## Overall Technical Risk Interpretation" section. Begin your response with the heading line "## Overall Technical Risk Interpretation" exactly. Do not repeat earlier sections. Do not emit any ":::"-fenced block.`,
       `Write 2–3 concise paragraphs that answer, in this order:`,
       `1. The central technical risk pattern (what the register's shape says about the target).`,
       `2. What must be validated before the target can be trusted.`,
