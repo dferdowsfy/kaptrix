@@ -51,7 +51,10 @@ type Block =
   | { kind: "quote"; lines: string[] }
   | { kind: "table"; header: string[]; rows: string[][]; align: Array<"left" | "right" | "center"> }
   | { kind: "score-group"; scores: Array<{ label: string; value: number; max: number }> }
-  | { kind: "snapshot"; data: SnapshotData };
+  | { kind: "snapshot"; data: SnapshotData }
+  | { kind: "dimensions"; rows: DimensionRow[] }
+  | { kind: "coverage"; data: CoverageData }
+  | { kind: "callout"; label: string; body: string };
 
 export interface SnapshotData {
   verdict: string;
@@ -61,6 +64,40 @@ export interface SnapshotData {
   strengths: string[];
   risks: string[];
   highlights: string[]; // neutral facts (used by non-IC reports)
+}
+
+export interface DimensionRow {
+  key: string;
+  label: string;
+  score: number; // 0-5
+  status: string; // Supported | Partially Supported | Missing / Required | Contradicted
+  rationale: string;
+  subCriteria: Array<{ key: string; label: string; score: number; rationale: string }>;
+}
+
+export interface CoverageData {
+  supported: string[];
+  partial: string[];
+  missing: string[];
+}
+
+const DIMENSION_LABELS_LOCAL: Record<string, string> = {
+  product_credibility: "Product Credibility",
+  tooling_exposure: "Tooling & Vendor Exposure",
+  data_sensitivity: "Data & Sensitivity Risk",
+  governance_safety: "Governance & Safety",
+  production_readiness: "Production Readiness",
+  open_validation: "Open Validation",
+};
+
+function dimensionLabel(key: string): string {
+  return (
+    DIMENSION_LABELS_LOCAL[key.toLowerCase()] ??
+    key
+      .split(/[_\s]+/)
+      .map((p) => (p ? p[0].toUpperCase() + p.slice(1) : p))
+      .join(" ")
+  );
 }
 
 function parseBlocks(src: string): Block[] {
@@ -95,6 +132,48 @@ function parseBlocks(src: string): Block[] {
       }
       if (i < lines.length) i++; // consume closing :::
       blocks.push({ kind: "snapshot", data: parseSnapshot(buf) });
+      continue;
+    }
+
+    // Dimension grid fence: ":::dimensions" ... ":::"
+    if (/^\s*:::\s*dimensions\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "dimensions", rows: parseDimensions(buf) });
+      continue;
+    }
+
+    // Evidence-coverage fence: ":::coverage" ... ":::"
+    if (/^\s*:::\s*coverage\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "coverage", data: parseCoverage(buf) });
+      continue;
+    }
+
+    // Callout fence: ":::callout label=\"...\"" ... ":::"
+    const calloutMatch = /^\s*:::\s*callout(?:\s+label\s*=\s*"([^"]*)")?\s*$/i.exec(line);
+    if (calloutMatch) {
+      const label = (calloutMatch[1] ?? "Note").trim();
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      const body = buf.join(" ").replace(/\s+/g, " ").trim();
+      blocks.push({ kind: "callout", label, body });
       continue;
     }
 
@@ -377,6 +456,76 @@ function parseSnapshot(raw: string[]): SnapshotData {
   return data;
 }
 
+// Parse the body of a ':::dimensions ... :::' block. Each non-blank,
+// non-sub-criterion line is "dimension_key | score | status | rationale".
+// Sub-criterion lines start with "> " and attach to the most recent
+// dimension as "> sub_key | score | rationale".
+function parseDimensions(raw: string[]): DimensionRow[] {
+  const rows: DimensionRow[] = [];
+  for (const rawLine of raw) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line.startsWith(">")) {
+      if (rows.length === 0) continue;
+      const cells = line.replace(/^>\s*/, "").split("|").map((c) => c.trim());
+      const [key = "", scoreStr = "", rationale = ""] = cells;
+      const score = parseFloat(scoreStr);
+      if (!key || !Number.isFinite(score)) continue;
+      rows[rows.length - 1].subCriteria.push({
+        key,
+        label: dimensionLabel(key),
+        score: Math.max(0, Math.min(5, score)),
+        rationale,
+      });
+      continue;
+    }
+    const cells = line.split("|").map((c) => c.trim());
+    const [key = "", scoreStr = "", status = "", rationale = ""] = cells;
+    const score = parseFloat(scoreStr);
+    if (!key || !Number.isFinite(score)) continue;
+    rows.push({
+      key,
+      label: dimensionLabel(key),
+      score: Math.max(0, Math.min(5, score)),
+      status: status || "—",
+      rationale,
+      subCriteria: [],
+    });
+  }
+  return rows;
+}
+
+// Parse the body of a ':::coverage ... :::' block. Three buckets keyed
+// "supported:", "partial:" (or "partially supported:"), "missing:" (or
+// "missing / required:"); each followed by "- item" bullets.
+function parseCoverage(raw: string[]): CoverageData {
+  const data: CoverageData = { supported: [], partial: [], missing: [] };
+  let bucket: keyof CoverageData | null = null;
+  for (const rawLine of raw) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const bullet = /^[-*]\s+(.*)$/.exec(line);
+    if (bullet && bucket) {
+      data[bucket].push(bullet[1].trim());
+      continue;
+    }
+    const head = /^([a-z][a-z\s/_-]*)\s*:\s*(.*)$/i.exec(line);
+    if (!head) continue;
+    const k = head[1].trim().toLowerCase();
+    if (k.startsWith("support")) bucket = "supported";
+    else if (k.startsWith("partial")) bucket = "partial";
+    else if (k.startsWith("missing")) bucket = "missing";
+    else bucket = null;
+    const inline = head[2].trim();
+    if (bucket && inline) {
+      for (const part of inline.split(/\s*[,;]\s*/)) {
+        if (part) data[bucket].push(part);
+      }
+    }
+  }
+  return data;
+}
+
 // ---- Rendering --------------------------------------------------
 
 function renderBlock(block: Block, index: number): React.ReactNode {
@@ -491,7 +640,197 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       return <ScoreGroup key={index} scores={block.scores} />;
     case "snapshot":
       return <SnapshotCard key={index} data={block.data} />;
+    case "dimensions":
+      return <DimensionGrid key={index} rows={block.rows} />;
+    case "coverage":
+      return <CoverageBoard key={index} data={block.data} />;
+    case "callout":
+      return <ReportCallout key={index} label={block.label} body={block.body} />;
   }
+}
+
+// ---- Dimension grid + sub-criteria ------------------------------
+const STATUS_TONE: Record<string, string> = {
+  Supported: "bg-emerald-100 text-emerald-800 ring-emerald-200",
+  "Partially Supported": "bg-amber-100 text-amber-800 ring-amber-200",
+  "Missing / Required": "bg-rose-100 text-rose-800 ring-rose-200",
+  Contradicted: "bg-violet-100 text-violet-800 ring-violet-200",
+  "Management/Input Claim Only": "bg-slate-200 text-slate-700 ring-slate-300",
+};
+
+function statusTone(status: string): string {
+  const norm = status.trim();
+  return STATUS_TONE[norm] ?? "bg-slate-100 text-slate-700 ring-slate-200";
+}
+
+function DimensionGrid({ rows }: { rows: DimensionRow[] }) {
+  if (rows.length === 0) return null;
+  return (
+    <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {rows.map((r) => (
+        <DimensionCard key={r.key} row={r} />
+      ))}
+    </section>
+  );
+}
+
+function DimensionCard({ row }: { row: DimensionRow }) {
+  const pct = Math.max(0, Math.min(1, row.score / 5));
+  const fill = scoreTone(pct);
+  return (
+    <div className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm font-semibold text-slate-900">{row.label}</p>
+        <span
+          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ring-1 ring-inset ${statusTone(row.status)}`}
+        >
+          {row.status}
+        </span>
+      </div>
+      <div className="flex items-baseline justify-between">
+        <span className="text-2xl font-extrabold tracking-tight text-slate-900">
+          {row.score.toFixed(1)}
+          <span className="ml-0.5 text-[10px] font-medium text-slate-400">/5</span>
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+        <div
+          className={`h-full rounded-full ${fill}`}
+          style={{ width: `${pct * 100}%` }}
+        />
+      </div>
+      {row.rationale ? (
+        <p className="text-xs leading-5 text-slate-600">{row.rationale}</p>
+      ) : null}
+      {row.subCriteria.length > 0 ? (
+        <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2">
+          {row.subCriteria.map((s) => {
+            const subPct = Math.max(0, Math.min(1, s.score / 5));
+            const subFill = scoreTone(subPct);
+            return (
+              <div key={s.key} className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-600">
+                  {s.label}
+                </span>
+                <span className="text-[11px] font-semibold text-slate-700">
+                  {s.score.toFixed(1)}
+                </span>
+                <div className="h-1.5 w-16 overflow-hidden rounded-full bg-slate-100">
+                  <div
+                    className={`h-full rounded-full ${subFill}`}
+                    style={{ width: `${subPct * 100}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+// ---- Evidence Coverage 3-column board ---------------------------
+function CoverageBoard({ data }: { data: CoverageData }) {
+  return (
+    <section className="grid gap-3 md:grid-cols-3">
+      <CoverageColumn
+        label="Supported"
+        items={data.supported}
+        accent="emerald"
+      />
+      <CoverageColumn
+        label="Partially Supported"
+        items={data.partial}
+        accent="amber"
+      />
+      <CoverageColumn
+        label="Missing / Required"
+        items={data.missing}
+        accent="rose"
+      />
+    </section>
+  );
+}
+
+function CoverageColumn({
+  label,
+  items,
+  accent,
+}: {
+  label: string;
+  items: string[];
+  accent: "emerald" | "amber" | "rose";
+}) {
+  const head =
+    accent === "emerald"
+      ? "text-emerald-700"
+      : accent === "amber"
+        ? "text-amber-700"
+        : "text-rose-700";
+  const dot =
+    accent === "emerald"
+      ? "bg-emerald-500"
+      : accent === "amber"
+        ? "bg-amber-500"
+        : "bg-rose-500";
+  const bg =
+    accent === "emerald"
+      ? "bg-emerald-50/60"
+      : accent === "amber"
+        ? "bg-amber-50/60"
+        : "bg-rose-50/60";
+  return (
+    <div className={`rounded-2xl border border-slate-200 ${bg} p-4`}>
+      <p
+        className={`text-[10px] font-bold uppercase tracking-[0.2em] ${head}`}
+      >
+        {label}
+      </p>
+      {items.length === 0 ? (
+        <p className="mt-2 text-xs italic text-slate-500">— None listed —</p>
+      ) : (
+        <ul className="mt-2 space-y-1.5">
+          {items.map((it, i) => (
+            <li
+              key={i}
+              className="flex gap-2 text-sm leading-5 text-slate-800"
+            >
+              <span
+                aria-hidden
+                className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${dot}`}
+              />
+              <span
+                className="min-w-0 flex-1"
+                dangerouslySetInnerHTML={{ __html: renderInline(it) }}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ---- Callout card -----------------------------------------------
+function ReportCallout({
+  label,
+  body,
+}: {
+  label: string;
+  body: string;
+}) {
+  return (
+    <aside className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-violet-50 p-4 shadow-sm">
+      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-indigo-700">
+        {label}
+      </p>
+      <p
+        className="mt-1 text-sm leading-6 text-slate-700"
+        dangerouslySetInnerHTML={{ __html: renderInline(body) }}
+      />
+    </aside>
+  );
 }
 
 function ReportTable({
@@ -887,9 +1226,92 @@ export function markdownToExportHtml(md: string): string {
       case "snapshot":
         parts.push(snapshotToHtml(b.data));
         break;
+      case "dimensions":
+        parts.push(dimensionsToHtml(b.rows));
+        break;
+      case "coverage":
+        parts.push(coverageToHtml(b.data));
+        break;
+      case "callout":
+        parts.push(calloutToHtml(b.label, b.body));
+        break;
     }
   }
   return parts.join("\n");
+}
+
+function dimensionsToHtml(rows: DimensionRow[]): string {
+  if (rows.length === 0) return "";
+  const statusColors: Record<string, [string, string]> = {
+    Supported: ["#d1fae5", "#065f46"],
+    "Partially Supported": ["#fef3c7", "#92400e"],
+    "Missing / Required": ["#fecdd3", "#9f1239"],
+    Contradicted: ["#ede9fe", "#5b21b6"],
+    "Management/Input Claim Only": ["#e2e8f0", "#334155"],
+  };
+  const cards = rows
+    .map((r) => {
+      const pct = Math.max(0, Math.min(100, (r.score / 5) * 100));
+      const fill = pct >= 70 ? "#6366f1" : pct >= 55 ? "#0ea5e9" : pct >= 40 ? "#f59e0b" : "#ef4444";
+      const [bg, fg] = statusColors[r.status] ?? ["#e2e8f0", "#334155"];
+      const sub = r.subCriteria.length
+        ? `<div class="dim-sub">${r.subCriteria
+            .map((s) => {
+              const sp = Math.max(0, Math.min(100, (s.score / 5) * 100));
+              const sfill =
+                sp >= 70 ? "#6366f1" : sp >= 55 ? "#0ea5e9" : sp >= 40 ? "#f59e0b" : "#ef4444";
+              return `<div class="dim-sub-row"><span class="dim-sub-label">${escapeHtml(
+                s.label,
+              )}</span><span class="dim-sub-val">${s.score.toFixed(
+                1,
+              )}</span><span class="dim-sub-track"><span class="dim-sub-fill" style="width:${sp}%;background:${sfill}"></span></span></div>`;
+            })
+            .join("")}</div>`
+        : "";
+      const rationale = r.rationale
+        ? `<p class="dim-rat">${escapeHtml(r.rationale)}</p>`
+        : "";
+      return `<div class="dim-card"><div class="dim-head"><span class="dim-label">${escapeHtml(
+        r.label,
+      )}</span><span class="dim-pill" style="background:${bg};color:${fg}">${escapeHtml(
+        r.status,
+      )}</span></div><div class="dim-score">${r.score.toFixed(
+        1,
+      )}<span class="dim-max">/5</span></div><div class="dim-track"><div class="dim-fill" style="width:${pct}%;background:${fill}"></div></div>${rationale}${sub}</div>`;
+    })
+    .join("");
+  return `<div class="dim-grid">${cards}</div>`;
+}
+
+function coverageToHtml(d: CoverageData): string {
+  const col = (
+    label: string,
+    items: string[],
+    bg: string,
+    head: string,
+    dot: string,
+  ) => {
+    const list = items.length
+      ? `<ul class="cov-list">${items
+          .map((it) => `<li><span class="cov-dot" style="background:${dot}"></span>${renderInlineExport(it)}</li>`)
+          .join("")}</ul>`
+      : `<p class="cov-empty">— None listed —</p>`;
+    return `<div class="cov-col" style="background:${bg}"><p class="cov-head" style="color:${head}">${escapeHtml(
+      label,
+    )}</p>${list}</div>`;
+  };
+  const cols = [
+    col("Supported", d.supported, "#ecfdf5", "#047857", "#10b981"),
+    col("Partially Supported", d.partial, "#fffbeb", "#b45309", "#f59e0b"),
+    col("Missing / Required", d.missing, "#fff1f2", "#be123c", "#f43f5e"),
+  ].join("");
+  return `<div class="cov-grid">${cols}</div>`;
+}
+
+function calloutToHtml(label: string, body: string): string {
+  return `<aside class="callout"><p class="callout-label">${escapeHtml(
+    label,
+  )}</p><p class="callout-body">${renderInlineExport(body)}</p></aside>`;
 }
 
 function tableToHtml(b: Extract<Block, { kind: "table" }>): string {
@@ -1067,6 +1489,32 @@ export function buildExportDocumentStyles(): string {
     .snap-col-head { font-size: 8pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 4px 0; }
     .snap-col-list { margin: 0; padding-left: 16px; color: #f1f5f9; }
     .snap-col-list li { font-size: 10pt; margin-bottom: 3px; line-height: 1.5; }
-    @media print { body { margin: 0.55in; } .score-card, .snap { break-inside: avoid; } .report-table { break-inside: auto; } tr { break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    .dim-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 8px 0 14px 0; }
+    .dim-card { border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; background: #fff; }
+    .dim-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+    .dim-label { font-size: 10pt; font-weight: 600; color: #0f172a; }
+    .dim-pill { display: inline-block; padding: 1px 6px; border-radius: 999px; font-size: 7.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+    .dim-score { font-size: 16pt; font-weight: 800; color: #0f172a; margin-top: 4px; }
+    .dim-max { font-size: 8pt; color: #94a3b8; font-weight: 500; margin-left: 2px; }
+    .dim-track { height: 6px; background: #f1f5f9; border-radius: 999px; margin-top: 6px; overflow: hidden; }
+    .dim-fill { height: 100%; border-radius: 999px; }
+    .dim-rat { font-size: 9pt; color: #475569; margin: 6px 0 0 0; line-height: 1.45; }
+    .dim-sub { margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 6px; }
+    .dim-sub-row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; font-size: 9pt; }
+    .dim-sub-label { flex: 1; color: #475569; }
+    .dim-sub-val { font-weight: 600; color: #334155; min-width: 22px; text-align: right; }
+    .dim-sub-track { display: inline-block; width: 60px; height: 4px; background: #f1f5f9; border-radius: 999px; overflow: hidden; }
+    .dim-sub-fill { display: block; height: 100%; border-radius: 999px; }
+    .cov-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin: 8px 0 14px 0; }
+    .cov-col { border: 1px solid #e2e8f0; border-radius: 12px; padding: 10px 12px; }
+    .cov-head { font-size: 8pt; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin: 0 0 6px 0; }
+    .cov-list { margin: 0; padding: 0; list-style: none; }
+    .cov-list li { font-size: 10pt; color: #1f2937; margin-bottom: 4px; padding-left: 12px; position: relative; line-height: 1.45; }
+    .cov-dot { position: absolute; left: 0; top: 7px; width: 6px; height: 6px; border-radius: 999px; }
+    .cov-empty { font-size: 9pt; color: #94a3b8; font-style: italic; margin: 0; }
+    .callout { background: linear-gradient(90deg, #eef2ff 0%, #fff 50%, #f5f3ff 100%); border: 1px solid #c7d2fe; border-radius: 12px; padding: 10px 14px; margin: 6px 0 14px 0; }
+    .callout-label { font-size: 8pt; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #4338ca; margin: 0 0 2px 0; }
+    .callout-body { font-size: 10pt; color: #334155; margin: 0; line-height: 1.5; }
+    @media print { body { margin: 0.55in; } .score-card, .snap, .dim-card, .cov-col, .callout { break-inside: avoid; } .dim-grid, .cov-grid { break-inside: avoid; } .report-table { break-inside: auto; } tr { break-inside: avoid; } * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   `;
 }
