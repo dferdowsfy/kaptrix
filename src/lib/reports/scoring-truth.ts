@@ -35,53 +35,128 @@ export interface ScoringSourceOfTruth {
 }
 
 /**
- * Map the executive-report short labels (Proceed / Proceed with
- * conditions / Pause / Pass) to the four official report labels.
+ * Map any scoring-engine decision label to one of the four official
+ * report recommendations. Covers both the legacy short labels (Proceed
+ * / Pause / Pass) and the modern decision set (Invest, Invest with
+ * conditions, Hold, Continue, Stall, Double-down, Wind-down plan, Do
+ * not invest, Stall & re-diligence). Unknown labels return null so
+ * callers can decide whether to fall back to a composite-derived label.
  */
-function normalizeRecommendation(raw: string | null | undefined): RecommendationLabel {
+function normalizeRecommendation(
+  raw: string | null | undefined,
+): RecommendationLabel | null {
   const v = (raw ?? "").trim().toLowerCase();
-  if (v.startsWith("proceed with") || v.includes("conditional")) return "Proceed with Conditions";
-  if (v === "proceed") return "Proceed";
-  if (v.startsWith("pause") || v.includes("pending")) return "Pause Pending Evidence";
-  if (v === "pass" || v.startsWith("do not") || v.includes("decline"))
+  if (!v) return null;
+  // Strong positive — proceed without conditions.
+  if (v === "invest" || v === "continue" || v === "double-down" || v === "double down" || v === "proceed") {
+    return "Proceed";
+  }
+  // Positive with conditions.
+  if (
+    v.includes("with conditions") ||
+    v.includes("conditional") ||
+    v.startsWith("proceed with") ||
+    v === "hold" ||
+    v === "stall"
+  ) {
+    return "Proceed with Conditions";
+  }
+  // Pause / re-diligence — needs more evidence before deciding.
+  if (
+    v.startsWith("pause") ||
+    v.includes("pending") ||
+    v.includes("re-diligence") ||
+    v.includes("rediligence")
+  ) {
+    return "Pause Pending Evidence";
+  }
+  // Hard no.
+  if (
+    v === "pass" ||
+    v.startsWith("do not") ||
+    v.includes("decline") ||
+    v.includes("wind-down") ||
+    v.includes("wind down")
+  ) {
     return "Do Not Proceed Based on Current Evidence";
-  // No scoring decision yet → default to the most cautious label.
-  return "Pause Pending Evidence";
+  }
+  return null;
+}
+
+/**
+ * Derive a recommendation from the composite score when no textual
+ * label is available (or the label was unrecognized). Mirrors the
+ * scoring calculator's own thresholds (invest_floor=3.5,
+ * do_not_invest_ceiling=2.5) so the report doesn't drift from the
+ * Scoring tab.
+ */
+function recommendationFromComposite(composite: number): RecommendationLabel {
+  if (composite >= 3.5) return "Proceed";
+  if (composite >= 2.5) return "Proceed with Conditions";
+  if (composite >= 1.5) return "Pause Pending Evidence";
+  return "Do Not Proceed Based on Current Evidence";
 }
 
 /**
  * Map the executive-report confidence band ("High" / "Moderate" /
  * "Developing") to a 0–100 number for the snapshot card. If the
  * scoring engine ever exposes a numeric confidence, prefer that.
+ * Returns null when no usable signal is present so the caller can
+ * fall back to a composite-derived value.
  */
-function normalizeConfidence(raw: string | number | null | undefined): number {
+function normalizeConfidence(raw: string | number | null | undefined): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) {
     return Math.max(0, Math.min(100, Math.round(raw)));
   }
-  const v = (raw ?? "").toString().trim().toLowerCase();
-  if (v === "high") return 80;
-  if (v === "moderate") return 55;
-  if (v === "developing") return 30;
-  return 0;
+  const s = (raw ?? "").toString().trim();
+  if (!s) return null;
+  // Numeric strings like "75", "75/100", "75%".
+  const numMatch = s.match(/-?\d+(?:\.\d+)?/);
+  if (numMatch) {
+    const n = parseFloat(numMatch[0]);
+    if (Number.isFinite(n)) return Math.max(0, Math.min(100, Math.round(n)));
+  }
+  const v = s.toLowerCase();
+  if (v === "high" || v === "strong") return 80;
+  if (v === "moderate" || v === "medium") return 55;
+  if (v === "developing" || v === "low" || v === "weak") return 30;
+  return null;
+}
+
+/**
+ * Derive a 0–100 confidence from the composite score (0–5) when the
+ * textual band is missing or unrecognized. A 4.5 composite should
+ * produce a high confidence in the snapshot card, not the legacy
+ * default of 30.
+ */
+function confidenceFromComposite(composite: number): number {
+  if (composite >= 4.5) return 85;
+  if (composite >= 4.0) return 75;
+  if (composite >= 3.5) return 65;
+  if (composite >= 3.0) return 55;
+  if (composite >= 2.5) return 45;
+  if (composite >= 2.0) return 35;
+  return 25;
 }
 
 /**
  * Derive the risk posture from the composite score (0–5) and the
- * recommendation. The scoring engine doesn't expose a posture today,
- * so we compute one consistent with the recommendation.
+ * recommendation. The composite is preferred when present because the
+ * scoring engine's thresholds drive both axes; the recommendation is
+ * a tiebreaker for missing-composite cases.
  */
 function derivePosture(
   composite: number | null,
   recommendation: RecommendationLabel,
 ): RiskPosture {
-  if (recommendation === "Do Not Proceed Based on Current Evidence") return "CRITICAL";
-  if (recommendation === "Pause Pending Evidence") return "HIGH";
   if (typeof composite === "number" && Number.isFinite(composite)) {
     if (composite >= 4) return "LOW";
     if (composite >= 3) return "MEDIUM";
     if (composite >= 2) return "HIGH";
     return "CRITICAL";
   }
+  if (recommendation === "Do Not Proceed Based on Current Evidence") return "CRITICAL";
+  if (recommendation === "Pause Pending Evidence") return "HIGH";
   return recommendation === "Proceed" ? "LOW" : "MEDIUM";
 }
 
@@ -99,15 +174,37 @@ interface SnapshotLike {
 
 export function buildScoringSourceOfTruth(snapshot: SnapshotLike): ScoringSourceOfTruth {
   const rep = snapshot.executiveReport ?? {};
-  const recommendation = normalizeRecommendation(rep.recommendation);
   const composite = typeof rep.composite_score === "number" ? rep.composite_score : null;
+
+  // Recommendation: prefer the engine's textual label when we recognize
+  // it; otherwise fall back to a composite-derived label so the report
+  // still reflects the score band. The previous behavior coerced any
+  // unrecognized label (e.g. "Invest") to "Pause Pending Evidence",
+  // which dragged the brief into a HIGH-risk reading.
+  const fromLabel = normalizeRecommendation(rep.recommendation);
+  const recommendation: RecommendationLabel =
+    fromLabel ??
+    (typeof composite === "number" && Number.isFinite(composite)
+      ? recommendationFromComposite(composite)
+      : "Pause Pending Evidence");
+
+  // Confidence: prefer an explicit numeric/textual band when present
+  // and recognized; otherwise derive from the composite so a 4.5/5
+  // composite no longer yields a 30/100 confidence.
+  const explicitConfidence = normalizeConfidence(rep.confidence);
+  const confidence_score =
+    explicitConfidence ??
+    (typeof composite === "number" && Number.isFinite(composite)
+      ? confidenceFromComposite(composite)
+      : 0);
+
   return {
     client_id: snapshot.engagement.id,
     company_name: snapshot.engagement.target_company_name,
     composite_score: composite,
     recommendation,
     risk_posture: derivePosture(composite, recommendation),
-    confidence_score: normalizeConfidence(rep.confidence),
+    confidence_score,
     dimension_scores: rep.dimension_scores ?? null,
     scoring_timestamp: rep.generated_at ?? new Date().toISOString(),
     scoring_version: rep.version ?? 1,
@@ -174,7 +271,10 @@ export function detectSotMismatch(
   if (recMatch) {
     const emitted = recMatch[1].trim();
     const norm = normalizeRecommendation(emitted);
-    if (norm !== sot.recommendation) {
+    // Only flag when we recognized the emitted label and it disagrees.
+    // Unknown labels are not auto-flagged here (the SOT block forces
+    // the model to emit one of the four canonical labels).
+    if (norm !== null && norm !== sot.recommendation) {
       issues.push(
         `recommendation mismatch — report emitted "${emitted}", scoring source of truth says "${sot.recommendation}"`,
       );
