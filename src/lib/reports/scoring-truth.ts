@@ -13,6 +13,7 @@
 //   3. Validates the LLM output against it after generation.
 
 import type { ScoreDimension } from "@/lib/types";
+import { confidenceFromComposite } from "@/lib/scoring/read-confidence";
 
 export type RecommendationLabel =
   | "Proceed"
@@ -124,22 +125,6 @@ function normalizeConfidence(raw: string | number | null | undefined): number | 
 }
 
 /**
- * Derive a 0–100 confidence from the composite score (0–5) when the
- * textual band is missing or unrecognized. A 4.5 composite should
- * produce a high confidence in the snapshot card, not the legacy
- * default of 30.
- */
-function confidenceFromComposite(composite: number): number {
-  if (composite >= 4.5) return 85;
-  if (composite >= 4.0) return 75;
-  if (composite >= 3.5) return 65;
-  if (composite >= 3.0) return 55;
-  if (composite >= 2.5) return 45;
-  if (composite >= 2.0) return 35;
-  return 25;
-}
-
-/**
  * Derive the risk posture from the composite score (0–5) and the
  * recommendation. The composite is preferred when present because the
  * scoring engine's thresholds drive both axes; the recommendation is
@@ -209,12 +194,12 @@ export function buildScoringSourceOfTruth(
   // posture reading.
   const fromLive = normalizeRecommendation(liveScoring?.decision_band);
   const fromCached = normalizeRecommendation(rep.recommendation);
-  const recommendation: RecommendationLabel =
-    fromLive ??
-    fromCached ??
-    (typeof composite === "number" && Number.isFinite(composite)
+  const compositeRecommendation =
+    typeof composite === "number" && Number.isFinite(composite)
       ? recommendationFromComposite(composite)
-      : "Pause Pending Evidence");
+      : null;
+  const recommendation: RecommendationLabel =
+    fromLive ?? fromCached ?? compositeRecommendation ?? "Pause Pending Evidence";
 
   // Confidence: prefer the composite-derived value whenever a valid
   // composite is present (live or cached). The cached executiveReport.
@@ -223,10 +208,9 @@ export function buildScoringSourceOfTruth(
   // on every report even when scoring was 4.5/5. The textual band only
   // wins when no composite is available at all.
   const explicitConfidence = normalizeConfidence(rep.confidence);
+  const compositeConfidence = confidenceFromComposite(composite);
   const confidence_score =
-    typeof composite === "number" && Number.isFinite(composite)
-      ? confidenceFromComposite(composite)
-      : explicitConfidence ?? 0;
+    compositeConfidence ?? explicitConfidence ?? 0;
 
   // Dimension scores: prefer the live overlay so re-runs of scoring
   // are reflected even when the cached snapshot.executiveReport.

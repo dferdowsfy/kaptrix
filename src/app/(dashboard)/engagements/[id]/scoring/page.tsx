@@ -38,7 +38,6 @@ export default async function ScoringPage({ params }: Props) {
     { data: scores },
     { data: patternMatches },
     { data: benchmarks },
-    { data: evidenceConfidence },
     { data: engagement },
     { data: analysesData },
     intakeAnswersRow,
@@ -50,11 +49,6 @@ export default async function ScoringPage({ params }: Props) {
       .eq("engagement_id", id)
       .order("similarity_score", { ascending: false }),
     supabase.from("benchmark_cases").select("*").order("case_anchor_id"),
-    supabase
-      .from("evidence_confidence")
-      .select("composite")
-      .eq("engagement_id", id)
-      .maybeSingle(),
     supabase
       .from("engagements")
       .select("deal_stage, status")
@@ -89,9 +83,6 @@ export default async function ScoringPage({ params }: Props) {
       intakeAnswers as Parameters<typeof intakeAnswersToCommercialPainInputs>[0],
     ),
   );
-
-  const evidenceCoverageConfidence =
-    (evidenceConfidence as { composite: number } | null)?.composite ?? null;
 
   // Decision + interpretation for the hero card. Same calculator the
   // ScoringPanel uses internally — single source of truth.
@@ -136,8 +127,8 @@ export default async function ScoringPage({ params }: Props) {
       `Commercial pain factors missing: ${commercialPain.missing_factors.length}`,
     );
   }
-  if (evidenceCoverageConfidence == null) {
-    missingEvidence.push("Evidence Coverage Confidence not yet computed");
+  if (aiDiligenceComposite == null) {
+    missingEvidence.push("Read Confidence not yet computed");
   }
 
   const recommendationConditions = (decision?.rationale ?? []).slice(0, 3);
@@ -158,14 +149,12 @@ export default async function ScoringPage({ params }: Props) {
           interpretation={interpretation}
           commercialPainBand={commercialPain?.band ?? null}
           aiDiligenceComposite={aiDiligenceComposite}
-          evidenceCoverageConfidence={evidenceCoverageConfidence}
         />
       )}
 
       <ScoreOverview
         commercialPain={commercialPain}
         aiDiligenceComposite={aiDiligenceComposite}
-        evidenceCoverageConfidence={evidenceCoverageConfidence}
         hideInterpretationBanner={decision != null}
       />
 

@@ -617,18 +617,17 @@ export default function PreviewScoringPage() {
           interpretation={heroInterpretation}
           commercialPainBand={commercialPainResult?.band ?? null}
           aiDiligenceComposite={headerComposite?.raw ?? null}
-          evidenceCoverageConfidence={null}
         />
       )}
 
       {/* THREE PRIMARY SCORE CARDS — Commercial Pain (0–100, separate
-          axis), AI Diligence (0–5, six-dimension composite), and
-          Evidence Coverage (0–100%). Hide the four-quadrant interpretation
-          banner because the Decision Snapshot above already shows it. */}
+          axis), AI Diligence (0–5, six-dimension composite), and Read
+          Confidence (0–100, same value shown on every report). Hide the
+          four-quadrant interpretation banner because the Decision
+          Snapshot above already shows it. */}
       <ScoreOverview
         commercialPain={commercialPainResult}
         aiDiligenceComposite={headerComposite?.raw ?? null}
-        evidenceCoverageConfidence={null}
         hideInterpretationBanner
       />
 

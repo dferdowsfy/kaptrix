@@ -14,16 +14,17 @@ import type {
   CommercialPainInterpretation,
   CommercialPainResult,
 } from "@/lib/scoring/commercial-pain";
+import { confidenceFromComposite } from "@/lib/scoring/read-confidence";
 
 interface Props {
   decision: DecisionResult | null;
   interpretation: CommercialPainInterpretation | null;
   /** Phase-2 commercial pain band — drives the chip text/color. */
   commercialPainBand: CommercialPainResult["band"] | null;
-  /** AI Diligence composite (0–5) — drives the strong/moderate chip. */
+  /** AI Diligence composite (0–5) — drives the strong/moderate chip
+   *  AND the Read Confidence chip (the same value shown on every
+   *  report's Decision Snapshot hero). */
   aiDiligenceComposite: number | null;
-  /** Evidence Coverage Confidence (0–1) or null when not yet computed. */
-  evidenceCoverageConfidence: number | null;
 }
 
 const TONE_BG: Record<"go" | "warn" | "stop", string> = {
@@ -98,7 +99,6 @@ interface ChipSpec {
 function deriveChips(
   aiDiligenceComposite: number | null,
   commercialPainBand: CommercialPainResult["band"] | null,
-  evidenceCoverageConfidence: number | null,
 ): ChipSpec[] {
   const chips: ChipSpec[] = [];
 
@@ -127,14 +127,16 @@ function deriveChips(
     chips.push({ label: "Commercial pain not validated", tone: "stop" });
   }
 
-  if (evidenceCoverageConfidence == null) {
-    chips.push({ label: "Evidence coverage incomplete", tone: "warn" });
-  } else if (evidenceCoverageConfidence >= 0.8) {
-    chips.push({ label: "Evidence coverage strong", tone: "go" });
-  } else if (evidenceCoverageConfidence >= 0.6) {
-    chips.push({ label: "Evidence coverage moderate", tone: "warn" });
+  // Read Confidence chip — same 0–100 value the reports show.
+  const readConfidence = confidenceFromComposite(aiDiligenceComposite);
+  if (readConfidence == null) {
+    chips.push({ label: "Read confidence pending", tone: "warn" });
+  } else if (readConfidence >= 70) {
+    chips.push({ label: `Read confidence ${readConfidence}/100`, tone: "go" });
+  } else if (readConfidence >= 50) {
+    chips.push({ label: `Read confidence ${readConfidence}/100`, tone: "warn" });
   } else {
-    chips.push({ label: "Evidence coverage weak", tone: "stop" });
+    chips.push({ label: `Read confidence ${readConfidence}/100`, tone: "stop" });
   }
 
   return chips;
@@ -145,14 +147,9 @@ export function DecisionSnapshotHero({
   interpretation,
   commercialPainBand,
   aiDiligenceComposite,
-  evidenceCoverageConfidence,
 }: Props) {
   const tone: "go" | "warn" | "stop" = decision?.tone ?? "warn";
-  const chips = deriveChips(
-    aiDiligenceComposite,
-    commercialPainBand,
-    evidenceCoverageConfidence,
-  );
+  const chips = deriveChips(aiDiligenceComposite, commercialPainBand);
 
   return (
     <section

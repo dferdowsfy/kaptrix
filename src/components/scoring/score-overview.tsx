@@ -5,7 +5,12 @@
  *
  *   1. Commercial Pain Confidence (0–100, separate scoring layer)
  *   2. AI Diligence Score (0–5, the existing six-dimension composite)
- *   3. Evidence Coverage Confidence (0–1, evidence_confidence layer)
+ *   3. Read Confidence (0–100, derived from the AI Diligence composite)
+ *
+ * The third card uses the same Read Confidence value that appears on
+ * every report's Decision Snapshot hero so the number is consistent
+ * across the platform — the Scoring page is the single place that
+ * surfaces it on this tab.
  *
  * Below the cards, a banner reads the four-quadrant interpretation
  * (strong signal / execution risk / commercially weak / likely pass).
@@ -19,6 +24,7 @@ import {
   interpretCommercialPainAndDiligence,
   type CommercialPainResult,
 } from "@/lib/scoring/commercial-pain";
+import { confidenceFromComposite } from "@/lib/scoring/read-confidence";
 
 interface Props {
   commercialPain: CommercialPainResult | null;
@@ -27,11 +33,6 @@ interface Props {
    * Pass null for engagements with no scoring activity yet.
    */
   aiDiligenceComposite: number | null;
-  /**
-   * Evidence Coverage Confidence on the 0–1 scale (the `composite` field
-   * on the evidence_confidence row). Null = not computed yet.
-   */
-  evidenceCoverageConfidence: number | null;
 }
 
 const BAND_STYLES: Record<
@@ -230,14 +231,16 @@ function AiDiligenceCard({ composite }: { composite: number | null }) {
   );
 }
 
-function EvidenceCoverageCard({
-  confidence,
+function ReadConfidenceCard({
+  composite,
 }: {
-  confidence: number | null;
+  composite: number | null;
 }) {
-  if (confidence == null) {
+  const pct = confidenceFromComposite(composite);
+
+  if (pct == null) {
     return (
-      <CardShell eyebrow="Evidence Coverage Confidence">
+      <CardShell eyebrow="Read Confidence">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-semibold text-amber-600">Pending</span>
           <span
@@ -248,38 +251,37 @@ function EvidenceCoverageCard({
         </div>
         <p className="mt-3 text-xs text-slate-500">Not yet computed</p>
         <p className="mt-3 text-xs text-slate-700">
-          Evidence validation has not been completed yet.
+          Score the six AI Diligence dimensions to populate Read Confidence.
         </p>
       </CardShell>
     );
   }
 
-  const pct = Math.round(confidence * 100);
   const label =
-    pct >= 80 ? "Strong" : pct >= 60 ? "Moderate" : pct >= 40 ? "Weak" : "Sparse";
+    pct >= 70 ? "Strong" : pct >= 50 ? "Moderate" : pct >= 30 ? "Weak" : "Sparse";
   const chip =
-    pct >= 80
+    pct >= 70
       ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200"
-      : pct >= 60
+      : pct >= 50
         ? "bg-amber-100 text-amber-800 ring-1 ring-amber-200"
-        : pct >= 40
+        : pct >= 30
           ? "bg-orange-100 text-orange-800 ring-1 ring-orange-200"
           : "bg-rose-100 text-rose-800 ring-1 ring-rose-200";
   const bar =
-    pct >= 80
+    pct >= 70
       ? "bg-emerald-500"
-      : pct >= 60
+      : pct >= 50
         ? "bg-amber-500"
-        : pct >= 40
+        : pct >= 30
           ? "bg-orange-500"
           : "bg-rose-500";
 
   return (
-    <CardShell eyebrow="Evidence Coverage Confidence">
+    <CardShell eyebrow="Read Confidence">
       <div className="flex items-baseline gap-2">
         <span className="text-4xl font-bold tabular-nums text-slate-900">
           {pct}
-          <span className="text-2xl text-slate-400">%</span>
+          <span className="text-2xl text-slate-400"> /100</span>
         </span>
         <span
           className={`ml-auto rounded-full px-2.5 py-0.5 text-xs font-semibold ${chip}`}
@@ -294,7 +296,7 @@ function EvidenceCoverageCard({
         />
       </div>
       <p className="mt-3 text-xs text-slate-500">
-        Coverage, source quality, recency, consistency
+        Same value shown on every report&apos;s Decision Snapshot
       </p>
     </CardShell>
   );
@@ -310,7 +312,6 @@ interface ScoreOverviewProps extends Props {
 export function ScoreOverview({
   commercialPain,
   aiDiligenceComposite,
-  evidenceCoverageConfidence,
   hideInterpretationBanner = false,
 }: ScoreOverviewProps) {
   const interpretation = interpretCommercialPainAndDiligence(
@@ -323,7 +324,7 @@ export function ScoreOverview({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <CommercialPainCard result={commercialPain} />
         <AiDiligenceCard composite={aiDiligenceComposite} />
-        <EvidenceCoverageCard confidence={evidenceCoverageConfidence} />
+        <ReadConfidenceCard composite={aiDiligenceComposite} />
       </div>
 
       {!hideInterpretationBanner && interpretation && (
