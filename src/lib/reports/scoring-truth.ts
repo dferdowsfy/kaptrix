@@ -216,15 +216,17 @@ export function buildScoringSourceOfTruth(
       ? recommendationFromComposite(composite)
       : "Pause Pending Evidence");
 
-  // Confidence: prefer an explicit numeric/textual band when present
-  // and recognized; otherwise derive from the composite so a 4.5/5
-  // composite no longer yields a 30/100 confidence.
+  // Confidence: prefer the composite-derived value whenever a valid
+  // composite is present (live or cached). The cached executiveReport.
+  // confidence is a coarse band ("Developing" → 30) that gets seeded
+  // once and never refreshed — trusting it produced "Confidence: 30/100"
+  // on every report even when scoring was 4.5/5. The textual band only
+  // wins when no composite is available at all.
   const explicitConfidence = normalizeConfidence(rep.confidence);
   const confidence_score =
-    explicitConfidence ??
-    (typeof composite === "number" && Number.isFinite(composite)
+    typeof composite === "number" && Number.isFinite(composite)
       ? confidenceFromComposite(composite)
-      : 0);
+      : explicitConfidence ?? 0;
 
   // Dimension scores: prefer the live overlay so re-runs of scoring
   // are reflected even when the cached snapshot.executiveReport.

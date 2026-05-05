@@ -858,6 +858,12 @@ function parseActionCard(raw: string[]): ActionCardData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;
@@ -915,6 +921,10 @@ function parseMarketPosition(raw: string[]): MarketPositionArea[] {
         active = multiLine.includes(key as MPKey) ? (key as MPKey) : null;
         continue;
       }
+      // Unknown "key: value" — drop the line rather than appending to
+      // the active multi-line field.
+      active = null;
+      continue;
     }
     if (cur && active && l) {
       (cur as unknown as Record<string, string>)[active] += " " + l;
@@ -943,6 +953,12 @@ function parseCapabilityCard(raw: string[]): CapabilityCardData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;
@@ -995,6 +1011,12 @@ function parseMarketIssue(raw: string[]): MarketIssueData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;
@@ -1026,6 +1048,9 @@ function parseEvidenceCoverage(raw: string[]): EvidenceCoverageCategory[] {
         active = multiLine.includes(key as ECKey) ? (key as ECKey) : null;
         continue;
       }
+      // Unknown "key: value" — drop the line rather than appending.
+      active = null;
+      continue;
     }
     if (cur && active && l) {
       (cur as unknown as Record<string, string>)[active] += " " + l;
@@ -1053,6 +1078,12 @@ function parseConfidenceDimension(raw: string[]): ConfidenceDimensionData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;
@@ -1079,6 +1110,12 @@ function parseSupportedClaim(raw: string[]): SupportedClaimData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;
@@ -1105,6 +1142,12 @@ function parseEvidenceGap(raw: string[]): EvidenceGapData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;
@@ -1131,6 +1174,12 @@ function parseWeakClaim(raw: string[]): WeakClaimData {
         (data as unknown as Record<string, string>)[key] = kv[2].trim();
         continue;
       }
+      // Unknown "key: value" — skip rather than treating as continuation.
+      // Stops sibling-block field names from leaking into the active
+      // multi-line field (e.g. "why:" / "caveat:" / "related_risk:"
+      // bleeding into the dimension card's "supports" prose).
+      cur = null;
+      continue;
     }
     if (cur && l) {
       (data as unknown as Record<string, string>)[cur] += " " + l;

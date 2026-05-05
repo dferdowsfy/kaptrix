@@ -229,6 +229,10 @@ export interface LiveScoring {
   decision_band: string | null;
   dimension_scores: Record<string, number> | null;
   generated_at: string | null;
+  /** True when the knowledge_base entry is flagged stale (upstream
+   *  changes invalidated scoring). The values are still returned so
+   *  reports can show them while warning the reader to recompute. */
+  stale: boolean;
 }
 
 /**
@@ -301,6 +305,7 @@ export async function loadLiveScoring(
         : null,
     dimension_scores,
     generated_at: row.updated_at ?? null,
+    stale: scoringEntry.stale === true,
   };
 }
 

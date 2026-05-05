@@ -1351,17 +1351,32 @@ decision_implication: <One-clause implication>`,
   {
     id: "dimensions",
     label: "Evidence confidence by dimension",
-    maxTokens: 2200,
+    maxTokens: 2400,
     instruction: [
-      `OUTPUT ONLY a section heading followed by ':::confidence-dimension' blocks. Begin with '## 2. Evidence Confidence by Dimension'. Then emit EXACTLY SIX dimension cards in this fixed order, one per ':::confidence-dimension' block, separated by blank lines. Do NOT emit prose, table, or other markdown between cards.`,
-      `Each card MUST contain ALL of these fields:
+      `OUTPUT ONLY a section heading followed by SIX SEPARATE ':::confidence-dimension' fenced blocks. Begin with '## 2. Evidence Confidence by Dimension'. Each dimension MUST be its own ':::confidence-dimension' ... ':::' block — never combine multiple dimensions into a single block. Separate the six blocks with blank lines. Do NOT emit any prose, table, list, or other markdown between blocks.`,
+      `Each block uses ONLY these six fields, each on its own line, in this exact order:
 dimension: <one of: Product Credibility | Tooling & Vendor Exposure | Data & Sensitivity Risk | Governance & Safety | Production Readiness | Open Validation>
 status: <Supported | Partially Supported | Missing | Contradicted>
 confidence: <integer 0-100>
-supports: <One-sentence summary of the specific evidence that supports the rating; cite artifact filenames or intake fields verbatim. If none, write "No artifact-supported evidence in the current package.">
-missing: <One-sentence summary of the specific evidence still required to reach Supported; name the artifact>
-decision_impact: <One-clause statement of what this dimension's confidence level means for the investment decision>`,
-      `Output the cards in this exact order: Product Credibility, Tooling & Vendor Exposure, Data & Sensitivity Risk, Governance & Safety, Production Readiness, Open Validation. Do NOT skip any. Do NOT repeat content from the snapshot.`,
+supports: <One sentence on the evidence backing the rating. NEVER include sub-fields like "why:", "caveat:", "related_risk:", "required_artifact:", "impact:", or "pass_criterion:" inside this value — those belong to other section's blocks. Use plain prose only.>
+missing: <One sentence on the specific evidence still required, naming the artifact. Plain prose only — no embedded sub-fields.>
+decision_impact: <One clause on what this dimension's confidence level means for the investment decision. Plain prose only — no embedded sub-fields.>`,
+      `Forbidden inside any field value: the strings "why:", "caveat:", "related_risk:", "required_artifact:", "impact:", "pass_criterion:", "claim:", "source:", "follow_up:". Those keys belong to OTHER sections' blocks (Top Supported Claims, Top Evidence Gaps, Weak Claims) and will be generated in their own subsequent calls. Do NOT preview those sections here.`,
+      `Emit the cards in this exact order: Product Credibility, Tooling & Vendor Exposure, Data & Sensitivity Risk, Governance & Safety, Production Readiness, Open Validation. Do NOT skip any. Do NOT merge two dimensions into one block. Do NOT repeat content from the snapshot.`,
+      `Example shape (use as a structure template only — do NOT copy text):
+:::confidence-dimension
+dimension: Product Credibility
+status: Partially Supported
+confidence: 55
+supports: Pitch deck and architecture overview substantiate the multi-tenant SaaS posture.
+missing: Production telemetry and customer outcome data still required to confirm credibility.
+decision_impact: Partial confidence here keeps the brief at "proceed with conditions".
+:::
+
+:::confidence-dimension
+dimension: Tooling & Vendor Exposure
+...
+:::`,
     ].join("\n\n"),
   },
   {
