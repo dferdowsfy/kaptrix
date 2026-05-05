@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isSelfHostedLlmConfigured, getSelfHostedLlmModelForTask, isOpenRouterConfigured } from "@/lib/env";
 import { llmChat } from "@/lib/llm/client";
 import { openRouterChat, getOpenRouterModel } from "@/lib/llm/openrouter";
-import { getPreviewSnapshot } from "@/lib/preview/data";
+import { getPreviewSnapshot, loadLiveScoring } from "@/lib/preview/data";
 import { buildReportEvidenceContext, readKnowledgeBaseText } from "@/lib/reports/context";
 import {
   getAdvancedReportConfig,
@@ -121,11 +121,14 @@ export async function POST(req: Request) {
   let clientName = "";
   let sot: ReturnType<typeof buildScoringSourceOfTruth> | null = null;
   try {
-    const snapshot = await getPreviewSnapshot(clientId);
+    const [snapshot, liveScoring] = await Promise.all([
+      getPreviewSnapshot(clientId),
+      loadLiveScoring(clientId, userId),
+    ]);
     evidence = buildReportEvidenceContext(snapshot, { maxChars: 90_000 });
     targetName = snapshot.engagement.target_company_name;
     clientName = snapshot.engagement.client_firm_name;
-    sot = buildScoringSourceOfTruth(snapshot);
+    sot = buildScoringSourceOfTruth(snapshot, liveScoring);
   } catch (err) {
     return NextResponse.json(
       {

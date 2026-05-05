@@ -172,18 +172,46 @@ interface SnapshotLike {
   };
 }
 
-export function buildScoringSourceOfTruth(snapshot: SnapshotLike): ScoringSourceOfTruth {
-  const rep = snapshot.executiveReport ?? {};
-  const composite = typeof rep.composite_score === "number" ? rep.composite_score : null;
+/** Live scoring overlay loaded from the knowledge_base workspace state.
+ *  When present, these values take precedence over the seeded
+ *  snapshot.executiveReport — that cached object never gets refreshed
+ *  when the operator re-runs scoring, so reading it in isolation is
+ *  what produced "Confidence: 30/100" on every report. */
+interface LiveScoringOverlay {
+  composite_score?: number | null;
+  decision_band?: string | null;
+  dimension_scores?: Record<string, number> | null;
+  generated_at?: string | null;
+}
 
-  // Recommendation: prefer the engine's textual label when we recognize
-  // it; otherwise fall back to a composite-derived label so the report
-  // still reflects the score band. The previous behavior coerced any
-  // unrecognized label (e.g. "Invest") to "Pause Pending Evidence",
-  // which dragged the brief into a HIGH-risk reading.
-  const fromLabel = normalizeRecommendation(rep.recommendation);
+export function buildScoringSourceOfTruth(
+  snapshot: SnapshotLike,
+  liveScoring?: LiveScoringOverlay | null,
+): ScoringSourceOfTruth {
+  const rep = snapshot.executiveReport ?? {};
+  // Composite: prefer live scoring (the Scoring tab is the source of
+  // truth) and fall back to the cached snapshot value.
+  const liveComposite =
+    typeof liveScoring?.composite_score === "number" &&
+    Number.isFinite(liveScoring.composite_score)
+      ? liveScoring.composite_score
+      : null;
+  const composite =
+    liveComposite ??
+    (typeof rep.composite_score === "number" && rep.composite_score > 0
+      ? rep.composite_score
+      : null);
+
+  // Recommendation: prefer the live decision band, then the cached
+  // textual label, then a composite-derived label. The previous
+  // behavior coerced any unrecognized label (e.g. "Invest") to
+  // "Pause Pending Evidence", which dragged the brief into a HIGH
+  // posture reading.
+  const fromLive = normalizeRecommendation(liveScoring?.decision_band);
+  const fromCached = normalizeRecommendation(rep.recommendation);
   const recommendation: RecommendationLabel =
-    fromLabel ??
+    fromLive ??
+    fromCached ??
     (typeof composite === "number" && Number.isFinite(composite)
       ? recommendationFromComposite(composite)
       : "Pause Pending Evidence");
@@ -198,6 +226,15 @@ export function buildScoringSourceOfTruth(snapshot: SnapshotLike): ScoringSource
       ? confidenceFromComposite(composite)
       : 0);
 
+  // Dimension scores: prefer the live overlay so re-runs of scoring
+  // are reflected even when the cached snapshot.executiveReport.
+  // dimension_scores is stale.
+  const liveDims =
+    liveScoring?.dimension_scores && Object.keys(liveScoring.dimension_scores).length > 0
+      ? (liveScoring.dimension_scores as Record<ScoreDimension, number>)
+      : null;
+  const dimension_scores = liveDims ?? rep.dimension_scores ?? null;
+
   return {
     client_id: snapshot.engagement.id,
     company_name: snapshot.engagement.target_company_name,
@@ -205,8 +242,11 @@ export function buildScoringSourceOfTruth(snapshot: SnapshotLike): ScoringSource
     recommendation,
     risk_posture: derivePosture(composite, recommendation),
     confidence_score,
-    dimension_scores: rep.dimension_scores ?? null,
-    scoring_timestamp: rep.generated_at ?? new Date().toISOString(),
+    dimension_scores,
+    scoring_timestamp:
+      liveScoring?.generated_at ??
+      rep.generated_at ??
+      new Date().toISOString(),
     scoring_version: rep.version ?? 1,
   };
 }

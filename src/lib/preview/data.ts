@@ -224,6 +224,86 @@ function extractScoringSummaryFromKnowledgeBase(state: unknown): {
   };
 }
 
+export interface LiveScoring {
+  composite_score: number | null;
+  decision_band: string | null;
+  dimension_scores: Record<string, number> | null;
+  generated_at: string | null;
+}
+
+/**
+ * Reads the latest scoring payload from the engagement's knowledge_base
+ * workspace state. The Scoring tab writes here when the operator
+ * computes scores; the homepage cards already use the same source.
+ *
+ * Reports must read from this loader rather than from the cached
+ * snapshot.executiveReport, which is seeded once and never refreshed
+ * — that mismatch is what made every brief read 30/100 even when the
+ * Scoring tab said Invest at 4.5/5.
+ */
+export async function loadLiveScoring(
+  clientId: string,
+  ownerId?: string | null,
+): Promise<LiveScoring | null> {
+  const supabase = getServiceClient();
+  if (!supabase) return null;
+
+  const baseQuery = supabase
+    .from("user_workspace_state")
+    .select("user_id, updated_at, state")
+    .eq("kind", "knowledge_base")
+    .eq("engagement_id", clientId);
+
+  const [scopedRes, anyRes] = await Promise.all([
+    ownerId
+      ? baseQuery.eq("user_id", ownerId).order("updated_at", { ascending: false }).limit(1)
+      : Promise.resolve({ data: [] as Array<{ user_id: string; updated_at: string; state: unknown }>, error: null }),
+    baseQuery.order("updated_at", { ascending: false }).limit(1),
+  ]);
+
+  const row = (scopedRes.data?.[0] ?? anyRes.data?.[0]) ?? null;
+  if (!row) return null;
+
+  const state = row.state as Partial<Record<KnowledgeStep, KnowledgeEntry>>;
+  const scoringEntry = state?.scoring;
+  if (!scoringEntry || scoringEntry.payload.kind !== "scoring") return null;
+
+  const payload = scoringEntry.payload as ScoringPayload;
+  const compositeRaw = payload.context_aware_composite ?? payload.composite_score;
+  const composite =
+    typeof compositeRaw === "number" && Number.isFinite(compositeRaw)
+      ? Math.round(compositeRaw * 10) / 10
+      : null;
+
+  // Average sub-criterion scores per dimension to get a single 0–5
+  // value the report SOT block can display.
+  const byDim = new Map<string, { sum: number; n: number }>();
+  for (const s of payload.scores ?? []) {
+    if (!s.dimension || typeof s.score_0_to_5 !== "number") continue;
+    const cur = byDim.get(s.dimension) ?? { sum: 0, n: 0 };
+    cur.sum += s.score_0_to_5;
+    cur.n += 1;
+    byDim.set(s.dimension, cur);
+  }
+  let dimension_scores: Record<string, number> | null = null;
+  if (byDim.size > 0) {
+    dimension_scores = {};
+    for (const [k, v] of byDim) {
+      dimension_scores[k] = Math.round((v.sum / v.n) * 10) / 10;
+    }
+  }
+
+  return {
+    composite_score: composite,
+    decision_band:
+      typeof payload.decision_band === "string" && payload.decision_band.trim()
+        ? payload.decision_band.trim()
+        : null,
+    dimension_scores,
+    generated_at: row.updated_at ?? null,
+  };
+}
+
 export function fallbackSnapshot(clientId: string): PreviewSnapshot {
   if (clientId === DEFAULT_PREVIEW_CLIENT_ID) return FULL_DEMO_SNAPSHOT;
   const mock = PREVIEW_CLIENTS.find((c) => c.id === clientId);
