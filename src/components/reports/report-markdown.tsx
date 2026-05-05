@@ -1385,17 +1385,13 @@ function DimensionGrid({ rows }: { rows: DimensionRow[] }) {
   }
   if (isDimensionGridEmpty(rows)) {
     return (
-      <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-amber-700">
-          Visual cards not bound to report data
+          Scoring unavailable or stale
         </p>
-        <p className="mt-1 leading-6">
-          Executive Brief visual score cards are not mapped to the populated
-          report data. Check <code>dimension_scores</code> and intake response
-          binding — every dimension is scored 0.0 / Missing while the narrative
-          may reference supporting artifacts. Re-generate after operator scoring
-          or intake responses are entered, or check the prompt&apos;s preliminary
-          derivation rules.
+        <p className="mt-1 leading-6 text-slate-700">
+          Scoring or evidence coverage is unavailable or stale. Recompute
+          Scoring and Evidence Coverage before relying on this read.
         </p>
       </section>
     );
