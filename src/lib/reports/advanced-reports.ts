@@ -680,53 +680,25 @@ const VALUE_CREATION_PROMPT = `${OPERATING_MODE}
 ${COMMERCIAL_PAIN_RULE}
 
 COMMERCIAL VALIDATION ACTIONS.
-- When [commercial_pain_summary] reports a Weak or Not Validated band, OR when missing_evidence / intake_only_claims fields are populated, the Action Plan MUST include commercial validation work alongside the technical workstreams. Pick from:
-  - Validate ROI with customer data
-  - Collect usage metrics tied to the promised_outcome
-  - Interview customers or lost prospects (named accounts where possible)
-  - Quantify cost savings or revenue lift against the cost_of_pain
-  - Prove technical necessity versus simpler alternatives (replacement test)
-  - Validate buyer urgency and budget authority for the buyer_persona
-- When the band is Strong AND artifact_backed_evidence covers all seven factors, do NOT pad with commercial validation — let technical levers carry the plan.
+- When [commercial_pain_summary] reports a Weak or Not Validated band, OR when missing_evidence / intake_only_claims fields are populated, the plan MUST include commercial validation actions alongside technical workstreams. Pick from: validate ROI with customer data, interview named customers or lost prospects, quantify cost savings vs. cost_of_pain, prove technical necessity vs. simpler alternatives, validate buyer urgency and budget authority.
+- When the band is Strong AND artifact_backed_evidence covers all seven factors, do NOT pad with commercial validation — let the technical and operational gaps drive the plan.
 
-You are writing a 30/60/90-day Action Plan the company's team will execute starting Day 1. Every action is something a named role (CTO, Head of Platform, Head of Engineering, GC, CFO) can be measured against at the Day 90 review. Every line item must be traceable to a specific risk or improvement opportunity from the read, with a named owner, effort, and pass criterion.
+You are producing the 100-Day Value Creation Plan — a post-diligence execution roadmap that a named owner (CTO, CFO, Head of Legal, Head of Engineering) can be measured against at a Day-100 review. Every action must be traceable to a specific risk, evidence gap, or scoring gap from the read.
 
-RULES:
-- Every action ties to a risk, gap, or improvement opportunity from the read.
-- Every action includes: owner (role), effort (person-weeks), cost ($ or headcount), measurable pass criterion (not "improve", not "enhance").
-- Every action has a quantified payoff: margin lift in bps, cost per unit reduction in $, latency reduction in ms, revenue unlock in $, conversion lift in %, churn reduction in %.
-- No vague actions. "Improve governance" is rejected. Be specific (component, owner, effort, payoff).
-- 30/60/90 plan must name specific deliverables with dates and owners. No "continue work on X".
-- Measurable Outcomes table must contain baseline, target, timeline, and the instrumentation that reports on it.
+MANDATORY RULES:
+- Every action ties to a named risk, evidence gap, or scoring gap. No free-floating improvements.
+- Every action includes: timeframe (First 30 Days / Days 31–60 / Days 61–90), priority (Critical / High / Medium), owner (role), effort (person-weeks), measurable pass criterion, and quantified payoff (ARR confidence lift, churn reduction in %, margin lift in bps, latency reduction in ms).
+- No vague language. "Improve governance" is rejected. Name the exact control, artifact, or process.
+- Do NOT repeat the same action across timeframes.
+- Every action card must include: proves, stress_tests, informs — tied to the investment decision, not generic.
+- The tone is institutional, direct, and investment-grade. This reads like a post-diligence execution brief, not a consulting memo.
 
-STRUCTURE:
-
-1. Top 7 Actions (Ranked)
-For each: what to do, what problem it fixes, why it matters economically.
-
-2. High-Leverage Picks
-- Which 2 actions create disproportionate value?
-
-3. Cost Reduction Opportunities
-- Where can costs be reduced or optimized?
-
-4. Risk Reduction Moves
-- Which actions materially reduce catastrophic failure risk?
-
-5. 30 / 60 / 90 Execution Plan
-Use '### 0-30 Days', '### 31-60 Days', '### 61-90 Days' sub-headings. For each phase: who does what, what is delivered.
-
-6. Roadmap & Team Next Steps
-A per-team roadmap translating the read into concrete next moves. Cover: Product, Engineering / Platform, Data & Analytics, Security & Governance, GTM / Commercial, Finance / Ops. For each team: 2-3 near-term items (0-30 days) tied to specific findings, mid-term items (31-90 days) closing named gaps, and the explicit score or metric each item moves.
-
-7. Measurable Outcomes
-- Define success in metrics (cost ↓ %, latency ↓, accuracy ↑, etc.)
-
-This should feel like an operating playbook, not advice. ${FORMAT_RULES}
+OUTPUT FORMAT — THIS IS CRITICAL:
+Each section outputs ':::action-card' blocks, NOT prose or bullet lists. The phase overview outputs a ':::phase-plan' block. Do NOT render any action as raw text. Do NOT output long essays. Every action is a structured card.
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes the action plan (e.g. "Aggressive 30/60/90 — 7 Ranked Moves"). "posture" reflects execution difficulty (HIGH if multiple hard items). "confidence" is 0-100 on plan achievability. "thesis" is one sentence on the single biggest improvement opportunity. Use "strengths" for the top 3 high-leverage picks; "risks" can list the top 3 execution risks if material.
+For the snapshot: "verdict" summarizes the plan posture (e.g. "100-Day Execution Roadmap — 10 Prioritized Actions"). "posture" reflects execution risk (HIGH if multiple Critical items). "confidence" is 0–100 on plan achievability. "thesis" is one sentence on the single highest-impact opportunity. "strengths" are the top 3 high-leverage moves; "risks" are the top 3 execution risks if material.
 
 ${FINAL_POSITION_RULE}`;
 
@@ -734,43 +706,21 @@ const COMPETITIVE_PROMPT = `${OPERATING_MODE}
 
 ${COMMERCIAL_PAIN_RULE}
 
-You are producing the Market & Capability Overview — where the company stands, what it does well, where it falls behind, and what could impact its position. Strip marketing veneer and assess whether the company is building something durable or something replaceable.
+You are producing the Market & Capability Overview — a structured market and capability diligence view. This is NOT a marketing overview. Strip marketing veneer and assess where the company is positioned, what it can defensibly do, and what remains unproven.
 
-RULES:
-- No vague comparisons. Every positioning claim ties to a capability, data asset, distribution channel, or switching-cost structure — not branding or messaging.
-- Do NOT invent named competitors. Use realistic archetypes (e.g. "API-wrapper copilot", "data-moat incumbent", "workflow-integrated vertical platform") unless the evidence cites specific competitors.
-- STRESS-TEST positioning under two futures: (a) underlying technology capability doubles in 18 months, (b) a well-capitalized incumbent ships a comparable feature. State whether the position holds or collapses.
-- The "Hidden Weakness" section is MANDATORY and must name one positioning element that looks strong today but is structurally fragile.
-- Every section ends with a clear line: where it wins, where it loses, whether the position is durable or not.
+MANDATORY RULES:
+- Every market or capability claim ties to a capability, data asset, distribution channel, switching-cost structure, or evidence in the read — not branding or messaging.
+- Do NOT invent named competitors. Do NOT make unsupported claims about market leadership. If evidence is missing, write "Unverified" or "Requires validation".
+- Do NOT repeat the same market finding multiple times. Do NOT output long generic market commentary.
+- Tie every market conclusion back to evidence, scoring, positioning, or decision risk.
+- Tone is institutional, direct, and investment-grade. The report should feel like a market and capability diligence view, not a marketing overview.
 
-STRUCTURE:
-
-1. Comparable Archetypes
-- 3-4 real competitive archetypes, each with a one-sentence capability definition and a concrete public example if known.
-
-2. Relative Positioning
-- Place the company: Leader / Competitive / Parity / Lagging — with the specific capability delta that justifies the placement.
-
-3. Where It Wins
-- Capability-backed wins only. Each backed by a named system, data, or distribution advantage with evidence.
-
-4. Where It Falls Behind
-- Structural gaps (not fixable in <12 months). Quantify each gap.
-
-5. Hidden Weakness
-- What looks strong but is actually fragile? Name the evidence that exposes it.
-
-6. Durable or Replaceable
-- Decide and defend with the specific compounding or eroding forces.
-
-7. 2-Year Outlook
-- Does the position improve or deteriorate as the underlying technology and incumbents mature?
-
-Make it honest. ${FORMAT_RULES}
+OUTPUT FORMAT - THIS IS CRITICAL:
+The report uses structured ":::" blocks, not prose. Market position summary is a single ':::market-position' block. Each capability is a ':::capability-card' block. Competitive posture is a single ':::posture-grid' block. Each market issue is a ':::market-issue' block. Do NOT render any section as a wall of paragraphs.
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes durability (e.g. "Durable \u2014 Workflow Position Holds", "Replaceable \u2014 Capability Exposed", "Contested \u2014 12-Month Window"). "posture" reflects competitive risk (HIGH if replaceable, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence take on whether this company holds or loses the position. "strengths" are the genuine capability wins; "risks" are the structural gaps and hidden fragilities with severity tags.
+For the snapshot: "verdict" summarizes the market and capability posture (e.g. "Workflow Position Holds \u2014 Capability Partially Verified", "Replaceable \u2014 Differentiation Unsupported", "Contested \u2014 12-Month Window"). "posture" reflects competitive risk (HIGH if replaceable or unsupported, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence take on whether the company holds or loses its position. "strengths" are evidence-backed capability wins; "risks" are structural or unverified gaps with severity tags.
 
 ${FINAL_POSITION_RULE}`;
 
@@ -778,47 +728,23 @@ const COVERAGE_PROMPT = `${OPERATING_MODE}
 
 ${COMMERCIAL_PAIN_RULE}
 
-You are producing the Evidence Confidence Report — a self-audit that shows what is supported by real data and where information is missing or unclear. Your job is to increase reader trust by exposing weakness, not hiding it. Assume the evidence is incomplete until proven otherwise, and never overstate confidence.
+You are producing the Evidence Confidence Report — a focused, evidence-first self-audit that answers ONE question: "What is actually supported by evidence, what is partially supported, and what is still missing?" This is NOT another Executive Brief or Company Readiness Report. Be terse, direct, and evidence-first.
 
-RULES:
-- Be critical — assume incomplete data
-- Do not overstate confidence
+MANDATORY RULES:
+- Do NOT repeat the same evidence block in multiple sections.
+- Do NOT restate the full Decision Snapshot later in the report.
+- Do NOT include long "Investment Committee Read" sections, "Commercial Pain Read" sections, or broad market commentary.
+- Do NOT write long paragraphs when a card or table works better.
+- Every claim must be tied to an artifact, intake response, or marked Missing / Required.
+- If evidence is missing, say it clearly. Do not soften.
+- Tone is direct, institutional, and evidence-first.
 
-STRUCTURE:
-
-1. Artifact Inventory
-- List artifacts analyzed (use actual filenames / categories from the evidence)
-- Categorize (Product, Data, Infra, Governance)
-
-2. Commercial Pain Evidence Coverage
-- Audit the [commercial_pain_summary] block, separating clearly: artifact-backed commercial evidence, intake-only commercial claims, unsupported management claims, missing commercial validation evidence, and contradictions between intake and uploaded artifacts
-- Each row must cite the specific summary field or evidence item — never invent
-- If the block reports "Commercial Pain Validation not yet completed", write that as the section body and tag the section [LOW EVIDENCE RELIABILITY]
-
-3. Coverage by Dimension
-For each scoring dimension (Product Credibility, Tooling Exposure, Data Sensitivity, Governance & Safety, Production Readiness, Open Validation):
-- Evidence present (specific)
-- Evidence missing
-- Coverage rating (High / Medium / Low)
-
-4. Confidence Scoring
-- Assign confidence (0-100%) to each dimension score
-- Justify based on evidence strength
-
-5. Unsupported Conclusions
-- Identify where conclusions rely on weak or indirect evidence
-
-6. Critical Gaps
-- What missing artifacts would most change the outcome?
-
-7. Overall Reliability
-- Can this read be trusted for a real decision? Why or why not?
-
-This read should increase trust by exposing weaknesses, not hiding them. ${FORMAT_RULES}
+OUTPUT FORMAT - THIS IS CRITICAL:
+The report uses structured ":::" blocks, not prose. Evidence Coverage Summary is a single ':::evidence-coverage' block. Each dimension is a ':::confidence-dimension' block. Each top supported claim is a ':::supported-claim' block. Each top gap is an ':::evidence-gap' block. Each weak claim is a ':::weak-claim' block. Confidence Improvement Priorities use a regular markdown table. The Final Verdict is one short paragraph. Do NOT output any section as a wall of paragraphs.
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes whether the read is decision-ready (e.g. "Decision-Ready", "Directional Only — Material Gaps", "Not Reliable Yet"). "posture" reflects evidence quality (HIGH if many gaps, OK if strong). "confidence" is the overall reliability score 0-100. "thesis" is one sentence on whether this read can be trusted. Use "strengths" for well-evidenced dimensions and "risks" for the biggest evidence gaps (tagged [GAP] or [HIGH]).
+For the snapshot: "verdict" summarizes whether the read is decision-ready (e.g. "Decision-Ready", "Directional Only - Material Gaps", "Not Reliable Yet"). "posture" reflects evidence quality (HIGH if many gaps, OK if strong). "confidence" is the overall reliability score 0-100. "thesis" is one sentence on whether this read can be trusted. Use "strengths" for the 3 supported strengths and "risks" for the 3 unsupported or weakly supported risks (tagged [GAP] or [HIGH]).
 
 ${FINAL_POSITION_RULE}`;
 
@@ -1139,38 +1065,334 @@ const RISK_REGISTER_SECTIONS: AdvancedReportSection[] = [
 ];
 
 const VALUE_CREATION_SECTIONS: AdvancedReportSection[] = [
-  { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
-  { id: "actions", label: "Top 7 actions (ranked)", maxTokens: 2400, instruction: sectionBodyInstruction("## 1. Top 7 Actions (Ranked)", "For each of 7 actions: '### A<N>. <Action Title>' heading, then bullet fields — What (specific deliverable), Why (risk/opportunity it resolves with evidence tie-back), Owner (role), Effort (person-weeks + $), Payoff (quantified: bps margin / $ revenue / % churn / ms latency), Dependencies, Pass Criterion. No generic 'improve' language.") },
-  { id: "leverage", label: "High-leverage picks & cost reduction", maxTokens: 1300, instruction: sectionBodyInstruction("## 2. High-Leverage Picks & Cost Reduction", "Sub-sections '### High-Leverage Picks' (which 2 actions create disproportionate value and why — show the math on revenue or position impact) and '### Cost Reduction Opportunities' (specific moves: routing, caching, reserved capacity, contract renegotiation — each with $ savings).") },
-  { id: "risk_reduction", label: "Risk reduction moves", maxTokens: 1000, instruction: sectionBodyInstruction("## 3. Risk Reduction Moves", "Which actions materially reduce catastrophic failure risk? Tie each to a specific failure mode. Quantify residual risk before and after.") },
-  { id: "plan", label: "30 / 60 / 90 execution plan", maxTokens: 1800, instruction: sectionBodyInstruction("## 4. 30 / 60 / 90 Execution Plan", "Use '### 0-30 Days', '### 31-60 Days', '### 61-90 Days' sub-headings. For each phase, use a table: Workstream | Owner | Deliverable | Pass Criterion. Every row must be specific and testable.") },
-  { id: "roadmap", label: "Roadmap & team next steps", maxTokens: 1800, instruction: sectionBodyInstruction("## 5. Roadmap & Team Next Steps", "Per-team roadmap the company can hand directly to its teams. Use one '### ' sub-heading per team in this order (omit a team only if the evidence has no signal for it): Product, Engineering / Platform, Data & Analytics, Security & Governance, GTM / Commercial, Finance / Ops. Under each team emit ONE multi-line markdown table with columns: Horizon (0-30 / 31-60 / 61-90) | Next Step | Trigger (cite specific finding, score, or artifact) | Owner | Score or Metric Moved | Pass Criterion. At least 2 rows per team when evidence supports it; do not pad with generic items. End the section with one blockquote naming the single move the CEO should personally own for the first 30 days, and a bold **Next Step:** line stating whether the roadmap is sufficient to hit the Day-90 review or must be rescoped.") },
-  { id: "metrics", label: "Measurable outcomes", maxTokens: 900, instruction: sectionBodyInstruction("## 6. Measurable Outcomes", "Table: Metric | Baseline | Target | Timeline | Dashboard/Instrumentation. Cover cost-per-unit, p95 latency, gross margin, retention, customer count, and at least one quality metric (accuracy, error rate, citation fidelity). Include at least one unit-economics metric (cost-per-output by workflow, % traffic on lower-cost tier, or budget adherence).") },
-  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
+  {
+    id: "snapshot",
+    label: "Decision snapshot",
+    maxTokens: 500,
+    instruction: SECTION_SNAPSHOT_INSTRUCTION,
+  },
+  {
+    id: "phase_overview",
+    label: "100-Day Plan Overview",
+    maxTokens: 700,
+    instruction: [
+      `OUTPUT ONLY a single ':::phase-plan' block followed by nothing else. Begin your response with ':::phase-plan' on its own line. Emit EXACTLY THREE phases in sequence. Close with ':::' on its own line. Do NOT emit any prose, heading, or markdown outside the fence.`,
+      `Each phase uses these exact field names on separate lines:
+phase: <Name — use exactly: "First 30 Days", "Days 31–60", or "Days 61–90">
+objective: <Short objective statement — one clause, ≤ 12 words>
+- <Priority action — one line, ≤ 15 words>
+- <Priority action — one line, ≤ 15 words>
+- <Priority action — one line, ≤ 15 words>
+owner: <Primary owner role(s)>
+success_signal: <One measurable signal that the phase delivered — ≤ 20 words>`,
+      `Phase 1 objective: Validate the evidence base. Phase 2 objective: Reduce critical operating risk. Phase 3 objective: Strengthen scalability and investment readiness. Tie every action and signal to a named gap from the evidence.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "actions_30",
+    label: "First 30 Days — Critical actions",
+    maxTokens: 2400,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::action-card' blocks. Begin with the heading '## 1. First 30 Days — Validate the Evidence Base'. Then emit 3–4 action cards for the highest-priority items that must be completed in the first 30 days. Do NOT output any action as prose, bullet list, or plain text. Every action is a ':::action-card' block. Close each card with ':::' on its own line. No prose between cards.`,
+      `Each ':::action-card' block MUST contain ALL of these fields, each on its own line:
+action: <Short action title — verb phrase, ≤ 8 words>
+timeframe: First 30 Days
+priority: <Critical | High | Medium>
+risk_addressed: <One sentence: the specific evidence gap or scoring risk this resolves>
+what: <Concrete deliverable — what specifically will be reviewed, produced, or tested; name the artifact, system, or process>
+why: <Why this matters to investment confidence — tie to a specific scoring gap, evidence gap, or decision risk>
+owner: <Named role (e.g. Head of Legal / CFO)>
+effort: <N person-weeks>
+payoff: <Quantified payoff: ARR confidence, churn reduction %, margin lift bps, latency ms, or decision unlock>
+dependencies: <What must be in place or accessible for this action to proceed>
+pass_criterion: <Specific, testable criterion — what "done" looks like, with a count or threshold>
+proves: <What this confirms for the investment committee>
+stress_tests: <What assumption this challenges or verifies under pressure>
+informs: <What decision or posture this directly changes>`,
+      `Action priorities for First 30 Days: commercial contract durability, revenue quality evidence, customer demand validation, top governance or production gap. Tie every card to a gap from the evidence context. No generic actions. No repeated actions.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "actions_60",
+    label: "Days 31–60 — Risk reduction",
+    maxTokens: 2200,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::action-card' blocks. Begin with the heading '## 2. Days 31–60 — Reduce Critical Operating Risk'. Then emit 3–4 action cards targeting the top production, governance, vendor, or commercial risks that can be materially resolved in this window. Do NOT output any action as prose or bullet list. Every action is a ':::action-card' block. Close each card with ':::'. No prose between cards.`,
+      `Each ':::action-card' block MUST contain ALL of these fields, each on its own line:
+action: <Short action title — verb phrase, ≤ 8 words>
+timeframe: Days 31–60
+priority: <Critical | High | Medium>
+risk_addressed: <One sentence: the specific risk or gap this resolves>
+what: <Concrete deliverable — name the system, process, or artifact>
+why: <Why this matters to investment confidence>
+owner: <Named role>
+effort: <N person-weeks>
+payoff: <Quantified payoff>
+dependencies: <Prerequisites>
+pass_criterion: <Testable criterion with count or threshold>
+proves: <What this confirms for investors>
+stress_tests: <What assumption this challenges>
+informs: <What decision this changes>`,
+      `Action priorities for Days 31–60: vendor dependency mitigation, incident response and operational controls, governance stress-test remediation, data or architecture risk reduction. Do NOT repeat any action from the First 30 Days section.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "actions_90",
+    label: "Days 61–90 — Scalability and readiness",
+    maxTokens: 2000,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::action-card' blocks. Begin with the heading '## 3. Days 61–90 — Strengthen Scalability and Investment Readiness'. Then emit 3–4 action cards focused on closing remaining evidence gaps, proving scalability, and positioning the company for investment-grade diligence. Every action is a ':::action-card' block. Close each card with ':::'. No prose between cards.`,
+      `Each ':::action-card' block MUST contain ALL of these fields, each on its own line:
+action: <Short action title — verb phrase, ≤ 8 words>
+timeframe: Days 61–90
+priority: <High | Medium>
+risk_addressed: <One sentence: the remaining gap or readiness risk this resolves>
+what: <Concrete deliverable>
+why: <Why this matters to investment confidence>
+owner: <Named role>
+effort: <N person-weeks>
+payoff: <Quantified payoff>
+dependencies: <Prerequisites — especially actions from earlier phases>
+pass_criterion: <Testable criterion with count or threshold>
+proves: <What this confirms for investors>
+stress_tests: <What assumption this challenges>
+informs: <What final decision posture or scoring outcome this enables>`,
+      `Action priorities for Days 61–90: architecture scalability proof, data governance framework, open validation gap closure, unit-economics documentation at 3x scale. Do NOT repeat any action from earlier sections.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "final_position",
+    label: "Final position",
+    maxTokens: 300,
+    instruction: SECTION_FINAL_POSITION_INSTRUCTION,
+  },
 ];
 
 const COMPETITIVE_SECTIONS: AdvancedReportSection[] = [
-  { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
-  { id: "archetypes", label: "Comparable archetypes", maxTokens: 1300, instruction: sectionBodyInstruction("## 1. Comparable Archetypes", "Define 3-4 real competitive archetypes relevant to this company's category (examples: 'horizontal API-wrapper copilot', 'data-moat vertical incumbent', 'workflow-integrated platform', 'open-source with managed tier'). For each: one-sentence capability definition, one public or widely-known example, and the structural advantage/weakness that defines the archetype. Table columns: Archetype | Capability Core | Public Example | Structural Advantage | Structural Weakness.") },
-  { id: "positioning", label: "Relative positioning", maxTokens: 1300, instruction: sectionBodyInstruction("## 2. Relative Positioning", "Place the company within the archetypes. Assign a posture per capability axis (technical sophistication, proprietary data, workflow depth, distribution, governance) on the Leader / Competitive / Parity / Lagging scale. Show the specific capability delta that justifies each placement. Table columns: Capability Axis | Posture | Closest Archetype | Delta vs Archetype | Evidence.") },
-  { id: "wins", label: "Where it wins", maxTokens: 1100, instruction: sectionBodyInstruction("## 3. Where It Wins", "Capability-backed wins only. For each win: the specific system, data, or distribution advantage, the evidence, the customer outcome it produces, and why a competitor cannot trivially replicate it. No marketing claims. Minimum 3 wins, maximum 5.") },
-  { id: "losses", label: "Where it falls behind", maxTokens: 1100, instruction: sectionBodyInstruction("## 4. Where It Falls Behind", "Structural gaps only — things that cannot be fixed in <12 months. For each: the gap, the competitor archetype that exploits it, the quantified impact (churn risk, win-rate delta, revenue ceiling), and the reason it is structural rather than tactical.") },
-  { id: "hidden", label: "Hidden weakness", maxTokens: 1000, instruction: sectionBodyInstruction("## 5. Hidden Weakness", "Name the ONE positioning element that looks strong today but is structurally fragile. Cite the exact evidence that exposes the fragility (artifact + section, contract clause, architectural dependency, or named vendor reliance). Explain what event collapses it and the impact on revenue or position.") },
-  { id: "strategic", label: "Durable or replaceable", maxTokens: 1000, instruction: sectionBodyInstruction("## 6. Durable or Replaceable", "Decide: is this company building something DURABLE or something REPLACEABLE? Defend the call with the specific compounding or eroding forces (data flywheel, workflow lock-in, distribution lock, vendor leverage, talent density). End with **Verdict:** Durable / Contested / Replaceable.") },
-  { id: "outlook", label: "2-year outlook", maxTokens: 1000, instruction: sectionBodyInstruction("## 7. Two-Year Outlook", "Stress-test the position under two futures: (a) underlying technology capability doubles and core costs drop 70%, (b) a well-capitalized incumbent (name the archetype) ships a comparable feature in 12 months. For each future: does the position improve, hold, or deteriorate? Quantify the impact on win-rate, revenue, or churn. End with **Next Step:** whether the position supports the company's stated direction.") },
-  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
+  {
+    id: "snapshot",
+    label: "Decision snapshot",
+    maxTokens: 500,
+    instruction: SECTION_SNAPSHOT_INSTRUCTION,
+  },
+  {
+    id: "market_position",
+    label: "Market position summary",
+    maxTokens: 1100,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by a single ':::market-position' block. Begin with '## 1. Market Position Summary' on its own line. Then emit ':::market-position' on the next line. Close with ':::' on its own line. Do NOT emit any prose, bullet list, or other markdown around the block.`,
+      `The block MUST contain EXACTLY FOUR areas in this fixed order, each separated by a blank line:
+area: Category position
+rating: <Strong | Moderate | Weak | Unknown>
+finding: <One-sentence finding tied to evidence>
+evidence: <Cite the artifact, intake field, or scoring signal that supports the rating; if none, write "Unverified — requires validation">
+open_question: <Single open question that would change the rating>
+
+area: Buyer pain clarity
+rating: <Strong | Moderate | Weak | Unknown>
+finding: <One-sentence finding>
+evidence: <Specific evidence basis>
+open_question: <Single open question>
+
+area: Competitive differentiation
+rating: <Strong | Moderate | Weak | Unknown>
+finding: <One-sentence finding>
+evidence: <Specific evidence basis>
+open_question: <Single open question>
+
+area: Commercial defensibility
+rating: <Strong | Moderate | Weak | Unknown>
+finding: <One-sentence finding>
+evidence: <Specific evidence basis>
+open_question: <Single open question>`,
+      `Tie buyer pain clarity directly to [commercial_pain_summary] when present. Do NOT invent claims. If evidence is missing for any area, set rating to "Unknown" and state what artifact would resolve it.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "capabilities",
+    label: "Capability maturity view",
+    maxTokens: 2800,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::capability-card' blocks. Begin with '## 2. Capability Maturity View'. Then emit EXACTLY SIX capability cards in this fixed order, one per ':::capability-card' block, separated by blank lines. Do NOT emit any prose, bullet list, or table between cards.`,
+      `Each capability card MUST contain ALL of these fields:
+capability_area: <one of: Product capability | AI/model capability | Data advantage | Workflow integration | Customer adoption | Operating scalability>
+maturity: <Emerging | Developing | Mature | Unverified>
+what_real: <One-sentence factual statement on what the evidence supports about this capability>
+what_unproven: <One-sentence statement on what remains unsupported or undocumented>
+evidence: <Specific artifacts, intake responses, or scoring signals — cite verbatim; if absent, write "No supporting evidence in the current package">
+risk: <One sentence on the risk if this capability is not validated — tie to valuation, scalability, defensibility, or commercial credibility>
+follow_up: <Specific diligence request that would resolve this — name the artifact, metric, or test>`,
+      `Output the cards in this exact order: Product capability, AI/model capability, Data advantage, Workflow integration, Customer adoption, Operating scalability. Do NOT skip any. If evidence is fully missing for an area, use maturity "Unverified" and state the artifact required.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "posture",
+    label: "Competitive posture",
+    maxTokens: 900,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by a single ':::posture-grid' block. Begin with '## 3. Competitive Posture'. Then emit ':::posture-grid' on its own line. Close with ':::' on its own line. Do NOT emit prose, paragraphs, or other markdown.`,
+      `The block contains FOUR buckets in this exact order:
+ahead:
+- <area where the company appears ahead, ≤ 18 words, evidence-backed>
+- <additional bullet if supported>
+parity:
+- <area where the company is at parity, ≤ 18 words>
+lag:
+- <area where the company may lag, ≤ 18 words, with the specific delta>
+unsupported:
+- <claim or positioning element that is currently unsupported by evidence, ≤ 18 words>`,
+      `Keep each bucket concise — 2–4 bullets max. If a bucket has no items, omit the bullets but keep the header. Do NOT invent named competitors. Use archetypes only when evidence supports the comparison.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "market_issues",
+    label: "Market risks and opportunities",
+    maxTokens: 2200,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::market-issue' blocks. Begin with '## 4. Market Risks and Opportunities'. Then emit 4–6 market issue cards, each as a ':::market-issue' block separated by blank lines. Do NOT emit prose, bullet list, or table between cards. Do NOT repeat the same finding from earlier sections.`,
+      `Each ':::market-issue' block MUST contain ALL of these fields:
+issue: <Short title of the market issue, ≤ 10 words>
+signal: <Strength | Risk | Gap | Watch Item>
+why: <One-sentence explanation of why this matters to the investment view>
+evidence: <Specific evidence basis — artifact, intake field, scoring signal, or "Unverified — requires validation" when absent>
+decision_implication: <What this changes for the investment decision posture>
+follow_up: <Single follow-up question or artifact request that would resolve the issue>`,
+      `Cover a balanced mix: at least one Strength, at least one Risk, at least one Gap, and at least one Watch Item if evidence supports each. If evidence is too thin to support a category, omit that category rather than invent.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "final_position",
+    label: "Final position",
+    maxTokens: 300,
+    instruction: SECTION_FINAL_POSITION_INSTRUCTION,
+  },
 ];
 
 const COVERAGE_SECTIONS: AdvancedReportSection[] = [
-  { id: "snapshot", label: "Decision snapshot", maxTokens: 500, instruction: SECTION_SNAPSHOT_INSTRUCTION },
-  { id: "inventory", label: "Artifact inventory", maxTokens: 1100, instruction: sectionBodyInstruction("## 1. Artifact Inventory", "Every artifact analyzed, with exact filename/category. Table columns: Artifact | Category (Product/Data/Infra/Governance/Financial) | Pages or Size | Freshness (date) | Usability [tag].") },
-  { id: "commercial_pain_evidence", label: "Commercial pain evidence coverage", maxTokens: 1300, instruction: sectionBodyInstruction("## 2. Commercial Pain Evidence Coverage", "Audit the [commercial_pain_summary] block, separating five categories with one row each in a multi-line table: Artifact-Backed Commercial Evidence (cite items from artifact_backed_evidence verbatim), Intake-Only Commercial Claims (cite items from intake_only_claims verbatim), Unsupported Management Claims (any claim referenced in problem_statement / promised_outcome / cost_of_pain that is NOT in artifact_backed_evidence — quote the field), Missing Commercial Validation Evidence (read missing_evidence verbatim and translate each missing factor into the artifact request that would close it), and Contradictions Between Intake and Artifacts (read contradictions verbatim and surface as [CONTRADICTION DETECTED]). Table columns: Category | Item | Source Field | Evidence Type [L1/L2/L3] | Action to Resolve. End with a bold **Next Step:** line stating whether commercial validation is decision-ready, directional, or absent. If the block reports STATUS: Commercial Pain Validation not yet completed, write that as the section body, tag [LOW EVIDENCE RELIABILITY], and state the seven categorical answers required as the Action to Resolve.") },
-  { id: "coverage", label: "Coverage by dimension", maxTokens: 1800, instruction: sectionBodyInstruction("## 3. Coverage by Dimension", "For each scoring dimension (Product Credibility, Tooling Exposure, Data Sensitivity, Governance & Safety, Production Readiness, Open Validation): Evidence present (cite specific artifacts + sections), Evidence missing (name the artifact that would close the gap), Coverage rating (High/Medium/Low). Use a table.") },
-  { id: "confidence", label: "Confidence scoring", maxTokens: 1000, instruction: sectionBodyInstruction("## 4. Confidence Scoring", "Assign 0-100 confidence to each dimension score and justify based on artifact strength, recency, and corroboration. Use a table: Dimension | Score | Confidence | Justification.") },
-  { id: "unsupported", label: "Unsupported conclusions", maxTokens: 900, instruction: sectionBodyInstruction("## 5. Unsupported Conclusions", "Identify every place where a conclusion rests on weak or indirect evidence. Name the conclusion, cite the weak evidence, and state what would strengthen it.") },
-  { id: "gaps", label: "Critical gaps", maxTokens: 900, instruction: sectionBodyInstruction("## 6. Critical Gaps", "Missing artifacts ranked by impact on the read. Table: Gap | Impact on Outcome | Obtainable Now? | Action to Request. Cross-reference any missing commercial validation evidence from [commercial_pain_summary].") },
-  { id: "reliability", label: "Overall reliability", maxTokens: 800, instruction: sectionBodyInstruction("## 7. Overall Reliability", "Decide: can this read be trusted for a real decision? Render a single verdict — Decision-Ready / Directional Only / Not Reliable — supported by the coverage and confidence ratings above. State the single biggest artifact request that would flip reliability from directional to decision-ready, with its expected confidence lift in points. End with a bold **Next Step:** line.") },
-  { id: "final_position", label: "Final position", maxTokens: 300, instruction: SECTION_FINAL_POSITION_INSTRUCTION },
+  {
+    id: "snapshot",
+    label: "Decision snapshot",
+    maxTokens: 500,
+    instruction: SECTION_SNAPSHOT_INSTRUCTION,
+  },
+  {
+    id: "coverage_summary",
+    label: "Evidence coverage summary",
+    maxTokens: 900,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by a single ':::evidence-coverage' block. Begin with '## 1. Evidence Coverage Summary' on its own line. Then emit ':::evidence-coverage' on its own line. Close with ':::' on its own line. Do NOT emit prose, paragraphs, or any other markdown around the block.`,
+      `The block MUST contain EXACTLY FOUR categories in this fixed order, each separated by a blank line:
+category: Supported Claims
+count: <integer count of claims with direct artifact evidence>
+interpretation: <One-sentence interpretation, ≤ 22 words>
+decision_implication: <One-clause decision implication, ≤ 16 words>
+
+category: Partially Supported Claims
+count: <integer>
+interpretation: <One-sentence interpretation>
+decision_implication: <One-clause implication>
+
+category: Missing / Required Evidence
+count: <integer>
+interpretation: <One-sentence interpretation>
+decision_implication: <One-clause implication>
+
+category: Contradictions or Weak Signals
+count: <integer>
+interpretation: <One-sentence interpretation>
+decision_implication: <One-clause implication>`,
+      `Counts must be derived from a real audit of the evidence context — do not invent. If a category has zero items, set count: 0 and state that in the interpretation.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "dimensions",
+    label: "Evidence confidence by dimension",
+    maxTokens: 2200,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::confidence-dimension' blocks. Begin with '## 2. Evidence Confidence by Dimension'. Then emit EXACTLY SIX dimension cards in this fixed order, one per ':::confidence-dimension' block, separated by blank lines. Do NOT emit prose, table, or other markdown between cards.`,
+      `Each card MUST contain ALL of these fields:
+dimension: <one of: Product Credibility | Tooling & Vendor Exposure | Data & Sensitivity Risk | Governance & Safety | Production Readiness | Open Validation>
+status: <Supported | Partially Supported | Missing | Contradicted>
+confidence: <integer 0-100>
+supports: <One-sentence summary of the specific evidence that supports the rating; cite artifact filenames or intake fields verbatim. If none, write "No artifact-supported evidence in the current package.">
+missing: <One-sentence summary of the specific evidence still required to reach Supported; name the artifact>
+decision_impact: <One-clause statement of what this dimension's confidence level means for the investment decision>`,
+      `Output the cards in this exact order: Product Credibility, Tooling & Vendor Exposure, Data & Sensitivity Risk, Governance & Safety, Production Readiness, Open Validation. Do NOT skip any. Do NOT repeat content from the snapshot.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "supported_claims",
+    label: "Top supported claims",
+    maxTokens: 1500,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::supported-claim' blocks. Begin with '## 3. Top Supported Claims'. Then emit 3-5 claim cards for the strongest evidence-backed claims, one per ':::supported-claim' block, separated by blank lines. Do NOT emit any prose, bullet list, or table between cards. If fewer than 3 supported claims exist, emit only the available ones and add a single italic line "*Only <N> material artifact-supported claims were identified.*" before the cards.`,
+      `Each card MUST contain ALL of these fields:
+claim: <Short claim statement, ≤ 18 words>
+status: <Supported | Partially Supported>
+artifact: <Verbatim artifact filename(s) or intake field(s)>
+supports: <What specifically the artifact supports — paraphrase the page or section content>
+why: <Why this matters to the investment decision>
+caveat: <Remaining caveat, gap, or condition that limits how far the claim extends; if none, write "No material caveat.">`,
+      `Do NOT invent artifacts. Do NOT repeat claims that are already covered in the dimension cards.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "gaps",
+    label: "Top evidence gaps",
+    maxTokens: 1700,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::evidence-gap' blocks. Begin with '## 4. Top Evidence Gaps'. Then emit 3-5 gap cards for the most important missing items, one per ':::evidence-gap' block, separated by blank lines. Do NOT emit any prose, bullet list, or table between cards.`,
+      `Each card MUST contain ALL of these fields:
+missing: <Short statement of the missing evidence, ≤ 12 words>
+related_risk: <One-clause: the dimension or risk this gap touches>
+why: <Why this matters — tie to a specific decision risk, scoring impact, or commercial validation gap>
+required_artifact: <Specific artifact, document, metric, or test that would close the gap; name it concretely>
+impact: <High | Medium | Low — impact on overall confidence>
+pass_criterion: <Specific criterion that defines "evidence is now sufficient"; testable>`,
+      `Rank gaps by decision impact. Cross-reference missing commercial validation evidence from [commercial_pain_summary] when applicable. Do NOT pad with low-impact gaps.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "weak_claims",
+    label: "Weak or partially supported claims",
+    maxTokens: 1300,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by ':::weak-claim' blocks. Begin with '## 5. Weak or Partially Supported Claims'. Then emit 2-4 cards for claims that are currently risky because they rest on thin evidence, one per ':::weak-claim' block, separated by blank lines. If no weak claims exist, emit only the heading and a single italic line "*No materially weakly-supported claims identified — all reviewed claims are either Supported or Missing / Required.*"`,
+      `Each card MUST contain ALL of these fields:
+claim: <Short claim statement, ≤ 18 words>
+source: <Where the claim currently lives — intake field, deck slide, marketing language, or single artifact>
+why_weak: <One-clause explanation of why current support is thin (e.g. "intake-only", "single management assertion", "indirect inference", "demo-not-production")>
+validation: <What would validate it — name the artifact, metric, or test>
+decision_implication: <What changes about the decision posture if this claim is not validated>`,
+      `Do NOT include claims already covered in Top Supported Claims or Top Evidence Gaps. This section captures the in-between cases.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "priorities",
+    label: "Confidence improvement priorities",
+    maxTokens: 800,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by a single multi-line markdown table. Begin with '## 6. Confidence Improvement Priorities'. Then emit a table with these exact columns:`,
+      `| Priority | Evidence Needed | Why It Matters | Confidence Lift | Pass Criterion |`,
+      `Use 4-6 rows ranked by confidence lift (High first). Confidence Lift values must be exactly High, Medium, or Low. Each row must be specific (name the artifact). Do NOT pad with vague items. Do NOT emit any prose before or after the table.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "verdict",
+    label: "Final evidence verdict",
+    maxTokens: 400,
+    instruction: [
+      `OUTPUT ONLY the heading '## 7. Final Evidence Verdict' followed by ONE short paragraph (≤ 90 words, 4-6 sentences) and nothing else. Do NOT emit bullet lists, tables, ":::"-fenced blocks, or sub-headings.`,
+      `The paragraph must cover, in order: (a) what is proven by the current evidence, (b) what is not proven, (c) what must be validated before relying on the company's claims. Use the form "Proven: <X>. Not proven: <Y>. Must validate: <Z>." or comparable terse phrasing.`,
+      `Do NOT restate the snapshot. Do NOT introduce new findings. Do NOT include "next steps" beyond stating what must be validated.`,
+    ].join("\n\n"),
+  },
+  {
+    id: "final_position",
+    label: "Final position",
+    maxTokens: 300,
+    instruction: SECTION_FINAL_POSITION_INSTRUCTION,
+  },
 ];
 
 export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
@@ -1228,15 +1450,15 @@ export const ADVANCED_REPORTS: AdvancedReportConfig[] = [
   },
   {
     id: "value_creation",
-    title: "Action Plan (30/60/90 Days)",
-    tagline: "Clear next steps to improve the company",
+    title: "100-Day Value Creation Plan",
+    tagline: "Prioritized actions tied to risk reduction and investment readiness",
     description:
-      "Clear next steps to improve the company — prioritized actions tied to risk reduction and opportunity.",
+      "A structured 100-day execution roadmap — prioritized action cards tied to evidence gaps, scoring risks, and investment decision needs.",
     accent: "from-emerald-600 via-emerald-500 to-lime-500",
     eyebrow: "Read · Plan",
     systemPrompt: VALUE_CREATION_PROMPT,
     userPromptIntro:
-      "Produce the Action Plan (30/60/90 Days) for the target company below.",
+      "Produce the 100-Day Value Creation Plan for the target company below.",
     sections: VALUE_CREATION_SECTIONS,
   },
   {

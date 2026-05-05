@@ -54,7 +54,18 @@ type Block =
   | { kind: "snapshot"; data: SnapshotData }
   | { kind: "dimensions"; rows: DimensionRow[] }
   | { kind: "coverage"; data: CoverageData }
-  | { kind: "callout"; label: string; body: string };
+  | { kind: "callout"; label: string; body: string }
+  | { kind: "action-card"; data: ActionCardData }
+  | { kind: "phase-plan"; phases: PhasePlanPhase[] }
+  | { kind: "market-position"; areas: MarketPositionArea[] }
+  | { kind: "capability-card"; data: CapabilityCardData }
+  | { kind: "posture-grid"; data: PostureGridData }
+  | { kind: "market-issue"; data: MarketIssueData }
+  | { kind: "evidence-coverage"; categories: EvidenceCoverageCategory[] }
+  | { kind: "confidence-dimension"; data: ConfidenceDimensionData }
+  | { kind: "supported-claim"; data: SupportedClaimData }
+  | { kind: "evidence-gap"; data: EvidenceGapData }
+  | { kind: "weak-claim"; data: WeakClaimData };
 
 export interface SnapshotData {
   verdict: string;
@@ -79,6 +90,107 @@ export interface CoverageData {
   supported: string[];
   partial: string[];
   missing: string[];
+}
+
+export interface ActionCardData {
+  action: string;
+  timeframe: string;
+  priority: string;
+  risk_addressed: string;
+  what: string;
+  why: string;
+  owner: string;
+  effort: string;
+  payoff: string;
+  dependencies: string;
+  pass_criterion: string;
+  proves: string;
+  stress_tests: string;
+  informs: string;
+}
+
+interface PhasePlanPhase {
+  name: string;
+  objective: string;
+  actions: string[];
+  owner: string;
+  success_signal: string;
+}
+
+interface MarketPositionArea {
+  area: string;
+  rating: string;
+  finding: string;
+  evidence: string;
+  open_question: string;
+}
+
+export interface CapabilityCardData {
+  capability_area: string;
+  maturity: string;
+  what_real: string;
+  what_unproven: string;
+  evidence: string;
+  risk: string;
+  follow_up: string;
+}
+
+export interface PostureGridData {
+  ahead: string[];
+  parity: string[];
+  lag: string[];
+  unsupported: string[];
+}
+
+export interface MarketIssueData {
+  issue: string;
+  signal: string;
+  why: string;
+  evidence: string;
+  decision_implication: string;
+  follow_up: string;
+}
+
+interface EvidenceCoverageCategory {
+  category: string;
+  count: string;
+  interpretation: string;
+  decision_implication: string;
+}
+
+export interface ConfidenceDimensionData {
+  dimension: string;
+  status: string;
+  confidence: string;
+  supports: string;
+  missing: string;
+  decision_impact: string;
+}
+
+export interface SupportedClaimData {
+  claim: string;
+  status: string;
+  artifact: string;
+  supports: string;
+  why: string;
+  caveat: string;
+}
+
+export interface EvidenceGapData {
+  missing: string;
+  related_risk: string;
+  why: string;
+  required_artifact: string;
+  impact: string;
+  pass_criterion: string;
+}
+
+export interface WeakClaimData {
+  claim: string;
+  source: string;
+  why_weak: string;
+  validation: string;
+  decision_implication: string;
 }
 
 const DIMENSION_LABELS_LOCAL: Record<string, string> = {
@@ -174,6 +286,149 @@ function parseBlocks(src: string): Block[] {
       if (i < lines.length) i++;
       const body = buf.join(" ").replace(/\s+/g, " ").trim();
       blocks.push({ kind: "callout", label, body });
+      continue;
+    }
+
+    // Phase plan fence: ":::phase-plan" ... ":::"
+    if (/^\s*:::\s*phase-plan\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "phase-plan", phases: parsePhasePlan(buf) });
+      continue;
+    }
+
+    // Action card fence: ":::action-card" ... ":::"
+    if (/^\s*:::\s*action-card\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "action-card", data: parseActionCard(buf) });
+      continue;
+    }
+
+    // Market position grid fence: ":::market-position" ... ":::"
+    if (/^\s*:::\s*market-position\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "market-position", areas: parseMarketPosition(buf) });
+      continue;
+    }
+
+    // Capability card fence: ":::capability-card" ... ":::"
+    if (/^\s*:::\s*capability-card\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "capability-card", data: parseCapabilityCard(buf) });
+      continue;
+    }
+
+    // Posture grid fence: ":::posture-grid" ... ":::"
+    if (/^\s*:::\s*posture-grid\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "posture-grid", data: parsePostureGrid(buf) });
+      continue;
+    }
+
+    // Market issue card fence: ":::market-issue" ... ":::"
+    if (/^\s*:::\s*market-issue\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "market-issue", data: parseMarketIssue(buf) });
+      continue;
+    }
+
+    // Evidence coverage grid fence: ":::evidence-coverage" ... ":::"
+    if (/^\s*:::\s*evidence-coverage\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "evidence-coverage", categories: parseEvidenceCoverage(buf) });
+      continue;
+    }
+
+    // Confidence-by-dimension card fence: ":::confidence-dimension" ... ":::"
+    if (/^\s*:::\s*confidence-dimension\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "confidence-dimension", data: parseConfidenceDimension(buf) });
+      continue;
+    }
+
+    // Supported-claim card fence: ":::supported-claim" ... ":::"
+    if (/^\s*:::\s*supported-claim\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "supported-claim", data: parseSupportedClaim(buf) });
+      continue;
+    }
+
+    // Evidence-gap card fence: ":::evidence-gap" ... ":::"
+    if (/^\s*:::\s*evidence-gap\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "evidence-gap", data: parseEvidenceGap(buf) });
+      continue;
+    }
+
+    // Weak-claim card fence: ":::weak-claim" ... ":::"
+    if (/^\s*:::\s*weak-claim\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "weak-claim", data: parseWeakClaim(buf) });
       continue;
     }
 
@@ -526,6 +781,310 @@ function parseCoverage(raw: string[]): CoverageData {
   return data;
 }
 
+function parseActionCard(raw: string[]): ActionCardData {
+  const data: ActionCardData = {
+    action: "", timeframe: "", priority: "", risk_addressed: "",
+    what: "", why: "", owner: "", effort: "", payoff: "",
+    dependencies: "", pass_criterion: "", proves: "", stress_tests: "", informs: "",
+  };
+  type ACKey = keyof ActionCardData;
+  const multiLine: ACKey[] = [
+    "risk_addressed", "what", "why", "payoff", "dependencies",
+    "pass_criterion", "proves", "stress_tests", "informs",
+  ];
+  let cur: ACKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as ACKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+function parsePhasePlan(raw: string[]): PhasePlanPhase[] {
+  const phases: PhasePlanPhase[] = [];
+  let cur: PhasePlanPhase | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) continue;
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv && kv[1].toLowerCase() === "phase") {
+      if (cur) phases.push(cur);
+      cur = { name: kv[2].trim(), objective: "", actions: [], owner: "", success_signal: "" };
+      continue;
+    }
+    if (!cur) continue;
+    const bullet = /^[-*]\s+(.*)$/.exec(l);
+    if (bullet) { cur.actions.push(bullet[1].trim()); continue; }
+    if (kv) {
+      const key = kv[1].toLowerCase();
+      if (key === "objective") cur.objective = kv[2].trim();
+      else if (key === "owner") cur.owner = kv[2].trim();
+      else if (key === "success_signal") cur.success_signal = kv[2].trim();
+    }
+  }
+  if (cur) phases.push(cur);
+  return phases;
+}
+
+function parseMarketPosition(raw: string[]): MarketPositionArea[] {
+  const areas: MarketPositionArea[] = [];
+  let cur: MarketPositionArea | null = null;
+  type MPKey = keyof MarketPositionArea;
+  const multiLine: MPKey[] = ["finding", "evidence", "open_question"];
+  let active: MPKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { active = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase();
+      if (key === "area") {
+        if (cur) areas.push(cur);
+        cur = { area: kv[2].trim(), rating: "", finding: "", evidence: "", open_question: "" };
+        active = null;
+        continue;
+      }
+      if (cur && (key === "rating" || key === "finding" || key === "evidence" || key === "open_question")) {
+        (cur as unknown as Record<string, string>)[key] = kv[2].trim();
+        active = multiLine.includes(key as MPKey) ? (key as MPKey) : null;
+        continue;
+      }
+    }
+    if (cur && active && l) {
+      (cur as unknown as Record<string, string>)[active] += " " + l;
+    }
+  }
+  if (cur) areas.push(cur);
+  return areas;
+}
+
+function parseCapabilityCard(raw: string[]): CapabilityCardData {
+  const data: CapabilityCardData = {
+    capability_area: "", maturity: "", what_real: "", what_unproven: "",
+    evidence: "", risk: "", follow_up: "",
+  };
+  type CKey = keyof CapabilityCardData;
+  const multiLine: CKey[] = ["what_real", "what_unproven", "evidence", "risk", "follow_up"];
+  let cur: CKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as CKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+function parsePostureGrid(raw: string[]): PostureGridData {
+  const data: PostureGridData = { ahead: [], parity: [], lag: [], unsupported: [] };
+  let bucket: keyof PostureGridData | null = null;
+  for (const rawLine of raw) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    const bullet = /^[-*]\s+(.*)$/.exec(line);
+    if (bullet && bucket) {
+      data[bucket].push(bullet[1].trim());
+      continue;
+    }
+    const head = /^([a-z_]+)\s*:\s*(.*)$/i.exec(line);
+    if (!head) continue;
+    const k = head[1].toLowerCase();
+    if (k === "ahead") bucket = "ahead";
+    else if (k === "parity") bucket = "parity";
+    else if (k === "lag" || k === "behind") bucket = "lag";
+    else if (k === "unsupported" || k === "unverified") bucket = "unsupported";
+    else bucket = null;
+    const inline = head[2].trim();
+    if (bucket && inline) data[bucket].push(inline);
+  }
+  return data;
+}
+
+function parseMarketIssue(raw: string[]): MarketIssueData {
+  const data: MarketIssueData = {
+    issue: "", signal: "", why: "", evidence: "",
+    decision_implication: "", follow_up: "",
+  };
+  type MKey = keyof MarketIssueData;
+  const multiLine: MKey[] = ["why", "evidence", "decision_implication", "follow_up"];
+  let cur: MKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as MKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+function parseEvidenceCoverage(raw: string[]): EvidenceCoverageCategory[] {
+  const cats: EvidenceCoverageCategory[] = [];
+  let cur: EvidenceCoverageCategory | null = null;
+  type ECKey = keyof EvidenceCoverageCategory;
+  const multiLine: ECKey[] = ["interpretation", "decision_implication"];
+  let active: ECKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { active = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase();
+      if (key === "category") {
+        if (cur) cats.push(cur);
+        cur = { category: kv[2].trim(), count: "", interpretation: "", decision_implication: "" };
+        active = null;
+        continue;
+      }
+      if (cur && (key === "count" || key === "interpretation" || key === "decision_implication")) {
+        (cur as unknown as Record<string, string>)[key] = kv[2].trim();
+        active = multiLine.includes(key as ECKey) ? (key as ECKey) : null;
+        continue;
+      }
+    }
+    if (cur && active && l) {
+      (cur as unknown as Record<string, string>)[active] += " " + l;
+    }
+  }
+  if (cur) cats.push(cur);
+  return cats;
+}
+
+function parseConfidenceDimension(raw: string[]): ConfidenceDimensionData {
+  const data: ConfidenceDimensionData = {
+    dimension: "", status: "", confidence: "", supports: "", missing: "", decision_impact: "",
+  };
+  type CDKey = keyof ConfidenceDimensionData;
+  const multiLine: CDKey[] = ["supports", "missing", "decision_impact"];
+  let cur: CDKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as CDKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+function parseSupportedClaim(raw: string[]): SupportedClaimData {
+  const data: SupportedClaimData = {
+    claim: "", status: "", artifact: "", supports: "", why: "", caveat: "",
+  };
+  type SKey = keyof SupportedClaimData;
+  const multiLine: SKey[] = ["claim", "supports", "why", "caveat"];
+  let cur: SKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as SKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+function parseEvidenceGap(raw: string[]): EvidenceGapData {
+  const data: EvidenceGapData = {
+    missing: "", related_risk: "", why: "", required_artifact: "", impact: "", pass_criterion: "",
+  };
+  type GKey = keyof EvidenceGapData;
+  const multiLine: GKey[] = ["missing", "why", "required_artifact", "pass_criterion"];
+  let cur: GKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as GKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+function parseWeakClaim(raw: string[]): WeakClaimData {
+  const data: WeakClaimData = {
+    claim: "", source: "", why_weak: "", validation: "", decision_implication: "",
+  };
+  type WKey = keyof WeakClaimData;
+  const multiLine: WKey[] = ["claim", "why_weak", "validation", "decision_implication"];
+  let cur: WKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as WKey;
+      if (key in data) {
+        cur = multiLine.includes(key) ? key : null;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
 // ---- Rendering --------------------------------------------------
 
 function renderBlock(block: Block, index: number): React.ReactNode {
@@ -646,6 +1205,28 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       return <CoverageBoard key={index} data={block.data} />;
     case "callout":
       return <ReportCallout key={index} label={block.label} body={block.body} />;
+    case "phase-plan":
+      return <PhasePlanGrid key={index} phases={block.phases} />;
+    case "action-card":
+      return <ActionCard key={index} data={block.data} />;
+    case "market-position":
+      return <MarketPositionGrid key={index} areas={block.areas} />;
+    case "capability-card":
+      return <CapabilityCard key={index} data={block.data} />;
+    case "posture-grid":
+      return <PostureGrid key={index} data={block.data} />;
+    case "market-issue":
+      return <MarketIssueCard key={index} data={block.data} />;
+    case "evidence-coverage":
+      return <EvidenceCoverageGrid key={index} categories={block.categories} />;
+    case "confidence-dimension":
+      return <ConfidenceDimensionCard key={index} data={block.data} />;
+    case "supported-claim":
+      return <SupportedClaimCard key={index} data={block.data} />;
+    case "evidence-gap":
+      return <EvidenceGapCard key={index} data={block.data} />;
+    case "weak-claim":
+      return <WeakClaimCard key={index} data={block.data} />;
   }
 }
 
@@ -970,6 +1551,668 @@ function ScoreGroup({
   );
 }
 
+// ---- Phase plan overview cards ----------------------------------
+
+const PHASE_PALETTES = [
+  { bg: "bg-emerald-50", border: "border-emerald-200", badge: "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200", accent: "text-emerald-700", dot: "bg-emerald-400" },
+  { bg: "bg-amber-50", border: "border-amber-200", badge: "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200", accent: "text-amber-700", dot: "bg-amber-400" },
+  { bg: "bg-violet-50", border: "border-violet-200", badge: "bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-200", accent: "text-violet-700", dot: "bg-violet-400" },
+];
+
+function PhasePlanGrid({ phases }: { phases: PhasePlanPhase[] }) {
+  if (phases.length === 0) return null;
+  return (
+    <div className="grid gap-4 sm:grid-cols-3">
+      {phases.map((phase, i) => {
+        const pal = PHASE_PALETTES[i % PHASE_PALETTES.length];
+        return (
+          <div key={i} className={`rounded-2xl border ${pal.border} ${pal.bg} p-5`}>
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${pal.badge}`}>
+              {phase.name}
+            </span>
+            {phase.objective && (
+              <p className={`mt-2 text-sm font-semibold leading-5 ${pal.accent}`}>{phase.objective}</p>
+            )}
+            {phase.actions.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {phase.actions.map((action, j) => (
+                  <li key={j} className="flex gap-2 text-sm leading-5 text-slate-700">
+                    <span aria-hidden className={`mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${pal.dot}`} />
+                    <span dangerouslySetInnerHTML={{ __html: renderInline(action) }} />
+                  </li>
+                ))}
+              </ul>
+            )}
+            {phase.owner && (
+              <p className="mt-3 text-[11px] text-slate-500">
+                <span className="font-semibold uppercase tracking-wider">Owner:</span>{" "}
+                <span className="text-slate-700">{phase.owner}</span>
+              </p>
+            )}
+            {phase.success_signal && (
+              <p className="mt-2 rounded-lg border border-current/10 bg-white/60 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                <span className="font-semibold">Signal: </span>{phase.success_signal}
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---- Action card ------------------------------------------------
+
+const PRIORITY_TONE: Record<string, string> = {
+  CRITICAL: "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200",
+  HIGH: "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200",
+  MEDIUM: "bg-sky-100 text-sky-700 ring-1 ring-inset ring-sky-200",
+  LOW: "bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200",
+};
+
+const TIMEFRAME_TONE: Record<string, string> = {
+  "FIRST 30 DAYS": "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200",
+  "DAYS 31–60": "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200",
+  "DAYS 61–90": "bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-200",
+};
+
+function timeframeTone(tf: string): string {
+  return TIMEFRAME_TONE[tf.toUpperCase()] ?? "bg-indigo-100 text-indigo-800 ring-1 ring-inset ring-indigo-200";
+}
+
+function priorityTone(p: string): string {
+  return PRIORITY_TONE[p.toUpperCase()] ?? "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+}
+
+function ActionCard({ data }: { data: ActionCardData }) {
+  const hasImpact = data.proves || data.stress_tests || data.informs;
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-base font-bold text-slate-900">{data.action || "Action"}</h3>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-1.5">
+          {data.timeframe && (
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${timeframeTone(data.timeframe)}`}>
+              {data.timeframe}
+            </span>
+          )}
+          {data.priority && (
+            <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${priorityTone(data.priority)}`}>
+              {data.priority}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {data.risk_addressed && (
+        <p className="mt-2 text-sm italic leading-6 text-slate-500"
+          dangerouslySetInnerHTML={{ __html: renderInline(data.risk_addressed) }} />
+      )}
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {data.what && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">What to do</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.what) }} />
+          </div>
+        )}
+        {data.why && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Why it matters</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.why) }} />
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-4 rounded-xl bg-slate-50 px-4 py-3">
+        {data.owner && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Owner</p>
+            <p className="text-sm font-medium text-slate-800">{data.owner}</p>
+          </div>
+        )}
+        {data.effort && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Effort</p>
+            <p className="text-sm font-medium text-slate-800">{data.effort}</p>
+          </div>
+        )}
+        {data.payoff && (
+          <div className="min-w-[200px] flex-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Expected payoff</p>
+            <p className="text-sm text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.payoff) }} />
+          </div>
+        )}
+      </div>
+
+      {(data.dependencies || data.pass_criterion) && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {data.dependencies && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Dependencies</p>
+              <p className="mt-1 text-sm text-slate-600"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.dependencies) }} />
+            </div>
+          )}
+          {data.pass_criterion && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Pass criterion</p>
+              <p className="mt-1 text-sm text-slate-600"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.pass_criterion) }} />
+            </div>
+          )}
+        </div>
+      )}
+
+      {hasImpact && (
+        <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">Investment impact</p>
+          <ul className="mt-2 space-y-1.5">
+            {data.proves && (
+              <li className="flex gap-2 text-sm text-slate-700">
+                <span className="shrink-0 font-semibold text-emerald-700">Proves:</span>
+                <span dangerouslySetInnerHTML={{ __html: renderInline(data.proves) }} />
+              </li>
+            )}
+            {data.stress_tests && (
+              <li className="flex gap-2 text-sm text-slate-700">
+                <span className="shrink-0 font-semibold text-amber-700">Stress-tests:</span>
+                <span dangerouslySetInnerHTML={{ __html: renderInline(data.stress_tests) }} />
+              </li>
+            )}
+            {data.informs && (
+              <li className="flex gap-2 text-sm text-slate-700">
+                <span className="shrink-0 font-semibold text-indigo-700">Informs:</span>
+                <span dangerouslySetInnerHTML={{ __html: renderInline(data.informs) }} />
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Market position grid ---------------------------------------
+
+const RATING_TONE: Record<string, string> = {
+  STRONG: "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200",
+  MODERATE: "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200",
+  WEAK: "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200",
+  UNKNOWN: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200",
+  UNVERIFIED: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200",
+};
+
+function ratingTone(r: string): string {
+  return RATING_TONE[r.trim().toUpperCase()] ?? "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+}
+
+function MarketPositionGrid({ areas }: { areas: MarketPositionArea[] }) {
+  if (areas.length === 0) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {areas.map((area, i) => (
+        <div key={i} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-sm font-bold text-slate-900">{area.area}</h3>
+            {area.rating && (
+              <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${ratingTone(area.rating)}`}>
+                {area.rating}
+              </span>
+            )}
+          </div>
+          {area.finding && (
+            <p className="mt-2 text-sm leading-6 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(area.finding) }} />
+          )}
+          {area.evidence && (
+            <p className="mt-2 text-[12px] leading-5 text-slate-600">
+              <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-500">Evidence: </span>
+              <span dangerouslySetInnerHTML={{ __html: renderInline(area.evidence) }} />
+            </p>
+          )}
+          {area.open_question && (
+            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[12px] leading-5 text-slate-600">
+              <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-500">Open question: </span>
+              <span dangerouslySetInnerHTML={{ __html: renderInline(area.open_question) }} />
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Capability card --------------------------------------------
+
+const MATURITY_TONE: Record<string, string> = {
+  EMERGING: "bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200",
+  DEVELOPING: "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200",
+  MATURE: "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200",
+  UNVERIFIED: "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200",
+};
+
+function maturityTone(m: string): string {
+  return MATURITY_TONE[m.trim().toUpperCase()] ?? "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+}
+
+function CapabilityCard({ data }: { data: CapabilityCardData }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-base font-bold text-slate-900">{data.capability_area || "Capability"}</h3>
+        {data.maturity && (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${maturityTone(data.maturity)}`}>
+            {data.maturity}
+          </span>
+        )}
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {data.what_real && (
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">What appears real</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.what_real) }} />
+          </div>
+        )}
+        {data.what_unproven && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700">What remains unproven</p>
+            <p className="mt-1 text-sm leading-6 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.what_unproven) }} />
+          </div>
+        )}
+      </div>
+
+      {data.evidence && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Evidence supporting the view</p>
+          <p className="mt-1 text-sm leading-6 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.evidence) }} />
+        </div>
+      )}
+
+      {(data.risk || data.follow_up) && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {data.risk && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600">Risk if unvalidated</p>
+              <p className="mt-1 text-sm text-slate-600"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.risk) }} />
+            </div>
+          )}
+          {data.follow_up && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-600">Diligence follow-up</p>
+              <p className="mt-1 text-sm text-slate-600"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.follow_up) }} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Posture grid -----------------------------------------------
+
+function PostureGrid({ data }: { data: PostureGridData }) {
+  const cols: Array<{ label: string; items: string[]; bg: string; border: string; head: string; dot: string }> = [
+    { label: "Ahead", items: data.ahead, bg: "bg-emerald-50", border: "border-emerald-200", head: "text-emerald-700", dot: "bg-emerald-400" },
+    { label: "Parity", items: data.parity, bg: "bg-sky-50", border: "border-sky-200", head: "text-sky-700", dot: "bg-sky-400" },
+    { label: "May Lag", items: data.lag, bg: "bg-amber-50", border: "border-amber-200", head: "text-amber-700", dot: "bg-amber-400" },
+    { label: "Unsupported", items: data.unsupported, bg: "bg-slate-50", border: "border-slate-200", head: "text-slate-600", dot: "bg-slate-400" },
+  ];
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {cols.map((c, i) => (
+        <div key={i} className={`rounded-2xl border ${c.border} ${c.bg} p-4`}>
+          <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${c.head}`}>{c.label}</p>
+          {c.items.length === 0 ? (
+            <p className="mt-2 text-[12px] italic text-slate-500">None identified.</p>
+          ) : (
+            <ul className="mt-2 space-y-1.5">
+              {c.items.map((it, j) => (
+                <li key={j} className="flex gap-2 text-[13px] leading-5 text-slate-700">
+                  <span aria-hidden className={`mt-2 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${c.dot}`} />
+                  <span dangerouslySetInnerHTML={{ __html: renderInline(it) }} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Market issue card ------------------------------------------
+
+const SIGNAL_TONE: Record<string, string> = {
+  STRENGTH: "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200",
+  RISK: "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200",
+  GAP: "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200",
+  "WATCH ITEM": "bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200",
+  WATCH: "bg-sky-100 text-sky-800 ring-1 ring-inset ring-sky-200",
+};
+
+function signalTone(s: string): string {
+  return SIGNAL_TONE[s.trim().toUpperCase()] ?? "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+}
+
+function MarketIssueCard({ data }: { data: MarketIssueData }) {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-base font-bold text-slate-900">{data.issue || "Market issue"}</h3>
+        {data.signal && (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${signalTone(data.signal)}`}>
+            {data.signal}
+          </span>
+        )}
+      </div>
+
+      {data.why && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Why it matters</p>
+          <p className="mt-1 text-sm leading-6 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.why) }} />
+        </div>
+      )}
+
+      {data.evidence && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Evidence basis</p>
+          <p className="mt-1 text-sm leading-6 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.evidence) }} />
+        </div>
+      )}
+
+      {(data.decision_implication || data.follow_up) && (
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {data.decision_implication && (
+            <div className="rounded-xl bg-slate-50 px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Decision implication</p>
+              <p className="mt-1 text-sm text-slate-700"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.decision_implication) }} />
+            </div>
+          )}
+          {data.follow_up && (
+            <div className="rounded-xl bg-indigo-50 px-3 py-2.5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-700">Follow-up question</p>
+              <p className="mt-1 text-sm text-slate-700"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.follow_up) }} />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Evidence coverage grid -------------------------------------
+
+function evidenceCoveragePalette(category: string): {
+  border: string; bg: string; head: string; count: string;
+} {
+  const c = category.trim().toLowerCase();
+  if (c.startsWith("support"))
+    return { border: "border-emerald-200", bg: "bg-emerald-50", head: "text-emerald-700", count: "text-emerald-800" };
+  if (c.startsWith("partial"))
+    return { border: "border-amber-200", bg: "bg-amber-50", head: "text-amber-700", count: "text-amber-800" };
+  if (c.startsWith("missing") || c.startsWith("required"))
+    return { border: "border-rose-200", bg: "bg-rose-50", head: "text-rose-700", count: "text-rose-800" };
+  if (c.startsWith("contradict") || c.startsWith("weak"))
+    return { border: "border-violet-200", bg: "bg-violet-50", head: "text-violet-700", count: "text-violet-800" };
+  return { border: "border-slate-200", bg: "bg-slate-50", head: "text-slate-700", count: "text-slate-800" };
+}
+
+function EvidenceCoverageGrid({ categories }: { categories: EvidenceCoverageCategory[] }) {
+  if (categories.length === 0) return null;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      {categories.map((c, i) => {
+        const pal = evidenceCoveragePalette(c.category);
+        return (
+          <div key={i} className={`rounded-2xl border ${pal.border} ${pal.bg} p-4`}>
+            <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${pal.head}`}>{c.category}</p>
+            {c.count && (
+              <p className={`mt-1 text-3xl font-extrabold ${pal.count}`}>{c.count}</p>
+            )}
+            {c.interpretation && (
+              <p className="mt-2 text-[12px] leading-5 text-slate-700"
+                dangerouslySetInnerHTML={{ __html: renderInline(c.interpretation) }} />
+            )}
+            {c.decision_implication && (
+              <p className="mt-2 rounded-lg bg-white/60 px-2.5 py-1.5 text-[11px] leading-5 text-slate-600">
+                <span className="font-semibold">Implication: </span>
+                <span dangerouslySetInnerHTML={{ __html: renderInline(c.decision_implication) }} />
+              </p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---- Confidence dimension card ----------------------------------
+
+function evidenceStatusTone(status: string): string {
+  const s = status.trim().toLowerCase();
+  if (s.startsWith("support")) return "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200";
+  if (s.startsWith("partial")) return "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200";
+  if (s.startsWith("missing") || s.startsWith("required")) return "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200";
+  if (s.startsWith("contradict")) return "bg-violet-100 text-violet-800 ring-1 ring-inset ring-violet-200";
+  return "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+}
+
+function ConfidenceDimensionCard({ data }: { data: ConfidenceDimensionData }) {
+  const conf = parseFloat(data.confidence.replace(/[^\d.]/g, ""));
+  const confPct = Number.isFinite(conf) ? Math.max(0, Math.min(100, conf)) : null;
+  const bar = confPct == null
+    ? "bg-slate-300"
+    : confPct >= 70 ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+    : confPct >= 50 ? "bg-gradient-to-r from-indigo-500 to-violet-500"
+    : confPct >= 30 ? "bg-gradient-to-r from-amber-500 to-orange-500"
+    : "bg-gradient-to-r from-rose-500 to-red-500";
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-sm font-bold text-slate-900">{data.dimension || "Dimension"}</h3>
+        {data.status && (
+          <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${evidenceStatusTone(data.status)}`}>
+            {data.status}
+          </span>
+        )}
+      </div>
+      {confPct != null && (
+        <div className="mt-3">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Confidence</span>
+            <span className="text-sm font-bold text-slate-900">{confPct}<span className="ml-0.5 text-[10px] text-slate-400">/100</span></span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div className={`h-full rounded-full ${bar}`} style={{ width: `${confPct}%` }} />
+          </div>
+        </div>
+      )}
+      {data.supports && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">What evidence supports</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.supports) }} />
+        </div>
+      )}
+      {data.missing && (
+        <div className="mt-3">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600">What remains missing</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.missing) }} />
+        </div>
+      )}
+      {data.decision_impact && (
+        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Decision impact</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.decision_impact) }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---- Supported / weak claim cards -------------------------------
+
+function SupportedClaimCard({ data }: { data: SupportedClaimData }) {
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-sm font-bold text-slate-900"
+          dangerouslySetInnerHTML={{ __html: renderInline(data.claim || "Claim") }} />
+        {data.status && (
+          <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${evidenceStatusTone(data.status)}`}>
+            {data.status}
+          </span>
+        )}
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {data.artifact && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Artifact source</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.artifact) }} />
+          </div>
+        )}
+        {data.supports && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-700">What the artifact supports</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.supports) }} />
+          </div>
+        )}
+        {data.why && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Why it matters</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.why) }} />
+          </div>
+        )}
+        {data.caveat && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-700">Remaining caveat</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.caveat) }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WeakClaimCard({ data }: { data: WeakClaimData }) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-sm font-bold text-slate-900"
+          dangerouslySetInnerHTML={{ __html: renderInline(data.claim || "Claim") }} />
+        <span className="shrink-0 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-800 ring-1 ring-inset ring-amber-200">
+          Weakly supported
+        </span>
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {data.source && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Current source</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.source) }} />
+          </div>
+        )}
+        {data.why_weak && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-rose-600">Why support is weak</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.why_weak) }} />
+          </div>
+        )}
+        {data.validation && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-700">What would validate it</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.validation) }} />
+          </div>
+        )}
+        {data.decision_implication && (
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Decision implication</p>
+            <p className="mt-1 text-[12px] text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(data.decision_implication) }} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---- Evidence gap card ------------------------------------------
+
+function impactTone(impact: string): string {
+  const s = impact.trim().toUpperCase();
+  if (s === "HIGH" || s === "CRITICAL") return "bg-rose-100 text-rose-800 ring-1 ring-inset ring-rose-200";
+  if (s === "MEDIUM") return "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200";
+  if (s === "LOW") return "bg-sky-100 text-sky-700 ring-1 ring-inset ring-sky-200";
+  return "bg-slate-100 text-slate-700 ring-1 ring-inset ring-slate-200";
+}
+
+function EvidenceGapCard({ data }: { data: EvidenceGapData }) {
+  return (
+    <div className="rounded-2xl border border-rose-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <h3 className="text-sm font-bold text-slate-900"
+          dangerouslySetInnerHTML={{ __html: renderInline(data.missing || "Missing evidence") }} />
+        {data.impact && (
+          <span className={`shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${impactTone(data.impact)}`}>
+            Impact: {data.impact}
+          </span>
+        )}
+      </div>
+      {data.related_risk && (
+        <p className="mt-2 text-[12px] italic text-slate-600">
+          <span className="font-semibold uppercase tracking-wider text-[10px] text-slate-500">Related risk: </span>
+          <span dangerouslySetInnerHTML={{ __html: renderInline(data.related_risk) }} />
+        </p>
+      )}
+      {data.why && (
+        <div className="mt-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Why it matters</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.why) }} />
+        </div>
+      )}
+      {data.required_artifact && (
+        <div className="mt-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-700">Required artifact</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.required_artifact) }} />
+        </div>
+      )}
+      {data.pass_criterion && (
+        <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Pass criterion</p>
+          <p className="mt-1 text-[12px] leading-5 text-slate-700"
+            dangerouslySetInnerHTML={{ __html: renderInline(data.pass_criterion) }} />
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ---- Decision snapshot hero card --------------------------------
 function SnapshotCard({ data }: { data: SnapshotData }) {
   const verdict = data.verdict || "Decision Snapshot";
@@ -1279,9 +2522,310 @@ export function markdownToExportHtml(md: string): string {
       case "callout":
         parts.push(calloutToHtml(b.label, b.body));
         break;
+      case "phase-plan":
+        parts.push(phasePlanToHtml(b.phases));
+        break;
+      case "action-card":
+        parts.push(actionCardToHtml(b.data));
+        break;
+      case "market-position":
+        parts.push(marketPositionToHtml(b.areas));
+        break;
+      case "capability-card":
+        parts.push(capabilityCardToHtml(b.data));
+        break;
+      case "posture-grid":
+        parts.push(postureGridToHtml(b.data));
+        break;
+      case "market-issue":
+        parts.push(marketIssueToHtml(b.data));
+        break;
+      case "evidence-coverage":
+        parts.push(evidenceCoverageToHtml(b.categories));
+        break;
+      case "confidence-dimension":
+        parts.push(confidenceDimensionToHtml(b.data));
+        break;
+      case "supported-claim":
+        parts.push(supportedClaimToHtml(b.data));
+        break;
+      case "evidence-gap":
+        parts.push(evidenceGapToHtml(b.data));
+        break;
+      case "weak-claim":
+        parts.push(weakClaimToHtml(b.data));
+        break;
     }
   }
   return parts.join("\n");
+}
+
+function evidenceCoverageToHtml(cats: EvidenceCoverageCategory[]): string {
+  const colorFor = (cat: string): { bg: string; bdr: string; head: string } => {
+    const c = cat.trim().toLowerCase();
+    if (c.startsWith("support")) return { bg: "#f0fdf4", bdr: "#bbf7d0", head: "#15803d" };
+    if (c.startsWith("partial")) return { bg: "#fffbeb", bdr: "#fde68a", head: "#b45309" };
+    if (c.startsWith("missing") || c.startsWith("required")) return { bg: "#fff1f2", bdr: "#fecdd3", head: "#be123c" };
+    if (c.startsWith("contradict") || c.startsWith("weak")) return { bg: "#f5f3ff", bdr: "#ddd6fe", head: "#6d28d9" };
+    return { bg: "#f8fafc", bdr: "#e2e8f0", head: "#475569" };
+  };
+  const cards = cats
+    .map((c) => {
+      const col = colorFor(c.category);
+      return `<div style="flex:1;min-width:200px;border:1px solid ${col.bdr};background:${col.bg};border-radius:10px;padding:10px;">
+<p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${col.head};">${escapeHtml(c.category)}</p>
+${c.count ? `<p style="margin:4px 0 0;font-size:18pt;font-weight:800;color:${col.head};">${escapeHtml(c.count)}</p>` : ""}
+${c.interpretation ? `<p style="margin:6px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(c.interpretation)}</p>` : ""}
+${c.decision_implication ? `<p style="margin:6px 0 0;font-size:8pt;color:#475569;background:rgba(255,255,255,0.6);padding:4px 8px;border-radius:6px;"><strong>Implication: </strong>${renderInlineExport(c.decision_implication)}</p>` : ""}
+</div>`;
+    })
+    .join("\n");
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;">${cards}</div>`;
+}
+
+function confidenceDimensionToHtml(d: ConfidenceDimensionData): string {
+  const statusColors: Record<string, [string, string]> = {
+    SUPPORTED: ["#d1fae5", "#065f46"],
+    "PARTIALLY SUPPORTED": ["#fef3c7", "#92400e"],
+    PARTIAL: ["#fef3c7", "#92400e"],
+    MISSING: ["#fee2e2", "#991b1b"],
+    "MISSING / REQUIRED": ["#fee2e2", "#991b1b"],
+    CONTRADICTED: ["#ede9fe", "#5b21b6"],
+  };
+  const [sBg, sFg] = statusColors[d.status.trim().toUpperCase()] ?? ["#e2e8f0", "#334155"];
+  const conf = parseFloat(d.confidence.replace(/[^\d.]/g, ""));
+  const pct = Number.isFinite(conf) ? Math.max(0, Math.min(100, conf)) : null;
+  const labelled = (label: string, value: string, color = "#64748b") =>
+    value ? `<div style="margin-top:8px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${color};">${escapeHtml(label)}</p><p style="margin:2px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(value)}</p></div>` : "";
+  return `<div style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:12px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:10pt;color:#0f172a;">${escapeHtml(d.dimension)}</strong>
+${d.status ? `<span style="background:${sBg};color:${sFg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(d.status)}</span>` : ""}
+</div>
+${pct != null ? `<div style="margin-top:8px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;">Confidence: ${pct}/100</p><div style="margin-top:3px;height:5px;background:#f1f5f9;border-radius:99px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:#6366f1;"></div></div></div>` : ""}
+${labelled("What evidence supports", d.supports, "#15803d")}
+${labelled("What remains missing", d.missing, "#be123c")}
+${d.decision_impact ? `<div style="margin-top:8px;background:#f8fafc;border-radius:8px;padding:8px;">${labelled("Decision impact", d.decision_impact).replace("margin-top:8px;", "")}</div>` : ""}
+</div>`;
+}
+
+function supportedClaimToHtml(d: SupportedClaimData): string {
+  const cell = (label: string, value: string, color = "#64748b") =>
+    value ? `<div><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${color};">${escapeHtml(label)}</p><p style="margin:2px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(value)}</p></div>` : "";
+  return `<div style="border:1px solid #bbf7d0;background:#fff;border-radius:10px;padding:12px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:10pt;color:#0f172a;">${renderInlineExport(d.claim)}</strong>
+${d.status ? `<span style="background:#d1fae5;color:#065f46;border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(d.status)}</span>` : ""}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+${cell("Artifact source", d.artifact)}
+${cell("What the artifact supports", d.supports, "#15803d")}
+${cell("Why it matters", d.why)}
+${cell("Remaining caveat", d.caveat, "#b45309")}
+</div>
+</div>`;
+}
+
+function evidenceGapToHtml(d: EvidenceGapData): string {
+  const impactColors: Record<string, [string, string]> = {
+    HIGH: ["#fee2e2", "#991b1b"],
+    CRITICAL: ["#fee2e2", "#991b1b"],
+    MEDIUM: ["#fef3c7", "#92400e"],
+    LOW: ["#e0f2fe", "#075985"],
+  };
+  const [iBg, iFg] = impactColors[d.impact.trim().toUpperCase()] ?? ["#e2e8f0", "#334155"];
+  const block = (label: string, value: string, color = "#64748b") =>
+    value ? `<div style="margin-top:6px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${color};">${escapeHtml(label)}</p><p style="margin:2px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(value)}</p></div>` : "";
+  return `<div style="border:1px solid #fecdd3;background:#fff;border-radius:10px;padding:12px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:10pt;color:#0f172a;">${renderInlineExport(d.missing)}</strong>
+${d.impact ? `<span style="background:${iBg};color:${iFg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Impact: ${escapeHtml(d.impact)}</span>` : ""}
+</div>
+${d.related_risk ? `<p style="margin:6px 0 0;font-size:8pt;color:#64748b;font-style:italic;"><strong>Related risk: </strong>${renderInlineExport(d.related_risk)}</p>` : ""}
+${block("Why it matters", d.why)}
+${block("Required artifact", d.required_artifact, "#3730a3")}
+${d.pass_criterion ? `<div style="margin-top:6px;background:#f8fafc;border-radius:8px;padding:8px;">${block("Pass criterion", d.pass_criterion).replace("margin-top:6px;", "")}</div>` : ""}
+</div>`;
+}
+
+function weakClaimToHtml(d: WeakClaimData): string {
+  const cell = (label: string, value: string, color = "#64748b") =>
+    value ? `<div><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${color};">${escapeHtml(label)}</p><p style="margin:2px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(value)}</p></div>` : "";
+  return `<div style="border:1px solid #fde68a;background:#fffbeb;border-radius:10px;padding:12px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:10pt;color:#0f172a;">${renderInlineExport(d.claim)}</strong>
+<span style="background:#fef3c7;color:#92400e;border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">Weakly supported</span>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+${cell("Current source", d.source)}
+${cell("Why support is weak", d.why_weak, "#be123c")}
+${cell("What would validate it", d.validation, "#3730a3")}
+${cell("Decision implication", d.decision_implication)}
+</div>
+</div>`;
+}
+
+function marketPositionToHtml(areas: MarketPositionArea[]): string {
+  const ratingColors: Record<string, [string, string]> = {
+    STRONG: ["#d1fae5", "#065f46"],
+    MODERATE: ["#fef3c7", "#92400e"],
+    WEAK: ["#fee2e2", "#991b1b"],
+    UNKNOWN: ["#e2e8f0", "#334155"],
+    UNVERIFIED: ["#e2e8f0", "#334155"],
+  };
+  const cards = areas
+    .map((a) => {
+      const [rBg, rFg] = ratingColors[a.rating.toUpperCase()] ?? ["#e2e8f0", "#334155"];
+      return `<div style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:12px;flex:1;min-width:260px;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:10pt;color:#0f172a;">${escapeHtml(a.area)}</strong>
+${a.rating ? `<span style="background:${rBg};color:${rFg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(a.rating)}</span>` : ""}
+</div>
+${a.finding ? `<p style="margin:6px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(a.finding)}</p>` : ""}
+${a.evidence ? `<p style="margin:6px 0 0;font-size:8pt;color:#475569;"><strong>Evidence: </strong>${renderInlineExport(a.evidence)}</p>` : ""}
+${a.open_question ? `<p style="margin:6px 0 0;font-size:8pt;color:#475569;background:#f8fafc;padding:6px 8px;border-radius:6px;"><strong>Open question: </strong>${renderInlineExport(a.open_question)}</p>` : ""}
+</div>`;
+    })
+    .join("\n");
+  return `<div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0;">${cards}</div>`;
+}
+
+function capabilityCardToHtml(d: CapabilityCardData): string {
+  const matColors: Record<string, [string, string]> = {
+    EMERGING: ["#e0f2fe", "#075985"],
+    DEVELOPING: ["#fef3c7", "#92400e"],
+    MATURE: ["#d1fae5", "#065f46"],
+    UNVERIFIED: ["#e2e8f0", "#334155"],
+  };
+  const [mBg, mFg] = matColors[d.maturity.toUpperCase()] ?? ["#e2e8f0", "#334155"];
+  const labelled = (label: string, value: string, color = "#64748b") =>
+    value ? `<div style="margin-top:8px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${color};">${escapeHtml(label)}</p><p style="margin:2px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(value)}</p></div>` : "";
+  return `<div style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:14px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:11pt;color:#0f172a;">${escapeHtml(d.capability_area)}</strong>
+${d.maturity ? `<span style="background:${mBg};color:${mFg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(d.maturity)}</span>` : ""}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+${d.what_real ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:8px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#15803d;">What appears real</p><p style="margin:4px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(d.what_real)}</p></div>` : ""}
+${d.what_unproven ? `<div style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#b45309;">What remains unproven</p><p style="margin:4px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(d.what_unproven)}</p></div>` : ""}
+</div>
+${labelled("Evidence supporting the view", d.evidence)}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+${d.risk ? labelled("Risk if unvalidated", d.risk, "#be123c") : ""}
+${d.follow_up ? labelled("Diligence follow-up", d.follow_up, "#3730a3") : ""}
+</div>
+</div>`;
+}
+
+function postureGridToHtml(d: PostureGridData): string {
+  const cols = [
+    { label: "Ahead", items: d.ahead, bg: "#f0fdf4", bdr: "#bbf7d0", head: "#15803d" },
+    { label: "Parity", items: d.parity, bg: "#f0f9ff", bdr: "#bae6fd", head: "#0369a1" },
+    { label: "May Lag", items: d.lag, bg: "#fffbeb", bdr: "#fde68a", head: "#b45309" },
+    { label: "Unsupported", items: d.unsupported, bg: "#f8fafc", bdr: "#e2e8f0", head: "#475569" },
+  ];
+  const colHtml = cols
+    .map((c) => {
+      const items = c.items.length === 0
+        ? `<p style="margin:6px 0 0;font-size:8pt;font-style:italic;color:#94a3b8;">None identified.</p>`
+        : `<ul style="margin:6px 0 0;padding-left:14px;">${c.items.map((it) => `<li style="font-size:9pt;color:#334155;line-height:1.5;">${renderInlineExport(it)}</li>`).join("")}</ul>`;
+      return `<div style="flex:1;min-width:0;border:1px solid ${c.bdr};background:${c.bg};border-radius:10px;padding:10px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${c.head};">${escapeHtml(c.label)}</p>${items}</div>`;
+    })
+    .join("\n");
+  return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;">${colHtml}</div>`;
+}
+
+function marketIssueToHtml(d: MarketIssueData): string {
+  const sigColors: Record<string, [string, string]> = {
+    STRENGTH: ["#d1fae5", "#065f46"],
+    RISK: ["#fee2e2", "#991b1b"],
+    GAP: ["#fef3c7", "#92400e"],
+    "WATCH ITEM": ["#e0f2fe", "#075985"],
+    WATCH: ["#e0f2fe", "#075985"],
+  };
+  const [sBg, sFg] = sigColors[d.signal.toUpperCase()] ?? ["#e2e8f0", "#334155"];
+  const block = (label: string, value: string, headColor = "#64748b") =>
+    value ? `<div style="margin-top:8px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${headColor};">${escapeHtml(label)}</p><p style="margin:2px 0 0;font-size:9pt;color:#334155;">${renderInlineExport(value)}</p></div>` : "";
+  return `<div style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:14px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
+<strong style="font-size:11pt;color:#0f172a;">${escapeHtml(d.issue)}</strong>
+${d.signal ? `<span style="background:${sBg};color:${sFg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(d.signal)}</span>` : ""}
+</div>
+${block("Why it matters", d.why)}
+${block("Evidence basis", d.evidence)}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px;">
+${d.decision_implication ? `<div style="background:#f8fafc;border-radius:8px;padding:8px;">${block("Decision implication", d.decision_implication).replace("margin-top:8px;", "")}</div>` : ""}
+${d.follow_up ? `<div style="background:#eef2ff;border-radius:8px;padding:8px;">${block("Follow-up question", d.follow_up, "#3730a3").replace("margin-top:8px;", "")}</div>` : ""}
+</div>
+</div>`;
+}
+
+function phasePlanToHtml(phases: PhasePlanPhase[]): string {
+  const palBg = ["#f0fdf4", "#fffbeb", "#f5f3ff"];
+  const palBdr = ["#bbf7d0", "#fde68a", "#ddd6fe"];
+  const palBadge = ["#166534", "#92400e", "#5b21b6"];
+  const palAccent = ["#15803d", "#b45309", "#6d28d9"];
+  const cards = phases
+    .map((phase, i) => {
+      const bg = palBg[i % palBg.length];
+      const bdr = palBdr[i % palBdr.length];
+      const badge = palBadge[i % palBadge.length];
+      const accent = palAccent[i % palAccent.length];
+      const actions = phase.actions.length > 0
+        ? `<ul style="margin:6px 0 0;padding-left:14px;">${phase.actions.map(a => `<li style="font-size:9pt;color:#334155;line-height:1.5;">${escapeHtml(a)}</li>`).join("")}</ul>`
+        : "";
+      const owner = phase.owner ? `<p style="margin:6px 0 0;font-size:8pt;color:#64748b;"><strong>Owner:</strong> ${escapeHtml(phase.owner)}</p>` : "";
+      const signal = phase.success_signal ? `<p style="margin:6px 0 0;font-size:8pt;color:#475569;font-style:italic;"><strong>Signal:</strong> ${escapeHtml(phase.success_signal)}</p>` : "";
+      return `<div style="flex:1;min-width:0;border:1px solid ${bdr};background:${bg};border-radius:10px;padding:12px;">
+<span style="display:inline-block;background:${bg};color:${badge};border:1px solid ${bdr};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(phase.name)}</span>
+${phase.objective ? `<p style="margin:6px 0 0;font-size:9pt;font-weight:600;color:${accent};">${escapeHtml(phase.objective)}</p>` : ""}
+${actions}${owner}${signal}
+</div>`;
+    })
+    .join("\n");
+  return `<div style="display:flex;gap:10px;margin:10px 0;">${cards}</div>`;
+}
+
+function actionCardToHtml(d: ActionCardData): string {
+  const priorityColors: Record<string, [string, string]> = {
+    CRITICAL: ["#fee2e2", "#991b1b"],
+    HIGH: ["#fef3c7", "#92400e"],
+    MEDIUM: ["#e0f2fe", "#075985"],
+  };
+  const [pBg, pFg] = priorityColors[d.priority.toUpperCase()] ?? ["#f1f5f9", "#334155"];
+  const tfColors: Record<string, [string, string]> = {
+    "FIRST 30 DAYS": ["#d1fae5", "#065f46"],
+    "DAYS 31–60": ["#fef3c7", "#92400e"],
+    "DAYS 61–90": ["#ede9fe", "#5b21b6"],
+  };
+  const [tfBg, tfFg] = tfColors[d.timeframe.toUpperCase()] ?? ["#e0e7ff", "#3730a3"];
+  const badge = (label: string, bg: string, fg: string) =>
+    `<span style="display:inline-block;background:${bg};color:${fg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-right:4px;">${escapeHtml(label)}</span>`;
+  const row = (label: string, value: string) =>
+    value ? `<p style="margin:6px 0 0;font-size:9pt;color:#334155;"><strong style="font-size:8pt;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;">${escapeHtml(label)}: </strong>${renderInlineExport(value)}</p>` : "";
+  const impact = [
+    d.proves ? `<li style="font-size:9pt;color:#334155;"><strong style="color:#15803d;">Proves:</strong> ${renderInlineExport(d.proves)}</li>` : "",
+    d.stress_tests ? `<li style="font-size:9pt;color:#334155;"><strong style="color:#b45309;">Stress-tests:</strong> ${renderInlineExport(d.stress_tests)}</li>` : "",
+    d.informs ? `<li style="font-size:9pt;color:#334155;"><strong style="color:#3730a3;">Informs:</strong> ${renderInlineExport(d.informs)}</li>` : "",
+  ].filter(Boolean).join("");
+  return `<div style="border:1px solid #e2e8f0;background:#fff;border-radius:10px;padding:16px;margin:8px 0;">
+<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+<strong style="font-size:11pt;color:#0f172a;">${escapeHtml(d.action)}</strong>
+<div>${d.timeframe ? badge(d.timeframe, tfBg, tfFg) : ""}${d.priority ? badge(d.priority, pBg, pFg) : ""}</div>
+</div>
+${d.risk_addressed ? `<p style="margin:6px 0 0;font-size:9pt;color:#64748b;font-style:italic;">${renderInlineExport(d.risk_addressed)}</p>` : ""}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+${d.what ? `<div>${row("What to do", d.what)}</div>` : ""}
+${d.why ? `<div>${row("Why it matters", d.why)}</div>` : ""}
+</div>
+<div style="background:#f8fafc;border-radius:8px;padding:10px;margin-top:10px;display:flex;gap:16px;flex-wrap:wrap;">
+${row("Owner", d.owner)}${row("Effort", d.effort)}${row("Expected payoff", d.payoff)}
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+${row("Dependencies", d.dependencies)}${row("Pass criterion", d.pass_criterion)}
+</div>
+${impact ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:10px;margin-top:10px;"><p style="font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#15803d;margin:0 0 6px;">Investment impact</p><ul style="margin:0;padding-left:16px;">${impact}</ul></div>` : ""}
+</div>`;
 }
 
 function dimensionsToHtml(rows: DimensionRow[]): string {
