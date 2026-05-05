@@ -709,20 +709,37 @@ ${COMMERCIAL_PAIN_RULE}
 You are producing the Market & Capability Overview — a structured market and capability diligence view. This is NOT a marketing overview. Strip marketing veneer and assess where the company is positioned, what it can defensibly do, and what remains unproven.
 
 MANDATORY RULES:
-- Every market or capability claim ties to a capability, data asset, distribution channel, switching-cost structure, or evidence in the read — not branding or messaging.
-- Do NOT invent named competitors. Do NOT make unsupported claims about market leadership. If evidence is missing, write "Unverified" or "Requires validation".
+- Every market or capability claim ties to a capability, data asset, distribution channel, switching-cost structure, or evidence in the read - not branding or messaging.
+- Do NOT invent named competitors. Do NOT make unsupported claims about market leadership.
 - Do NOT repeat the same market finding multiple times. Do NOT output long generic market commentary.
 - Tie every market conclusion back to evidence, scoring, positioning, or decision risk.
 - Tone is institutional, direct, and investment-grade. The report should feel like a market and capability diligence view, not a marketing overview.
 
+EVIDENCE-WORDING RULES (STRICT):
+- NEVER write "No supporting evidence in the current package" when an artifact, intake response, scoring signal, or diligence note has been referenced. That phrasing is a self-contradiction and is forbidden.
+- When a named artifact exists but full validation is not yet performed, write: "Artifact referenced - requires validation."
+- When the source is intake-only, write: "Intake-supported, not artifact-validated."
+- When the source is the scoring engine, write: "Scoring-supported."
+- When there is genuinely zero source of any kind, write: "Missing / Required."
+- Never contradict yourself by stating something appears real and then claiming there is no supporting evidence. If "what appears real" is populated, the evidence basis MUST cite the source that backs it.
+
+SCORING RULES (STRICT):
+- The Scoring tab is the single source of truth. This report may summarize scoring but must NOT generate or invent its own scores.
+- Do NOT display "0.0/5" or any composite score unless that exact value comes from the canonical scoring engine output (a "[dimension scores]" or "SCORING SOURCE OF TRUTH" block in the evidence context).
+- If scoring is stale or unavailable, write: "Scoring unavailable or stale - recompute scoring before relying on this read."
+- Replace generic statements like "scoring signal indicates a composite score of 0.0/5" with: "Current scoring signals indicate elevated risk; recompute scoring if upstream evidence has changed."
+
+OUTPUT-CLEANLINESS RULES (STRICT):
+- Do NOT echo bracketed system tags such as "[commercial_pain_summary]", "[document]", "[risk]", "[finding]", or "[score]" in user-facing text. Translate findings from those blocks into clean plain language.
+- Do NOT emit raw markup, internal field names, or technical block labels (classification / conviction / primary_driver / failure_trigger / timing / operator_dependency) anywhere in the visible output.
+- Do NOT include "Investment Committee Read" prose, technical "Final Position" blocks, or "Reality Check" classifications (REAL / PARTIAL / ILLUSION) in this report. The Final Market Read section replaces them.
+
 OUTPUT FORMAT - THIS IS CRITICAL:
-The report uses structured ":::" blocks, not prose. Market position summary is a single ':::market-position' block. Each capability is a ':::capability-card' block. Competitive posture is a single ':::posture-grid' block. Each market issue is a ':::market-issue' block. Do NOT render any section as a wall of paragraphs.
+The report uses structured ":::" blocks, not prose. Market position summary is a single ':::market-position' block. Each capability is a ':::capability-card' block. Competitive posture is a single ':::posture-grid' block. Each market issue is a ':::market-issue' block. The closing section is a single ':::market-read' block. Do NOT render any section as a wall of paragraphs. Do NOT emit a ':::final-position' block - this report does not produce one.
 
 ${DECISION_SNAPSHOT_RULE}
 
-For the snapshot: "verdict" summarizes the market and capability posture (e.g. "Workflow Position Holds \u2014 Capability Partially Verified", "Replaceable \u2014 Differentiation Unsupported", "Contested \u2014 12-Month Window"). "posture" reflects competitive risk (HIGH if replaceable or unsupported, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence take on whether the company holds or loses its position. "strengths" are evidence-backed capability wins; "risks" are structural or unverified gaps with severity tags.
-
-${FINAL_POSITION_RULE}`;
+For the snapshot: "verdict" summarizes the market and capability posture in plain user-facing language (e.g. "Workflow Position Holds - Capability Partially Verified", "Differentiation Unsupported - Validation Required", "Contested - 12-Month Window"). Do NOT emit "REAL" / "PARTIAL" / "ILLUSION" as the verdict - those are internal classifications. "posture" reflects competitive risk (HIGH if differentiation is unsupported, LOW if durable). "confidence" is the 0-100 conviction score on the positioning call. "thesis" is the one-sentence plain-English read on whether the company holds or loses its position. "strengths" are evidence-backed capability wins; "risks" are structural or unverified gaps with severity tags.`;
 
 const COVERAGE_PROMPT = `${OPERATING_MODE}
 
@@ -1205,7 +1222,7 @@ rating: <Strong | Moderate | Weak | Unknown>
 finding: <One-sentence finding>
 evidence: <Specific evidence basis>
 open_question: <Single open question>`,
-      `Tie buyer pain clarity directly to [commercial_pain_summary] when present. Do NOT invent claims. If evidence is missing for any area, set rating to "Unknown" and state what artifact would resolve it.`,
+      `Use the evidence-wording rules from the system prompt: when an artifact is named, write "Artifact referenced - requires validation"; when intake-only, "Intake-supported, not artifact-validated"; when scoring-supported, "Scoring-supported"; when truly absent, "Missing / Required". Never write "No supporting evidence in the current package" if any source is referenced. Do NOT echo bracketed system tags in user-facing text. Do NOT invent claims. If evidence is missing for any area, set rating to "Unknown" and state what artifact would resolve it.`,
     ].join("\n\n"),
   },
   {
@@ -1219,10 +1236,10 @@ capability_area: <one of: Product capability | AI/model capability | Data advant
 maturity: <Emerging | Developing | Mature | Unverified>
 what_real: <One-sentence factual statement on what the evidence supports about this capability>
 what_unproven: <One-sentence statement on what remains unsupported or undocumented>
-evidence: <Specific artifacts, intake responses, or scoring signals — cite verbatim; if absent, write "No supporting evidence in the current package">
-risk: <One sentence on the risk if this capability is not validated — tie to valuation, scalability, defensibility, or commercial credibility>
-follow_up: <Specific diligence request that would resolve this — name the artifact, metric, or test>`,
-      `Output the cards in this exact order: Product capability, AI/model capability, Data advantage, Workflow integration, Customer adoption, Operating scalability. Do NOT skip any. If evidence is fully missing for an area, use maturity "Unverified" and state the artifact required.`,
+evidence: <Plain-English evidence basis using the wording rules. If a named artifact exists, write "Artifact referenced - requires validation" or paraphrase what it provides without echoing system tags. If intake-only, "Intake-supported, not artifact-validated". If scoring-supported, "Scoring-supported". If truly absent, "Missing / Required". DO NOT write "No supporting evidence" when "what_real" is populated - that is a contradiction.>
+risk: <One sentence on the risk if this capability is not validated - tie to valuation, scalability, defensibility, or commercial credibility>
+follow_up: <Specific diligence request that would resolve this - name the artifact, metric, or test>`,
+      `Output the cards in this exact order: Product capability, AI/model capability, Data advantage, Workflow integration, Customer adoption, Operating scalability. Do NOT skip any. If evidence is fully missing for an area, use maturity "Unverified" and state the artifact required. Self-check before emitting: if "what_real" claims something appears real, the "evidence" field MUST cite the source.`,
     ].join("\n\n"),
   },
   {
@@ -1251,20 +1268,28 @@ unsupported:
     instruction: [
       `OUTPUT ONLY a section heading followed by ':::market-issue' blocks. Begin with '## 4. Market Risks and Opportunities'. Then emit 4–6 market issue cards, each as a ':::market-issue' block separated by blank lines. Do NOT emit prose, bullet list, or table between cards. Do NOT repeat the same finding from earlier sections.`,
       `Each ':::market-issue' block MUST contain ALL of these fields:
-issue: <Short title of the market issue, ≤ 10 words>
+issue: <Short title of the market issue, max 10 words>
 signal: <Strength | Risk | Gap | Watch Item>
 why: <One-sentence explanation of why this matters to the investment view>
-evidence: <Specific evidence basis — artifact, intake field, scoring signal, or "Unverified — requires validation" when absent>
+evidence: <Plain-English evidence basis using the wording rules - "Artifact referenced - requires validation" / "Intake-supported, not artifact-validated" / "Scoring-supported" / "Missing / Required". Do NOT echo bracketed system tags.>
 decision_implication: <What this changes for the investment decision posture>
 follow_up: <Single follow-up question or artifact request that would resolve the issue>`,
       `Cover a balanced mix: at least one Strength, at least one Risk, at least one Gap, and at least one Watch Item if evidence supports each. If evidence is too thin to support a category, omit that category rather than invent.`,
     ].join("\n\n"),
   },
   {
-    id: "final_position",
-    label: "Final position",
-    maxTokens: 300,
-    instruction: SECTION_FINAL_POSITION_INSTRUCTION,
+    id: "final_market_read",
+    label: "Final market read",
+    maxTokens: 700,
+    instruction: [
+      `OUTPUT ONLY a section heading followed by a single ':::market-read' block. Begin with '## 5. Final Market Read' on its own line. Then emit ':::market-read' on its own line. Close with ':::' on its own line. Do NOT emit any prose, bullet list, or other markdown around the block. Do NOT emit a ':::final-position' block - this report does not produce one.`,
+      `The block MUST contain EXACTLY these four fields, each on its own line:
+promising: <One concise sentence on what appears commercially promising, grounded in the evidence basis cited earlier in the report>
+unvalidated: <One concise sentence on what remains unvalidated and would need diligence to confirm>
+improve_confidence: <One concise sentence naming the specific artifact, metric, or validation that would improve confidence the most>
+weaken_case: <One concise sentence on the single event, finding, or gap that would weaken the investment case>`,
+      `Tone is institutional, direct, and evidence-grounded. Do NOT restate the snapshot. Do NOT introduce new findings not already supported by earlier sections. Do NOT use the words "REAL", "PARTIAL", or "ILLUSION". Do NOT echo bracketed system tags.`,
+    ].join("\n\n"),
   },
 ];
 

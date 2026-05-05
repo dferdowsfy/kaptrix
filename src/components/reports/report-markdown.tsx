@@ -65,7 +65,9 @@ type Block =
   | { kind: "confidence-dimension"; data: ConfidenceDimensionData }
   | { kind: "supported-claim"; data: SupportedClaimData }
   | { kind: "evidence-gap"; data: EvidenceGapData }
-  | { kind: "weak-claim"; data: WeakClaimData };
+  | { kind: "weak-claim"; data: WeakClaimData }
+  | { kind: "final-position"; data: FinalPositionData }
+  | { kind: "market-read"; data: MarketReadData };
 
 export interface SnapshotData {
   verdict: string;
@@ -191,6 +193,22 @@ export interface WeakClaimData {
   why_weak: string;
   validation: string;
   decision_implication: string;
+}
+
+export interface FinalPositionData {
+  classification: string;
+  conviction: string;
+  primary_driver: string;
+  failure_trigger: string;
+  timing: string;
+  operator_dependency: string;
+}
+
+export interface MarketReadData {
+  promising: string;
+  unvalidated: string;
+  improve_confidence: string;
+  weaken_case: string;
 }
 
 const DIMENSION_LABELS_LOCAL: Record<string, string> = {
@@ -429,6 +447,42 @@ function parseBlocks(src: string): Block[] {
       }
       if (i < lines.length) i++;
       blocks.push({ kind: "weak-claim", data: parseWeakClaim(buf) });
+      continue;
+    }
+
+    // Final Market Read fence: ":::market-read" ... ":::"
+    if (/^\s*:::\s*market-read\s*$/i.test(line)) {
+      const buf: string[] = [];
+      i++;
+      while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+        buf.push(lines[i]);
+        i++;
+      }
+      if (i < lines.length) i++;
+      blocks.push({ kind: "market-read", data: parseMarketRead(buf) });
+      continue;
+    }
+
+    // Final-position fence — tolerates both multi-line and single-line
+    // collapsed forms (LLMs sometimes emit the entire block on one line).
+    const finalPosOpen = /^\s*:::\s*final-position\b\s*(.*)$/i.exec(line);
+    if (finalPosOpen) {
+      const inline = finalPosOpen[1] ?? "";
+      const buf: string[] = [];
+      if (inline.trim() && !/^\s*:::\s*$/.test(inline)) {
+        // Collapsed single-line form: ":::final-position k: v k: v :::"
+        buf.push(inline.replace(/\s*:::\s*$/, ""));
+        i++;
+      } else {
+        // Proper multi-line form
+        i++;
+        while (i < lines.length && !/^\s*:::\s*$/.test(lines[i])) {
+          buf.push(lines[i]);
+          i++;
+        }
+        if (i < lines.length) i++;
+      }
+      blocks.push({ kind: "final-position", data: parseFinalPosition(buf) });
       continue;
     }
 
@@ -1085,6 +1139,58 @@ function parseWeakClaim(raw: string[]): WeakClaimData {
   return data;
 }
 
+function parseMarketRead(raw: string[]): MarketReadData {
+  const data: MarketReadData = {
+    promising: "", unvalidated: "", improve_confidence: "", weaken_case: "",
+  };
+  type MRKey = keyof MarketReadData;
+  let cur: MRKey | null = null;
+  for (const line of raw) {
+    const l = line.trim();
+    if (!l) { cur = null; continue; }
+    const kv = /^([a-zA-Z_]+)\s*:\s*(.*)$/.exec(l);
+    if (kv) {
+      const key = kv[1].toLowerCase() as MRKey;
+      if (key in data) {
+        cur = key;
+        (data as unknown as Record<string, string>)[key] = kv[2].trim();
+        continue;
+      }
+    }
+    if (cur && l) {
+      (data as unknown as Record<string, string>)[cur] += " " + l;
+    }
+  }
+  return data;
+}
+
+// Parses the body of a ':::final-position' block. Tolerates both the
+// proper multi-line form and the collapsed single-line form some LLMs
+// emit ("k: v k: v ..."). Splits on the known field labels so values
+// containing inline colons are preserved.
+function parseFinalPosition(raw: string[]): FinalPositionData {
+  const data: FinalPositionData = {
+    classification: "", conviction: "", primary_driver: "",
+    failure_trigger: "", timing: "", operator_dependency: "",
+  };
+  const FIELDS = [
+    "classification", "conviction", "primary_driver",
+    "failure_trigger", "timing", "operator_dependency",
+  ];
+  const text = raw.join(" ").replace(/\s+/g, " ").trim();
+  if (!text) return data;
+  const splitRe = new RegExp(`\\b(${FIELDS.join("|")})\\s*:\\s*`, "gi");
+  const parts = text.split(splitRe);
+  for (let j = 1; j < parts.length; j += 2) {
+    const key = parts[j].toLowerCase();
+    const value = (parts[j + 1] ?? "").trim();
+    if (key in data) {
+      (data as unknown as Record<string, string>)[key] = value;
+    }
+  }
+  return data;
+}
+
 // ---- Rendering --------------------------------------------------
 
 function renderBlock(block: Block, index: number): React.ReactNode {
@@ -1227,6 +1333,10 @@ function renderBlock(block: Block, index: number): React.ReactNode {
       return <EvidenceGapCard key={index} data={block.data} />;
     case "weak-claim":
       return <WeakClaimCard key={index} data={block.data} />;
+    case "final-position":
+      return <FinalPositionFooter key={index} data={block.data} />;
+    case "market-read":
+      return <MarketReadCard key={index} data={block.data} />;
   }
 }
 
@@ -2213,6 +2323,113 @@ function EvidenceGapCard({ data }: { data: EvidenceGapData }) {
   );
 }
 
+// ---- Final Market Read card -------------------------------------
+
+function MarketReadCard({ data }: { data: MarketReadData }) {
+  const cells: Array<{ label: string; value: string; bg: string; border: string; head: string }> = [
+    { label: "What appears commercially promising", value: data.promising, bg: "bg-emerald-50", border: "border-emerald-200", head: "text-emerald-700" },
+    { label: "What remains unvalidated", value: data.unvalidated, bg: "bg-amber-50", border: "border-amber-200", head: "text-amber-700" },
+    { label: "What would improve confidence", value: data.improve_confidence, bg: "bg-indigo-50", border: "border-indigo-200", head: "text-indigo-700" },
+    { label: "What would weaken the investment case", value: data.weaken_case, bg: "bg-rose-50", border: "border-rose-200", head: "text-rose-700" },
+  ];
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {cells.map((c, i) => (
+        <div key={i} className={`rounded-2xl border ${c.border} ${c.bg} p-4`}>
+          <p className={`text-[10px] font-bold uppercase tracking-[0.22em] ${c.head}`}>{c.label}</p>
+          {c.value ? (
+            <p className="mt-2 text-sm leading-6 text-slate-700"
+              dangerouslySetInnerHTML={{ __html: renderInline(c.value) }} />
+          ) : (
+            <p className="mt-2 text-sm italic text-slate-500">Not specified.</p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- Final position footer --------------------------------------
+
+const CLASSIFICATION_TONE: Record<string, string> = {
+  REAL: "bg-emerald-500/20 text-emerald-200 ring-1 ring-inset ring-emerald-400/40",
+  PARTIAL: "bg-amber-500/20 text-amber-200 ring-1 ring-inset ring-amber-400/40",
+  ILLUSION: "bg-rose-500/20 text-rose-200 ring-1 ring-inset ring-rose-400/40",
+};
+
+function classificationTone(c: string): string {
+  return CLASSIFICATION_TONE[c.trim().toUpperCase()] ?? "bg-slate-500/20 text-slate-200 ring-1 ring-inset ring-slate-400/40";
+}
+
+function FinalPositionFooter({ data }: { data: FinalPositionData }) {
+  const conv = parseFloat(data.conviction.replace(/[^\d.]/g, ""));
+  const pct = Number.isFinite(conv) ? Math.max(0, Math.min(100, conv)) : null;
+  const bar = pct == null
+    ? "bg-slate-500"
+    : pct >= 70 ? "bg-gradient-to-r from-emerald-500 to-emerald-400"
+    : pct >= 50 ? "bg-gradient-to-r from-indigo-500 to-violet-500"
+    : pct >= 30 ? "bg-gradient-to-r from-amber-500 to-orange-500"
+    : "bg-gradient-to-r from-rose-500 to-red-500";
+  const hasMeta = data.timing || data.operator_dependency;
+  return (
+    <section className="relative mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-5 text-white shadow-lg">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-slate-300">
+          Final Position
+        </span>
+        {data.classification && (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${classificationTone(data.classification)}`}>
+            {data.classification}
+          </span>
+        )}
+        {hasMeta && (
+          <span className="ml-auto flex flex-wrap gap-1.5">
+            {data.timing && (
+              <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-200 ring-1 ring-inset ring-white/15">
+                {data.timing}
+              </span>
+            )}
+            {data.operator_dependency && (
+              <span className="inline-flex items-center rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-200 ring-1 ring-inset ring-white/15">
+                {data.operator_dependency}
+              </span>
+            )}
+          </span>
+        )}
+      </div>
+      {pct != null && (
+        <div className="mt-3 max-w-sm">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-300">Conviction</span>
+            <span className="text-base font-bold text-white">{pct}<span className="ml-0.5 text-[10px] text-slate-400">/100</span></span>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%` }} />
+          </div>
+        </div>
+      )}
+      {(data.primary_driver || data.failure_trigger) && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {data.primary_driver && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-emerald-300">Primary driver</p>
+              <p className="mt-1.5 text-sm leading-5 text-slate-100"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.primary_driver) }} />
+            </div>
+          )}
+          {data.failure_trigger && (
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3 backdrop-blur">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-rose-300">Failure trigger</p>
+              <p className="mt-1.5 text-sm leading-5 text-slate-100"
+                dangerouslySetInnerHTML={{ __html: renderInline(data.failure_trigger) }} />
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ---- Decision snapshot hero card --------------------------------
 function SnapshotCard({ data }: { data: SnapshotData }) {
   const verdict = data.verdict || "Decision Snapshot";
@@ -2555,9 +2772,58 @@ export function markdownToExportHtml(md: string): string {
       case "weak-claim":
         parts.push(weakClaimToHtml(b.data));
         break;
+      case "final-position":
+        parts.push(finalPositionToHtml(b.data));
+        break;
+      case "market-read":
+        parts.push(marketReadToHtml(b.data));
+        break;
     }
   }
   return parts.join("\n");
+}
+
+function marketReadToHtml(d: MarketReadData): string {
+  const cells = [
+    { label: "What appears commercially promising", value: d.promising, bg: "#f0fdf4", bdr: "#bbf7d0", head: "#15803d" },
+    { label: "What remains unvalidated", value: d.unvalidated, bg: "#fffbeb", bdr: "#fde68a", head: "#b45309" },
+    { label: "What would improve confidence", value: d.improve_confidence, bg: "#eef2ff", bdr: "#c7d2fe", head: "#3730a3" },
+    { label: "What would weaken the investment case", value: d.weaken_case, bg: "#fff1f2", bdr: "#fecdd3", head: "#be123c" },
+  ];
+  const html = cells
+    .map((c) => `<div style="flex:1;min-width:240px;border:1px solid ${c.bdr};background:${c.bg};border-radius:10px;padding:12px;">
+<p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${c.head};">${escapeHtml(c.label)}</p>
+${c.value ? `<p style="margin:6px 0 0;font-size:9pt;color:#334155;line-height:1.5;">${renderInlineExport(c.value)}</p>` : `<p style="margin:6px 0 0;font-size:9pt;color:#94a3b8;font-style:italic;">Not specified.</p>`}
+</div>`)
+    .join("\n");
+  return `<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0;">${html}</div>`;
+}
+
+function finalPositionToHtml(d: FinalPositionData): string {
+  const classColors: Record<string, [string, string]> = {
+    REAL: ["#d1fae5", "#065f46"],
+    PARTIAL: ["#fef3c7", "#92400e"],
+    ILLUSION: ["#fee2e2", "#991b1b"],
+  };
+  const [cBg, cFg] = classColors[d.classification.trim().toUpperCase()] ?? ["#e2e8f0", "#334155"];
+  const conv = parseFloat(d.conviction.replace(/[^\d.]/g, ""));
+  const pct = Number.isFinite(conv) ? Math.max(0, Math.min(100, conv)) : null;
+  const tag = (label: string) =>
+    label ? `<span style="display:inline-block;background:#1e293b;color:#cbd5e1;border:1px solid #334155;border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;margin-left:4px;">${escapeHtml(label)}</span>` : "";
+  const block = (label: string, value: string, color: string) =>
+    value ? `<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;flex:1;min-width:200px;"><p style="margin:0;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${color};">${escapeHtml(label)}</p><p style="margin:4px 0 0;font-size:9pt;color:#e2e8f0;">${renderInlineExport(value)}</p></div>` : "";
+  return `<section style="background:linear-gradient(135deg,#0f172a 0%,#1e293b 50%,#0f172a 100%);color:#fff;border-radius:14px;padding:16px;margin-top:12px;">
+<div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px;">
+<span style="font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:0.2em;color:#cbd5e1;">Final Position</span>
+${d.classification ? `<span style="background:${cBg};color:${cFg};border-radius:99px;padding:2px 10px;font-size:7pt;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;">${escapeHtml(d.classification)}</span>` : ""}
+<span style="margin-left:auto;">${tag(d.timing)}${tag(d.operator_dependency)}</span>
+</div>
+${pct != null ? `<div style="margin-top:10px;max-width:300px;"><div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:7pt;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#cbd5e1;">Conviction</span><span style="font-size:11pt;font-weight:700;color:#fff;">${pct}<span style="font-size:7pt;color:#94a3b8;">/100</span></span></div><div style="margin-top:4px;height:5px;background:rgba(255,255,255,0.1);border-radius:99px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:#6366f1;"></div></div></div>` : ""}
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;">
+${block("Primary driver", d.primary_driver, "#6ee7b7")}
+${block("Failure trigger", d.failure_trigger, "#fda4af")}
+</div>
+</section>`;
 }
 
 function evidenceCoverageToHtml(cats: EvidenceCoverageCategory[]): string {
